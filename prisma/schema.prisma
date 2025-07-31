@@ -38,6 +38,24 @@ enum UserRole {
   VIEWER
 }
 
+// Contact model for external contacts (not app users)
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  role      String?
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projects ProjectContact[]
+
+  @@map("contacts")
+}
+
 // Project model
 model Project {
   id          String        @id @default(cuid())
@@ -54,12 +72,27 @@ model Project {
   owner         User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId       String
   members       ProjectMember[]
+  contacts      ProjectContact[]
   tasks         Task[]
   categories    Category[]
   files         File[]
   notifications Notification[]
 
   @@map("projects")
+}
+
+// Project contacts (many-to-many)
+model ProjectContact {
+  id        String   @id @default(cuid())
+  projectId String
+  contactId String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, contactId])
+  @@map("project_contacts")
 }
 
 // Project status

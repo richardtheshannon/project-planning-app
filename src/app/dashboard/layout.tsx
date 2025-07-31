@@ -1,96 +1,100 @@
-"use client"
+"use client";
 
-import { useSession, signOut } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useSession, signOut } from "next-auth/react";
+import { redirect, usePathname } from "next/navigation";
+import Link from "next/link";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarHeader,
+  SidebarFooter,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Home, Briefcase, Users, FileText, Settings, LogOut } from "lucide-react";
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
 
-  // Route protection logic
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/signin")
-    }
-  }, [status, router])
-
-  // Loading state handler
   if (status === "loading") {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div>Loading...</div>
+      <div className="flex h-screen items-center justify-center">
+        Loading...
       </div>
-    )
+    );
   }
 
   if (!session) {
-    return null
+    redirect("/auth/signin");
   }
 
-  const handleLogout = async () => {
-    await signOut({ 
-      callbackUrl: "/auth/signin",
-      redirect: true 
-    })
-  }
-
-  const userInitials = session.user?.name 
-    ? session.user.name.split(' ').map(n => n[0]).join('').toUpperCase()
-    : session.user?.email?.[0].toUpperCase() || 'U'
+  const menuItems = [
+    { icon: Home, label: "Dashboard", href: "/dashboard" },
+    { icon: Briefcase, label: "Projects", href: "/dashboard/projects" },
+    { icon: Users, label: "Team", href: "/dashboard/team" },
+    { icon: FileText, label: "Documents", href: "/dashboard/documents" },
+    { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  ];
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f9fafb" }}>
-      {/* Header Navigation */}
-      <header style={{ backgroundColor: "white", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)", borderBottom: "1px solid #e5e7eb" }}>
-        <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 1rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "4rem" }}>
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <h1 style={{ fontSize: "1.25rem", fontWeight: "600", color: "#111827", margin: 0 }}>
-                Project Manager
-              </h1>
+    <SidebarProvider>
+      <div className="flex h-screen w-full">
+        <Sidebar>
+          <SidebarHeader>
+            <div className="flex items-center gap-2 px-2">
+              <Briefcase className="h-6 w-6" />
+              <span className="font-semibold">Project Manager</span>
             </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <span style={{ fontSize: "0.875rem", color: "#374151" }}>
-                Welcome, {session.user?.name || session.user?.email}
-              </span>
-              
-              <div style={{ position: "relative" }}>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "2rem",
-                    height: "2rem",
-                    borderRadius: "50%",
-                    backgroundColor: "#6b7280",
-                    color: "white",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "0.75rem",
-                    fontWeight: "500"
-                  }}
-                  title="Click to logout"
-                >
-                  {userInitials}
-                </button>
-              </div>
-            </div>
-          </div>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                {menuItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+          <SidebarFooter>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => signOut()}>
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarFooter>
+        </Sidebar>
+        <div className="flex-1 flex flex-col">
+          <header className="border-b px-4 py-3 flex items-center gap-4">
+            <SidebarTrigger />
+            <h1 className="text-xl font-semibold">
+              {session.user?.name || session.user?.email}
+            </h1>
+          </header>
+          <main className="flex-1 overflow-auto p-6">
+            {children}
+          </main>
         </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "1.5rem 1rem" }}>
-        {children}
-      </main>
-    </div>
-  )
+      </div>
+    </SidebarProvider>
+  );
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -64,15 +65,25 @@ export default function Dashboard() {
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button className="w-full justify-start">
-              Create New Project
-            </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Link href="/dashboard/projects/new" className="block">
+              <Button className="w-full justify-start">
+                Create New Project
+              </Button>
+            </Link>
+            
+            <Button 
+              variant="outline" 
+              className="w-full justify-start" 
+              disabled
+            >
               Add Task
             </Button>
-            <Button variant="outline" className="w-full justify-start">
-              View All Projects
-            </Button>
+            
+            <Link href="/dashboard/projects" className="block">
+              <Button variant="outline" className="w-full justify-start">
+                View All Projects
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
