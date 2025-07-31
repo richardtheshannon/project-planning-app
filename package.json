@@ -9,10 +9,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "prisma db push && next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "deploy": "prisma db push && next build"
+    "deploy": "next build"
   },
   "dependencies": {
     "next": "13.5.6",
