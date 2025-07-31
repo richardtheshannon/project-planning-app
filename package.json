@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "railway:deploy": "npm install --force && prisma generate && prisma db push && next build",
+    "railway:deploy": "npm install --no-package-lock && prisma generate && prisma db push && next build",
     "railway:start": "next start"
   },
   "dependencies": {
