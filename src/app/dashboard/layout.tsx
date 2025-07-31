@@ -3,16 +3,6 @@
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 export default function DashboardLayout({
   children,
@@ -22,16 +12,18 @@ export default function DashboardLayout({
   const { data: session, status } = useSession()
   const router = useRouter()
 
+  // Route protection logic
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin")
     }
   }, [status, router])
 
+  // Loading state handler
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">Loading...</div>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div>Loading...</div>
       </div>
     )
   }
@@ -52,58 +44,51 @@ export default function DashboardLayout({
     : session.user?.email?.[0].toUpperCase() || 'U'
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo/Title */}
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
+    <div style={{ minHeight: "100vh", backgroundColor: "#f9fafb" }}>
+      {/* Header Navigation */}
+      <header style={{ backgroundColor: "white", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)", borderBottom: "1px solid #e5e7eb" }}>
+        <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 1rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "4rem" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <h1 style={{ fontSize: "1.25rem", fontWeight: "600", color: "#111827", margin: 0 }}>
                 Project Manager
               </h1>
             </div>
 
-            {/* User Menu */}
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <span style={{ fontSize: "0.875rem", color: "#374151" }}>
                 Welcome, {session.user?.name || session.user?.email}
               </span>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs">
-                        {userInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {session.user?.name || "User"}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {session.user?.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "2rem",
+                    height: "2rem",
+                    borderRadius: "50%",
+                    backgroundColor: "#6b7280",
+                    color: "white",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.75rem",
+                    fontWeight: "500"
+                  }}
+                  title="Click to logout"
+                >
+                  {userInitials}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      {/* Main Content Area */}
+      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "1.5rem 1rem" }}>
         {children}
       </main>
     </div>
