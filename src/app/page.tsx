@@ -1,18 +1,53 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "next-themes";
+import { Switch } from "@/components/ui/switch";
+import { Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function LandingPage() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+      <div className="flex w-full max-w-md flex-col items-center text-center lg:max-w-none">
+        
+        <div className="mb-8">
+          <Image
+            src="/media/hoiz-logo-title-subtitle-01.png"
+            alt="Salesfield Network Logo"
+            width={400}
+            height={115}
+            priority
+          />
+        </div>
+
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
           Project Planning & Management
         </h1>
-        <p className="mt-6 text-xl text-gray-500 max-w-xl">
-          Streamline your workflow, manage tasks, and collaborate with your team
-          all in one place.
-        </p>
-        <div className="mt-8 flex justify-center space-x-4">
+        
+        <div className="mt-8 flex items-center justify-center gap-4">
+          {mounted && (
+            <div className="flex items-center space-x-2">
+              <Sun className="h-5 w-5" />
+              <Switch
+                id="theme-toggle"
+                checked={theme === "dark"}
+                onCheckedChange={() => setTheme(theme === "dark" ? "light" : "dark")}
+                aria-label="Toggle theme"
+              />
+              <Moon className="h-5 w-5" />
+            </div>
+          )}
+
           <Link href="/auth/signup">
             <Button size="lg">Get Started</Button>
           </Link>
@@ -22,6 +57,12 @@ export default function LandingPage() {
             </Button>
           </Link>
         </div>
+
+        <p className="mt-8 text-lg text-muted-foreground">
+          Streamline your workflow, manage tasks, and collaborate with your team
+          all in one place.
+        </p>
+
       </div>
     </div>
   );

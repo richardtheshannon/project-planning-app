@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const { fontFamily } = require("tailwindcss/defaultTheme") // 1. Import defaultTheme
+
 module.exports = {
   darkMode: ["class"],
   content: [
@@ -17,6 +19,13 @@ module.exports = {
       },
     },
     extend: {
+      // 2. Add the fontFamily key here
+      fontFamily: {
+        primary: ["var(--font-playfair-display)", ...fontFamily.serif],
+        secondary: ["var(--font-montserrat)", ...fontFamily.sans],
+        body: ["var(--font-roboto)", ...fontFamily.sans],
+        mono: ["var(--font-roboto-mono)", ...fontFamily.mono],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -73,5 +82,5 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")], // Make sure this plugin is present
 }
