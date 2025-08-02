@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import DocumentsTable from "./DocumentsTable";
 
+// This line forces the page to be rendered dynamically
+export const dynamic = 'force-dynamic';
+
 // This function fetches all file records from the database
 // and includes related project and uploader names.
 async function getFiles() {

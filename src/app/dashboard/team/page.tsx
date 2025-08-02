@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import UserTable from "./UserTable"; // Import the new Client Component
 
+// This line forces the page to be rendered dynamically
+export const dynamic = 'force-dynamic';
+
 // This function fetches all users from the database
 async function getUsers() {
   const users = await prisma.user.findMany({
