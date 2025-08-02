@@ -51,27 +51,29 @@ export default function ProjectsPage() {
       setLoading(false)
     }
   }
-
+  
+  // Step 2: Updated badge colors to be theme-aware
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      PLANNING: "bg-gray-100 text-gray-800",
-      IN_PROGRESS: "bg-blue-100 text-blue-800",
-      ON_HOLD: "bg-yellow-100 text-yellow-800",
-      COMPLETED: "bg-green-100 text-green-800",
-      CANCELLED: "bg-red-100 text-red-800"
+      PLANNING: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      IN_PROGRESS: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      ON_HOLD: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      COMPLETED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
     }
-    return colors[status] || "bg-gray-100 text-gray-800"
+    return colors[status] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
   }
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
-      LOW: "bg-slate-100 text-slate-800",
-      MEDIUM: "bg-indigo-100 text-indigo-800",
-      HIGH: "bg-orange-100 text-orange-800",
-      URGENT: "bg-red-100 text-red-800"
+      LOW: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+      MEDIUM: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+      HIGH: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      URGENT: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
     }
-    return colors[priority] || "bg-slate-100 text-slate-800"
+    return colors[priority] || "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
   }
+
 
   if (loading) {
     return (
@@ -86,7 +88,7 @@ export default function ProjectsPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center text-red-600">
+        <div className="text-center text-red-600 dark:text-red-400">
           <div className="text-lg">Error: {error}</div>
           <Button onClick={fetchProjects} className="mt-4">
             Try Again
@@ -101,8 +103,9 @@ export default function ProjectsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Projects</h2>
-          <p className="text-gray-600">Manage and track all your projects</p>
+          {/* Step 1: Replaced hardcoded text colors with theme-aware classes */}
+          <h2 className="text-2xl font-bold text-foreground">Projects</h2>
+          <p className="text-muted-foreground">Manage and track all your projects</p>
         </div>
         <Link href="/dashboard/projects/new">
           <Button>Create New Project</Button>
@@ -113,7 +116,7 @@ export default function ProjectsPage() {
       {projects.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
-            <p className="text-gray-500 mb-4">No projects yet</p>
+            <p className="text-muted-foreground mb-4">No projects yet</p>
             <Link href="/dashboard/projects/new">
               <Button>Create Your First Project</Button>
             </Link>
@@ -126,7 +129,7 @@ export default function ProjectsPage() {
                   onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{project.name}</CardTitle>
+                  <CardTitle className="text-lg text-foreground">{project.name}</CardTitle>
                   <Badge className={getPriorityColor(project.priority)}>
                     {project.priority}
                   </Badge>
@@ -138,24 +141,24 @@ export default function ProjectsPage() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Status</span>
+                    <span className="text-sm text-muted-foreground">Status</span>
                     <Badge className={getStatusColor(project.status)}>
                       {project.status.replace('_', ' ')}
                     </Badge>
                   </div>
                   
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500">Tasks</span>
-                    <span className="font-medium">{project._count.tasks}</span>
+                    <span className="text-muted-foreground">Tasks</span>
+                    <span className="font-medium text-foreground">{project._count.tasks}</span>
                   </div>
                   
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500">Members</span>
-                    <span className="font-medium">{project._count.members}</span>
+                    <span className="text-muted-foreground">Members</span>
+                    <span className="font-medium text-foreground">{project._count.members}</span>
                   </div>
 
                   {project.endDate && (
-                    <div className="text-xs text-gray-500 pt-2 border-t">
+                    <div className="text-xs text-muted-foreground pt-2 border-t">
                       Due: {new Date(project.endDate).toLocaleDateString()}
                     </div>
                   )}

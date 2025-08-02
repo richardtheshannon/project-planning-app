@@ -1,13 +1,13 @@
 // src/app/layout.tsx
 
 import type { Metadata } from "next";
-// 1. Import the font functions from next/font/google
 import { Playfair_Display, Montserrat, Roboto, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
+import { cn } from "@/lib/utils"; // Step 1: Import the cn utility
 
-// 2. Configure each font with subsets and a CSS variable name
+// Font configurations remain the same
 const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair-display",
@@ -22,7 +22,7 @@ const montserrat = Montserrat({
 
 const roboto = Roboto({
   subsets: ["latin"],
-  weight: ["400", "500", "700"], // It's good practice to specify needed weights
+  weight: ["400", "500", "700"],
   variable: "--font-roboto",
   display: 'swap',
 });
@@ -44,11 +44,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    // Added suppressHydrationWarning for compatibility with the theme provider
     <html lang="en" suppressHydrationWarning>
-      {/* 3. Combine all font variable classes in the body tag */}
+      {/* Step 2: Use cn to merge classes and add theme-aware backgrounds */}
       <body
-        className={`antialiased ${playfairDisplay.variable} ${montserrat.variable} ${roboto.variable} ${robotoMono.variable}`}
+        className={cn(
+          "min-h-screen bg-background font-sans antialiased",
+          playfairDisplay.variable,
+          montserrat.variable,
+          roboto.variable,
+          robotoMono.variable
+        )}
       >
         <Providers>
           {children}

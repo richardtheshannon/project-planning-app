@@ -1,25 +1,37 @@
 // src/app/dashboard/settings/page.tsx
 "use client"
 
+import { useEffect, useState } from "react"
+import { useTheme } from "next-themes" // Step 1: Corrected the import path
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { useTheme } from "@/components/theme-provider"
 import { Moon, Sun } from "lucide-react"
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
 
-  const isDarkMode = theme === "dark"
+  // Step 2: Added a check to ensure the component is mounted on the client
+  // This prevents hydration errors with the theme switcher.
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleThemeToggle = (checked: boolean) => {
     setTheme(checked ? "dark" : "light")
   }
 
+  // We wait until the component is mounted to render it
+  if (!mounted) {
+    return null
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        {/* Step 3: Updated heading to use theme-aware text colors */}
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
         <p className="text-muted-foreground mt-2">
           Manage your application preferences and settings.
         </p>
@@ -47,7 +59,7 @@ export default function SettingsPage() {
                 <Sun className="h-4 w-4 text-muted-foreground" />
                 <Switch
                   id="dark-mode"
-                  checked={isDarkMode}
+                  checked={theme === "dark"}
                   onCheckedChange={handleThemeToggle}
                 />
                 <Moon className="h-4 w-4 text-muted-foreground" />

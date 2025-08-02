@@ -1,7 +1,7 @@
 // src/app/dashboard/projects/[id]/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -25,7 +25,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DialogClose } from "@radix-ui/react-dialog";
 import {
   Select,
   SelectContent,
@@ -39,8 +38,10 @@ import { Textarea } from "@/components/ui/textarea";
 
 // Component Imports
 import { AddContactDialog } from "@/components/projects/AddContactDialog";
+import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
+import { EditContactDialog } from "@/components/projects/EditContactDialog"; // Step 1: Import the new dialog
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Calendar, Settings, Trash2 } from "lucide-react";
+import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 // Define an interface for a Task
 interface Task {
@@ -50,11 +51,6 @@ interface Task {
   status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'COMPLETED' | 'CANCELLED';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   dueDate: string | null;
-  assignee: {
-    id: string;
-    name: string | null;
-    email: string;
-  };
 }
 
 // Define an interface for a Contact
@@ -62,8 +58,10 @@ interface Contact {
   id: string;
   name: string;
   email: string | null;
-  phone?: string | null;
-  company?: string | null;
+  phone: string | null;
+  company: string | null;
+  role: string | null;
+  notes: string | null;
 }
 
 // Corrected Project interface to match the cleaned API response
@@ -96,11 +94,14 @@ interface Project {
   };
 }
 
+type SortKey = 'status' | 'priority' | 'dueDate';
+type SortDirection = 'asc' | 'desc';
+
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const { toast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -109,12 +110,21 @@ export default function ProjectDetailPage() {
   const [isOwner, setIsOwner] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
+
+  // Step 2: Add state for the Edit Contact dialog
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isEditContactDialogOpen, setIsEditContactDialogOpen] = useState(false);
 
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     priority: "MEDIUM",
-    assigneeId: "",
   });
 
   useEffect(() => {
@@ -136,10 +146,6 @@ export default function ProjectDetailPage() {
       if (session?.user?.id === data.owner.id) {
         setIsOwner(true);
       }
-
-      if (data.members.length > 0 && !newTask.assigneeId) {
-        setNewTask(prev => ({ ...prev, assigneeId: data.members[0].id }));
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -147,7 +153,6 @@ export default function ProjectDetailPage() {
     }
   };
   
-  // Handler to update the project's contacts in the state without a page reload
   const handleContactAdded = (newContact: Contact) => {
     setProject(prevProject => {
       if (!prevProject) return null;
@@ -233,7 +238,6 @@ export default function ProjectDetailPage() {
         title: "",
         description: "",
         priority: "MEDIUM",
-        assigneeId: project?.members[0]?.id || "",
       });
     } catch (error) {
       toast({
@@ -244,36 +248,128 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleEditTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsEditTaskDialogOpen(true);
+  };
+
+  const handleTaskUpdated = (updatedTask: Task) => {
+    setProject(prevProject => {
+      if (!prevProject) return null;
+      return {
+        ...prevProject,
+        tasks: prevProject.tasks.map(task =>
+          task.id === updatedTask.id ? updatedTask : task
+        ),
+      };
+    });
+  };
+
+  // Step 3: Add handlers for opening the contact dialog and updating the contact list
+  const handleEditContactClick = (contact: Contact) => {
+    setSelectedContact(contact);
+    setIsEditContactDialogOpen(true);
+  };
+
+  const handleContactUpdated = (updatedContact: Contact) => {
+    setProject(prevProject => {
+      if (!prevProject) return null;
+      return {
+        ...prevProject,
+        contacts: prevProject.contacts.map(contact =>
+          contact.id === updatedContact.id ? updatedContact : contact
+        ),
+      };
+    });
+  };
+  
+  const sortedTasks = useMemo(() => {
+    if (!project?.tasks) return [];
+    
+    const sorted = [...project.tasks];
+    
+    if (sortKey) {
+      const priorityOrder: Record<Task['priority'], number> = { 'LOW': 0, 'MEDIUM': 1, 'HIGH': 2, 'URGENT': 3 };
+      const statusOrder: Record<Task['status'], number> = { 'TODO': 0, 'IN_PROGRESS': 1, 'IN_REVIEW': 2, 'COMPLETED': 3, 'CANCELLED': 4 };
+
+      sorted.sort((a, b) => {
+        if (sortKey === 'priority') {
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }
+        if (sortKey === 'status') {
+          return statusOrder[a.status] - statusOrder[b.status];
+        }
+        if (sortKey === 'dueDate') {
+          if (a.dueDate === b.dueDate) return 0;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        }
+        return 0;
+      });
+    }
+
+    if (sortDirection === 'desc') {
+      sorted.reverse();
+    }
+    
+    return sorted;
+  }, [project?.tasks, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const SortableHeader = ({ sortKey: key, children }: { sortKey: SortKey, children: React.ReactNode }) => (
+    <TableHead>
+      <Button variant="ghost" onClick={() => handleSort(key)} className="px-2 py-1 h-auto">
+        {children}
+        <span className="ml-2">
+          {sortKey === key ? (
+            sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+          ) : (
+            <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </span>
+      </Button>
+    </TableHead>
+  );
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      PLANNING: "bg-gray-100 text-gray-800",
-      IN_PROGRESS: "bg-blue-100 text-blue-800",
-      ON_HOLD: "bg-yellow-100 text-yellow-800",
-      COMPLETED: "bg-green-100 text-green-800",
-      CANCELLED: "bg-red-100 text-red-800",
+      PLANNING: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      IN_PROGRESS: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      ON_HOLD: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      COMPLETED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
     };
-    return colors[status] || "bg-gray-100 text-gray-800";
+    return colors[status] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
   };
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
-      LOW: "bg-slate-100 text-slate-800",
-      MEDIUM: "bg-indigo-100 text-indigo-800",
-      HIGH: "bg-orange-100 text-orange-800",
-      URGENT: "bg-red-100 text-red-800",
+      LOW: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+      MEDIUM: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+      HIGH: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      URGENT: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
     };
-    return colors[priority] || "bg-slate-100 text-slate-800";
+    return colors[priority] || "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200";
   };
-
+  
   const getTaskStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      TODO: "bg-gray-100 text-gray-800",
-      IN_PROGRESS: "bg-blue-100 text-blue-800",
-      IN_REVIEW: "bg-yellow-100 text-yellow-800",
-      COMPLETED: "bg-green-100 text-green-800",
-      CANCELLED: "bg-red-100 text-red-800",
+      TODO: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      IN_PROGRESS: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      IN_REVIEW: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      COMPLETED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
     };
-    return colors[status] || "bg-gray-100 text-gray-800";
+    return colors[status] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
   };
 
   if (loading) {
@@ -306,7 +402,7 @@ export default function ProjectDetailPage() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{project.name}</h1>
           <p className="text-muted-foreground mt-2">{project.description}</p>
           <div className="flex items-center gap-2 mt-4">
             <Badge className={getStatusColor(project.status)}>
@@ -441,35 +537,35 @@ export default function ProjectDetailPage() {
       
       {/* Tasks Table */}
       <div className="my-8">
-        <h3 className="text-xl font-semibold mb-4">Tasks</h3>
+        <h3 className="text-xl font-semibold mb-4 text-foreground">Tasks</h3>
         {project.tasks.length > 0 ? (
           <Card>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Assignee</TableHead>
-                  <TableHead>Due Date</TableHead>
+                  <SortableHeader sortKey="status">Status</SortableHeader>
+                  <SortableHeader sortKey="priority">Priority</SortableHeader>
+                  <SortableHeader sortKey="dueDate">Due Date</SortableHeader>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {project.tasks.map((task) => (
-                  <TableRow key={task.id}>
+                {sortedTasks.map((task) => (
+                  <TableRow 
+                    key={task.id} 
+                    onClick={() => handleEditTaskClick(task)}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
                     <TableCell className="font-medium">{task.title}</TableCell>
                     <TableCell>
                       <Badge className={getTaskStatusColor(task.status)}>
-                        {task.status}
+                        {task.status.replace('_', ' ')}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge className={getPriorityColor(task.priority)}>
                         {task.priority}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {task.assignee.name || task.assignee.email}
                     </TableCell>
                     <TableCell>
                       {task.dueDate 
@@ -483,25 +579,30 @@ export default function ProjectDetailPage() {
             </Table>
           </Card>
         ) : (
-          <p className="text-center text-gray-500">No tasks have been created for this project yet.</p>
+          <p className="text-center text-muted-foreground">No tasks have been created for this project yet.</p>
         )}
       </div>
 
       {/* Contacts List */}
       <div className="my-8">
-        <h3 className="text-xl font-semibold mb-4">Contacts</h3>
+        <h3 className="text-xl font-semibold mb-4 text-foreground">Contacts</h3>
         {project.contacts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {project.contacts.map((contact) => (
-              <Card key={contact.id}>
+              // Step 4: Make the contact card clickable
+              <Card 
+                key={contact.id} 
+                onClick={() => handleEditContactClick(contact)}
+                className="cursor-pointer hover:shadow-lg transition-shadow"
+              >
                 <CardContent className="pt-6 flex items-center space-x-4">
                   <Avatar>
                     <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${contact.name}`} />
                     <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">{contact.name}</p>
-                    <p className="text-sm text-gray-500 flex items-center">
+                    <p className="font-semibold text-foreground">{contact.name}</p>
+                    <p className="text-sm text-muted-foreground flex items-center">
                       <Mail className="w-4 h-4 mr-2" />
                       {contact.email || 'No email'}
                     </p>
@@ -511,11 +612,26 @@ export default function ProjectDetailPage() {
             ))}
           </div>
         ) : (
-          <p className="text-center text-gray-500">No contacts have been added to this project yet.</p>
+          <p className="text-center text-muted-foreground">No contacts have been added to this project yet.</p>
         )}
       </div>
 
-      {/* Delete Project Dialog */}
+      {/* Dialogs */}
+      <EditTaskDialog
+        task={selectedTask}
+        isOpen={isEditTaskDialogOpen}
+        onOpenChange={setIsEditTaskDialogOpen}
+        onTaskUpdated={handleTaskUpdated}
+      />
+      
+      {/* Step 5: Render the EditContactDialog */}
+      <EditContactDialog
+        contact={selectedContact}
+        isOpen={isEditContactDialogOpen}
+        onOpenChange={setIsEditContactDialogOpen}
+        onContactUpdated={handleContactUpdated}
+      />
+      
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
@@ -535,7 +651,6 @@ export default function ProjectDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Task Dialog */}
       <Dialog open={showCreateTaskDialog} onOpenChange={setShowCreateTaskDialog}>
         <DialogContent>
           <DialogHeader>
@@ -573,7 +688,7 @@ export default function ProjectDetailPage() {
               </Label>
               <Select
                 value={newTask.priority}
-                onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value }))}
+                onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value as Task['priority'] }))}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
@@ -583,26 +698,6 @@ export default function ProjectDetailPage() {
                   <SelectItem value="MEDIUM">Medium</SelectItem>
                   <SelectItem value="HIGH">High</SelectItem>
                   <SelectItem value="URGENT">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="assignee" className="text-right">
-                Assignee
-              </Label>
-              <Select
-                value={newTask.assigneeId}
-                onValueChange={(value) => setNewTask(prev => ({ ...prev, assigneeId: value }))}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {project.members.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name || member.email}
-                    </SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>
