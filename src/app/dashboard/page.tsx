@@ -1,12 +1,56 @@
-"use client"
-
-import { useSession } from "next-auth/react"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { redirect } from "next/navigation"
 
-export default function Dashboard() {
-  const { data: session } = useSession()
+export default async function Dashboard() {
+  const session = await getServerSession(authOptions)
+
+  // If no session, redirect to login
+  if (!session || !session.user || !session.user.id) {
+    redirect('/api/auth/signin');
+  }
+
+  const userId = session.user.id;
+
+  // Fetch total projects count
+  const projectCount = await prisma.project.count({
+    where: {
+      ownerId: userId,
+    },
+  });
+
+  // Fetch active tasks count (tasks that are not 'COMPLETED')
+  const activeTaskCount = await prisma.task.count({
+    where: {
+      project: {
+        ownerId: userId,
+      },
+      status: {
+        not: 'COMPLETED',
+      },
+    },
+  });
+
+  // Fetch tasks completed in the last 7 days
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  const completedThisWeekCount = await prisma.task.count({
+    where: {
+        project: {
+            ownerId: userId,
+        },
+        status: 'COMPLETED',
+        updatedAt: {
+            gte: oneWeekAgo,
+        },
+    },
+  });
+
 
   return (
     <div className="px-4 py-6 sm:px-0">
@@ -26,9 +70,9 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{projectCount}</div>
             <p className="text-xs text-muted-foreground">
-              No projects yet
+              {projectCount === 1 ? '1 project' : `${projectCount} total projects`}
             </p>
           </CardContent>
         </Card>
@@ -38,9 +82,9 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{activeTaskCount}</div>
             <p className="text-xs text-muted-foreground">
-              No active tasks
+              {activeTaskCount === 1 ? '1 active task' : `${activeTaskCount} active tasks`}
             </p>
           </CardContent>
         </Card>
@@ -50,9 +94,9 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Completed This Week</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{completedThisWeekCount}</div>
             <p className="text-xs text-muted-foreground">
-              No completed tasks
+              {completedThisWeekCount === 1 ? '1 task completed' : `${completedThisWeekCount} tasks completed`}
             </p>
           </CardContent>
         </Card>
