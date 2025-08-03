@@ -299,3 +299,15 @@ model TimelineEvent {
 
   @@map("timeline_events")
 }
+
+// Model for Feature Requests
+model FeatureRequest {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String   @db.Text
+  status      String   @default("Pending") // e.g., Pending, In Progress, Done
+  priority    String   @default("Medium")  // e.g., Low, Medium, High
+  submittedBy String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
