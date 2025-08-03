@@ -104,9 +104,11 @@ export function Sidebar({
 
   return (
     <aside
+      data-state={open ? "open" : "closed"}
       className={cn(
-        "relative flex h-full w-[260px] flex-col bg-background transition-all duration-300",
-        !open && "w-[60px]",
+        "relative flex h-full flex-col bg-background transition-all duration-300",
+        // Use explicit widths for clarity
+        open ? "w-[260px]" : "w-[60px]",
         variant === "floating" && "m-4 rounded-lg border shadow-sm",
         side === "right" && "order-last",
         className
@@ -146,9 +148,15 @@ export function SidebarHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
+  const { open } = useSidebar(); // Get the state
   return (
     <div
-      className={cn("flex flex-col gap-2 p-4", className)}
+      className={cn(
+        "flex flex-col gap-2",
+        // Conditionally change padding
+        open ? "p-4" : "p-2",
+        className
+      )}
       {...props}
     />
   )
@@ -158,9 +166,15 @@ export function SidebarContent({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
+  const { open } = useSidebar(); // Get the state
   return (
     <div
-      className={cn("flex flex-1 flex-col gap-2 overflow-auto p-4", className)}
+      className={cn(
+        "flex flex-1 flex-col gap-2 overflow-auto",
+        // Conditionally change padding
+        open ? "p-4" : "p-2",
+        className
+      )}
       {...props}
     />
   )
@@ -170,9 +184,15 @@ export function SidebarFooter({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
+  const { open } = useSidebar(); // Get the state
   return (
     <div
-      className={cn("flex flex-col gap-2 p-4", className)}
+      className={cn(
+        "flex flex-col gap-2",
+        // Conditionally change padding
+        open ? "p-4" : "p-2",
+        className
+      )}
       {...props}
     />
   )

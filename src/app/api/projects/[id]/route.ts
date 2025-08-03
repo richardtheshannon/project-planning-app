@@ -2,9 +2,9 @@
 
 import { NextResponse, NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Ensure this path is correct
-import { prisma } from "@/lib/prisma"; // Corrected: Use named import
-import type { Contact } from "@prisma/client"; // Import Prisma-generated types
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
+import type { Contact } from "@prisma/client";
 
 // Define types for the nested objects to help TypeScript
 type MemberWithUser = {
@@ -22,8 +22,6 @@ type ProjectContactWithContact = {
 
 /**
  * GET handler to fetch a single project by its ID.
- * This function now correctly includes related members and contacts
- * and provides explicit types to avoid 'any' type errors.
  */
 export async function GET(
   request: NextRequest,
@@ -84,7 +82,6 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Corrected: Added explicit type 'MemberWithUser' to the 'member' parameter
     const isOwnerOrMember =
       project.ownerId === user.id ||
       project.members.some((member: MemberWithUser) => member.user.id === user.id);
@@ -93,12 +90,9 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Clean up the members and contacts arrays to return a simpler structure to the client.
     const projectWithCleanedData = {
       ...project,
-      // Corrected: Added explicit type 'MemberWithUser' to the 'member' parameter
       members: project.members.map((member: MemberWithUser) => member.user),
-      // Corrected: Added explicit type 'ProjectContactWithContact' to the 'projectContact' parameter
       contacts: project.contacts.map((projectContact: ProjectContactWithContact) => projectContact.contact),
     };
 
@@ -112,5 +106,93 @@ export async function GET(
   }
 }
 
-// IMPORTANT: If you had PUT, POST, or DELETE functions in this file,
-// you will need to add them back below this GET function.
+/**
+ * PUT handler to update a project's details.
+ */
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!project || project.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden or Project not found" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { name, description, projectGoal, status, priority, startDate, endDate } = body;
+
+    // Basic validation
+    if (!name) {
+        return NextResponse.json({ error: "Project name is required." }, { status: 400 });
+    }
+
+    const updatedProject = await prisma.project.update({
+      where: { id: params.id },
+      data: {
+        name,
+        description,
+        projectGoal,
+        status,
+        priority,
+        // Handle date conversion, ensuring null is passed if date is empty
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+      },
+    });
+
+    return NextResponse.json(updatedProject);
+  } catch (error) {
+    console.error("Project update error:", error);
+    return NextResponse.json(
+      { error: "Failed to update project" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE handler to remove a project.
+ */
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const project = await prisma.project.findUnique({
+            where: { id: params.id },
+        });
+
+        if (!project || project.ownerId !== session.user.id) {
+            return NextResponse.json({ error: "Forbidden or Project not found" }, { status: 403 });
+        }
+
+        // Note: Prisma cascading deletes should handle related records.
+        // Ensure your `schema.prisma` is configured correctly for this.
+        await prisma.project.delete({
+            where: { id: params.id },
+        });
+
+        return NextResponse.json({ message: "Project deleted successfully" }, { status: 200 });
+
+    } catch (error) {
+        console.error("Project delete error:", error);
+        return NextResponse.json(
+            { error: "Failed to delete project" },
+            { status: 500 }
+        );
+    }
+}

@@ -15,19 +15,17 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarTrigger,
-  useSidebar, // Step 1: Import the useSidebar hook
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Home, Briefcase, Users, FileText, Settings, LogOut } from "lucide-react";
 
-// Step 2: Create a new component for the sidebar's contents
+// This component contains the logic for the sidebar's contents
 function SidebarItems() {
   const pathname = usePathname();
-  // This hook provides access to the sidebar's state
-  const { setOpen, isMobile } = useSidebar();
+  // Get the sidebar's state (open/closed, mobile/desktop)
+  const { open, setOpen, isMobile } = useSidebar();
 
-  // This function will be called when a navigation item is clicked
   const handleNavigation = () => {
-    // If the screen is mobile, close the sidebar
     if (isMobile) {
       setOpen(false);
     }
@@ -45,15 +43,18 @@ function SidebarItems() {
     <>
       <SidebarHeader>
         <div className="flex justify-center">
-          <Link href="/dashboard">
-            <Image
-              src="/media/icon-96x96.png"
-              alt="Company Logo"
-              width={48}
-              height={48}
-              priority
-            />
-          </Link>
+          {/* Conditionally render the logo based on the sidebar state */}
+          {open && (
+            <Link href="/dashboard">
+              <Image
+                src="/media/icon-96x96.png"
+                alt="Company Logo"
+                width={48}
+                height={48}
+                priority
+              />
+            </Link>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -64,11 +65,12 @@ function SidebarItems() {
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === item.href}
-                  onClick={handleNavigation} // Step 3: Add the click handler
+                  onClick={handleNavigation}
                 >
-                  <Link href={item.href}>
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.label}</span>
+                  <Link href={item.href} className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    {/* Conditionally render the label */}
+                    {open && <span className="truncate">{item.label}</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -78,9 +80,10 @@ function SidebarItems() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => signOut()}>
-            <LogOut className="h-4 w-4" />
-            <span>Logout</span>
+          <SidebarMenuButton onClick={() => signOut()} className="flex items-center gap-2">
+            <LogOut className="h-4 w-4 flex-shrink-0" />
+            {/* Conditionally render the label */}
+            {open && <span>Logout</span>}
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarFooter>
@@ -95,7 +98,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { data: session, status } = useSession();
-  const pathname = usePathname();
 
   if (status === "loading") {
     return (
@@ -113,18 +115,21 @@ export default function DashboardLayout({
     <SidebarProvider>
       <div className="flex h-screen w-full">
         <Sidebar>
-          {/* Step 4: Render the new component */}
           <SidebarItems />
         </Sidebar>
-        <div className="flex-1 flex flex-col">
+        {/* Add min-w-0 to the main content area to prevent horizontal overflow */}
+        <div className="flex-1 flex flex-col min-w-0">
           <header className="border-b px-4 py-3 flex items-center gap-4">
             <SidebarTrigger />
             <h1 className="text-xl font-semibold">
               {session.user?.name || session.user?.email}
             </h1>
           </header>
-          <main className="flex-1 overflow-auto p-6">
-            {children}
+          <main className="flex-1 overflow-auto">
+            {/* The p-6 was moved here to ensure the whole area scrolls */}
+            <div className="p-6">
+                {children}
+            </div>
           </main>
         </div>
       </div>

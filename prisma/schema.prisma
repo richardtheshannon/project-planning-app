@@ -61,6 +61,8 @@ model Project {
   id          String        @id @default(cuid())
   name        String
   description String?       @db.Text
+  // Added projectGoal field
+  projectGoal String?       @db.Text
   status      ProjectStatus @default(PLANNING)
   priority    Priority      @default(MEDIUM)
   startDate   DateTime?
@@ -77,6 +79,8 @@ model Project {
   categories    Category[]
   files         File[]
   notifications Notification[]
+  // Relation to the new TimelineEvent model
+  timelineEvents TimelineEvent[]
 
   @@map("projects")
 }
@@ -277,4 +281,21 @@ enum NotificationType {
   TASK_COMPLETED
   PROJECT_UPDATED
   COMMENT_ADDED
+}
+
+// New model for Timeline Events
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  eventDate   DateTime
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+
+  @@map("timeline_events")
 }

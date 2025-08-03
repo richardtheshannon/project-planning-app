@@ -5,7 +5,7 @@ import { Playfair_Display, Montserrat, Roboto, Roboto_Mono } from "next/font/goo
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
-import { cn } from "@/lib/utils"; // Step 1: Import the cn utility
+import { cn } from "@/lib/utils";
 
 // Font configurations remain the same
 const playfairDisplay = Playfair_Display({
@@ -44,11 +44,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      {/* Step 2: Use cn to merge classes and add theme-aware backgrounds */}
+    <html lang="en" suppressHydrationWarning className="h-full">
       <body
         className={cn(
-          "min-h-screen bg-background font-sans antialiased",
+          // The body remains a full-height flex container
+          "h-full flex flex-col bg-background font-sans antialiased",
           playfairDisplay.variable,
           montserrat.variable,
           roboto.variable,
@@ -56,9 +56,13 @@ export default function RootLayout({
         )}
       >
         <Providers>
-          {children}
+            {/* STEP 1: Wrap children in a <main> tag. */}
+            {/* STEP 2: Move the flex-grow classes here. This <main> element will now expand to fill all available space. */}
+            <main className="flex flex-col flex-grow">
+                {children}
+            </main>
+            <Toaster />
         </Providers>
-        <Toaster />
       </body>
     </html>
   );
