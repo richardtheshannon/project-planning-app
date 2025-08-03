@@ -1,152 +1,106 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { MoreHorizontal } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { EditUserDialog } from "./EditUserDialog";
-import { DeleteUserAlert } from "./DeleteUserAlert"; // Import the new alert dialog
+import { useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Toaster, toast } from "sonner";
+import { Card, CardContent } from '@/components/ui/card';
 
+// Define the User type to match the data passed from the server component
 type User = {
-  id: string;
-  name: string | null;
-  email: string | null;
-  createdAt: Date;
+    id: string;
+    name: string | null;
+    email: string;
+    role: string;
+    isActive: boolean;
+    createdAt: Date;
 };
 
-interface UserTableProps {
-  users: User[];
-}
+export default function UserTable({ users: initialUsers }: { users: User[] }) {
+    const [users, setUsers] = useState(initialUsers);
+    const { data: session } = useSession();
 
-export default function UserTable({ users }: UserTableProps) {
-  const router = useRouter();
-  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
-  const [isDeleting, setIsDeleting] = React.useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
-  const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
+    // This function is called when an admin toggles the switch
+    const handleToggleActive = async (userId: string, newStatus: boolean) => {
+        // Immediately update the UI for a responsive feel (optimistic update)
+        setUsers(currentUsers =>
+            currentUsers.map(user =>
+                user.id === userId ? { ...user, isActive: newStatus } : user
+            )
+        );
 
-  const handleEditClick = (user: User) => {
-    setSelectedUser(user);
-    setIsEditDialogOpen(true);
-  };
+        try {
+            const response = await fetch(`/api/users/${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive: newStatus }),
+            });
 
-  const handleDeleteClick = (user: User) => {
-    setSelectedUser(user);
-    setIsDeleteDialogOpen(true);
-  };
+            if (!response.ok) {
+                const errorData = await response.json();
+                // Revert the UI change if the API call fails
+                setUsers(initialUsers);
+                throw new Error(errorData.message || 'Failed to update user status');
+            }
 
-  const handleUserUpdate = () => {
-    router.refresh();
-  };
+            toast.success(`User has been ${newStatus ? 'enabled' : 'disabled'}.`);
+        } catch (error) {
+            // Revert on error as well
+            setUsers(initialUsers);
+            toast.error((error as Error).message || "An unexpected error occurred.");
+        }
+    };
 
-  const handleDeleteConfirm = async () => {
-    if (!selectedUser) return;
-    setIsDeleting(true);
-    
-    try {
-      const response = await fetch(`/api/users/${selectedUser.id}`, {
-        method: 'DELETE',
-      });
+    const isAdmin = session?.user?.role === 'ADMIN';
 
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
-      
-      handleUserUpdate(); // Refetch data
-      setIsDeleteDialogOpen(false); // Close the dialog
-      setSelectedUser(null);
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      alert("An error occurred while deleting the user. Please try again.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  return (
-    <>
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Date Joined</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>
-                  {new Date(user.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => handleEditClick(user)}>
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteClick(user)}
-                        className="text-red-600 focus:text-red-500 focus:bg-red-50"
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {users.length === 0 && (
-          <div className="text-center text-gray-500 py-16">
-            <p className="text-lg">No users found.</p>
-          </div>
-        )}
-      </div>
-
-      <EditUserDialog
-        user={selectedUser}
-        isOpen={isEditDialogOpen}
-        onClose={() => setIsEditDialogOpen(false)}
-        onUserUpdate={handleUserUpdate}
-      />
-
-      <DeleteUserAlert
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        userName={selectedUser?.name}
-        isDeleting={isDeleting}
-      />
-    </>
-  );
+    return (
+        <>
+            <Toaster position="bottom-right" />
+            <Card>
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead>Status</TableHead>
+                                {isAdmin && <TableHead className="text-right">Enable/Disable</TableHead>}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {users.map((user) => (
+                                <TableRow key={user.id}>
+                                    <TableCell className="font-medium">{user.name}</TableCell>
+                                    <TableCell>{user.email}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={user.role === 'ADMIN' ? 'default' : 'secondary'}>
+                                            {user.role}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={user.isActive ? 'outline' : 'destructive'}>
+                                            {user.isActive ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                    </TableCell>
+                                    {isAdmin && (
+                                        <TableCell className="text-right">
+                                            {/* Prevent an admin from disabling their own account */}
+                                            <Switch
+                                                checked={user.isActive}
+                                                onCheckedChange={(newStatus) => handleToggleActive(user.id, newStatus)}
+                                                disabled={user.id === session?.user?.id}
+                                            />
+                                        </TableCell>
+                                    )}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </>
+    );
 }

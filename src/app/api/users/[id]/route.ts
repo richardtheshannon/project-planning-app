@@ -1,101 +1,105 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-// This is the API route for updating a specific user by their ID
-// It handles PATCH requests to /api/users/[id]
+/**
+ * Handles updating a user's information.
+ * This function can update name, email, or the isActive status.
+ * - Only Admins can change the 'isActive' status.
+ * - Users can update their own name/email.
+ * - Admins can update anyone's name/email.
+ */
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
-    return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  // 1. Authentication Check: Ensure user is logged in.
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = params.id;
-  if (!userId) {
-    return new NextResponse(JSON.stringify({ error: 'User ID is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const userIdToUpdate = params.id;
+  const body = await request.json();
+  const { name, email, isActive } = body;
 
-  try {
-    const body = await request.json();
-    const { name, email } = body;
+  const updateData: { name?: string; email?: string; isActive?: boolean } = {};
 
-    if (!name || !email) {
-      return new NextResponse(JSON.stringify({ error: 'Name and email are required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+  // 2. Authorization and Data Preparation
+  
+  // Logic for updating 'isActive' status (Admin only)
+  if (typeof isActive === 'boolean') {
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ message: "Forbidden: Only admins can change user status." }, { status: 403 });
     }
+    if (userIdToUpdate === session.user.id) {
+      return NextResponse.json({ message: "Forbidden: Admins cannot change their own active status." }, { status: 403 });
+    }
+    updateData.isActive = isActive;
+  }
 
+  // Logic for updating name/email (User can edit self, Admin can edit anyone)
+  if (name || email) {
+    if (session.user.id !== userIdToUpdate && session.user.role !== 'ADMIN') {
+        return NextResponse.json({ message: "Forbidden: You can only edit your own profile." }, { status: 403 });
+    }
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+  }
+
+  // 3. Validation: Ensure there's something to update
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ message: "Bad Request: No valid fields to update." }, { status: 400 });
+  }
+
+  // 4. Database Update
+  try {
     const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { name, email },
+      where: { id: userIdToUpdate },
+      data: updateData,
     });
-
     return NextResponse.json(updatedUser);
   } catch (error) {
-    console.error('Error updating user:', error);
-    return new NextResponse(JSON.stringify({ error: 'An internal error occurred' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.error("Failed to update user:", error);
+    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
   }
 }
 
-// This is the API route for deleting a specific user by their ID
-// It handles DELETE requests to /api/users/[id]
+
+/**
+ * Handles deleting a user.
+ * - Only Admins can delete users.
+ * - Admins cannot delete their own account.
+ */
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
-    return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  // 1. Authorization Check: Ensure user is an Admin
+  if (!session || session.user.role !== 'ADMIN') {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
   
-  // Optional: Add logic to prevent users from deleting themselves
-  // if (session.user.id === params.id) {
-  //   return new NextResponse(JSON.stringify({ error: 'You cannot delete your own account.' }), {
-  //     status: 403,
-  //     headers: { 'Content-Type': 'application/json' },
-  //   });
-  // }
+  const userIdToDelete = params.id;
 
-  const userId = params.id;
-  if (!userId) {
-    return new NextResponse(JSON.stringify({ error: 'User ID is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  // 2. Business Logic: Prevent self-deletion
+  if (session.user.id === userIdToDelete) {
+    return NextResponse.json({ message: 'Forbidden: You cannot delete your own account.' }, { status: 403 });
   }
 
+  // 3. Database Deletion
   try {
     await prisma.user.delete({
-      where: {
-        id: userId,
-      },
+      where: { id: userIdToDelete },
     });
-
-    return new NextResponse(null, { status: 204 }); // 204 No Content for successful deletion
+    // Return a success response with no content
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error('Error deleting user:', error);
-    return new NextResponse(JSON.stringify({ error: 'An internal error occurred' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

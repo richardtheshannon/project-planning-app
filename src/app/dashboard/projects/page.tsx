@@ -1,12 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { LayoutGrid, List, ArrowUpDown } from "lucide-react"
 
+// The Project interface remains the same
 interface Project {
   id: string
   name: string
@@ -27,11 +31,23 @@ interface Project {
   }
 }
 
+// Step 1: Define a type for our sortable keys
+type SortKey = keyof Omit<Project, '_count' | 'owner'> | 'tasks' | 'members' | 'endDate';
+
+
 export default function ProjectsPage() {
   const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  // Step 2: Add state for sorting
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
 
   useEffect(() => {
     fetchProjects()
@@ -51,8 +67,8 @@ export default function ProjectsPage() {
       setLoading(false)
     }
   }
-  
-  // Step 2: Updated badge colors to be theme-aware
+
+  // The color utility functions remain the same
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       PLANNING: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
@@ -73,8 +89,83 @@ export default function ProjectsPage() {
     }
     return colors[priority] || "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
   }
+  
+  // The filtering logic remains the same
+  const filteredProjects = useMemo(() => {
+    if (!searchTerm) return projects;
+    
+    const lowercasedTerm = searchTerm.toLowerCase();
+    
+    return projects.filter(project => 
+      project.name.toLowerCase().includes(lowercasedTerm) ||
+      (project.description && project.description.toLowerCase().includes(lowercasedTerm)) ||
+      project.status.toLowerCase().includes(lowercasedTerm) ||
+      project.priority.toLowerCase().includes(lowercasedTerm)
+    );
+  }, [projects, searchTerm]);
+
+  // Step 3: Add sorting logic
+  const sortedAndFilteredProjects = useMemo(() => {
+    const sorted = [...filteredProjects].sort((a, b) => {
+        let valA: any;
+        let valB: any;
+
+        switch(sortKey) {
+            case 'tasks':
+                valA = a._count.tasks;
+                valB = b._count.tasks;
+                break;
+            case 'members':
+                valA = a._count.members;
+                valB = b._count.members;
+                break;
+            case 'endDate':
+                // Handle null dates by pushing them to the end
+                valA = a.endDate ? new Date(a.endDate).getTime() : Infinity;
+                valB = b.endDate ? new Date(b.endDate).getTime() : Infinity;
+                break;
+            default:
+                valA = a[sortKey as keyof Project];
+                valB = b[sortKey as keyof Project];
+        }
+
+        if (valA < valB) return -1;
+        if (valA > valB) return 1;
+        return 0;
+    });
+
+    if (sortOrder === 'desc') {
+        return sorted.reverse();
+    }
+
+    return sorted;
+  }, [filteredProjects, sortKey, sortOrder]);
 
 
+  // The highlighting function remains the same
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight.trim()) {
+      return <span>{text}</span>;
+    }
+    const regex = new RegExp(`(${highlight})`, 'gi');
+    const parts = text.split(regex);
+    return (
+      <span>
+        {parts.map((part, i) =>
+          regex.test(part) ? (
+            <mark key={i} className="bg-yellow-300 dark:bg-yellow-500 rounded-sm px-0.5">
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </span>
+    );
+  };
+
+
+  // The loading and error states remain the same
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -97,75 +188,158 @@ export default function ProjectsPage() {
       </div>
     )
   }
+  
+  // The Card View remains the same
+  const ProjectsCardView = ({ projects }: { projects: Project[] }) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {projects.map((project) => (
+        <Card key={project.id} className="hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <CardTitle className="text-lg text-foreground">{highlightText(project.name, searchTerm)}</CardTitle>
+              <Badge className={getPriorityColor(project.priority)}>
+                {project.priority}
+              </Badge>
+            </div>
+            <CardDescription className="line-clamp-2">
+              {project.description ? highlightText(project.description, searchTerm) : "No description"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Status</span>
+                <Badge className={getStatusColor(project.status)}>
+                  {project.status.replace('_', ' ')}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Tasks</span>
+                <span className="font-medium text-foreground">{project._count.tasks}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Members</span>
+                <span className="font-medium text-foreground">{project._count.members}</span>
+              </div>
+              {project.endDate && (
+                <div className="text-xs text-muted-foreground pt-2 border-t">
+                  Due: {new Date(project.endDate).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  // Step 4: Update Table View to be sortable
+  const ProjectsTableView = ({ projects }: { projects: Project[] }) => {
+    const handleSort = (key: SortKey) => {
+        if (sortKey === key) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortKey(key);
+            setSortOrder('asc');
+        }
+    };
+
+    const SortableHeader = ({ tkey, label }: { tkey: SortKey, label: string }) => (
+        <TableHead onClick={() => handleSort(tkey)} className="cursor-pointer hover:bg-muted/50">
+            <div className="flex items-center gap-2">
+                {label}
+                {sortKey === tkey && <ArrowUpDown className="h-4 w-4" />}
+            </div>
+        </TableHead>
+    );
+
+    return (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <SortableHeader tkey="name" label="Project Name" />
+                <SortableHeader tkey="status" label="Status" />
+                <SortableHeader tkey="priority" label="Priority" />
+                <SortableHeader tkey="endDate" label="Due Date" />
+                <SortableHeader tkey="tasks" label="Tasks" />
+                <SortableHeader tkey="members" label="Members" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {projects.map((project) => (
+                <TableRow key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)} className="cursor-pointer">
+                  <TableCell className="font-medium">{highlightText(project.name, searchTerm)}</TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(project.status)} variant="outline">
+                      {project.status.replace('_', ' ')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getPriorityColor(project.priority)} variant="outline">
+                      {project.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-center">{project._count.tasks}</TableCell>
+                  <TableCell className="text-center">{project._count.members}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      {/* Header remains the same */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          {/* Step 1: Replaced hardcoded text colors with theme-aware classes */}
           <h2 className="text-2xl font-bold text-foreground">Projects</h2>
           <p className="text-muted-foreground">Manage and track all your projects</p>
         </div>
-        <Link href="/dashboard/projects/new">
-          <Button>Create New Project</Button>
-        </Link>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Input 
+            placeholder="Search projects..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full md:w-64"
+          />
+          <Button variant={viewMode === 'card' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('card')}>
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          <Button variant={viewMode === 'table' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('table')}>
+            <List className="h-4 w-4" />
+          </Button>
+          <Link href="/dashboard/projects/new">
+            <Button>Create New Project</Button>
+          </Link>
+        </div>
       </div>
 
-      {/* Projects Grid */}
-      {projects.length === 0 ? (
+      {/* Step 5: Conditional Rendering now uses sortedAndFilteredProjects */}
+      {sortedAndFilteredProjects.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
-            <p className="text-muted-foreground mb-4">No projects yet</p>
-            <Link href="/dashboard/projects/new">
-              <Button>Create Your First Project</Button>
-            </Link>
+            <p className="text-muted-foreground mb-4">{searchTerm ? "No projects match your search." : "No projects yet."}</p>
+            { !searchTerm && 
+                <Link href="/dashboard/projects/new">
+                  <Button>Create Your First Project</Button>
+                </Link>
+            }
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <Card key={project.id} className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg text-foreground">{project.name}</CardTitle>
-                  <Badge className={getPriorityColor(project.priority)}>
-                    {project.priority}
-                  </Badge>
-                </div>
-                <CardDescription className="line-clamp-2">
-                  {project.description || "No description"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Status</span>
-                    <Badge className={getStatusColor(project.status)}>
-                      {project.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Tasks</span>
-                    <span className="font-medium text-foreground">{project._count.tasks}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Members</span>
-                    <span className="font-medium text-foreground">{project._count.members}</span>
-                  </div>
-
-                  {project.endDate && (
-                    <div className="text-xs text-muted-foreground pt-2 border-t">
-                      Due: {new Date(project.endDate).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div>
+          {viewMode === 'card' ? (
+            <ProjectsCardView projects={sortedAndFilteredProjects} />
+          ) : (
+            <ProjectsTableView projects={sortedAndFilteredProjects} />
+          )}
         </div>
       )}
     </div>

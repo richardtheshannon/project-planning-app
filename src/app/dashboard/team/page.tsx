@@ -1,16 +1,18 @@
 import { prisma } from "@/lib/prisma";
-import UserTable from "./UserTable"; // Import the new Client Component
+import UserTable from "./UserTable"; // This will be our new client component
 
-// This line forces the page to be rendered dynamically
+// This line forces the page to be rendered dynamically on each request
 export const dynamic = 'force-dynamic';
 
-// This function fetches all users from the database
+// This function fetches all users from the database, now including role and active status
 async function getUsers() {
   const users = await prisma.user.findMany({
     select: {
       id: true,
       name: true,
       email: true,
+      role: true,      // Added role
+      isActive: true,  // Added isActive status
       createdAt: true,
     },
     orderBy: {
@@ -27,13 +29,13 @@ export default async function TeamPage() {
   return (
     <div className="px-4 py-6 sm:px-0">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Team Members</h2>
-        <p className="text-gray-600">
-          A list of all the users in your application.
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Team Members</h2>
+        <p className="text-gray-600 dark:text-gray-400">
+          A list of all the users in your application. Admins can enable or disable user accounts.
         </p>
       </div>
 
-      {/* Render the UserTable client component, passing the users data as a prop */}
+      {/* Render the UserTable client component, passing the full user data as a prop */}
       <UserTable users={users} />
       
     </div>

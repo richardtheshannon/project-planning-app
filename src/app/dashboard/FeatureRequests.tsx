@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useMemo } from 'react';
 import {
     Table,
     TableBody,
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Toaster, toast } from 'sonner';
 import { Label } from "@/components/ui/label";
+import { ArrowUpDown } from 'lucide-react'; // Step 1: Import the icon
 
 // Define the interface for our data models
 interface FeatureRequest {
@@ -48,6 +49,9 @@ interface FeatureRequest {
     createdAt: string;
     updatedAt: string;
 }
+
+// Step 2: Define a type for our sortable keys
+type SortKey = keyof FeatureRequest;
 
 export default function FeatureRequests() {
     // State to manage the list of feature requests
@@ -66,6 +70,11 @@ export default function FeatureRequests() {
     const [editPriority, setEditPriority] = useState<"Low" | "Medium" | "High">("Medium");
     const [editStatus, setEditStatus] = useState<"Pending" | "In Progress" | "Done" | "Canceled">("Pending");
 
+    // Step 3: Add state for sorting
+    const [sortKey, setSortKey] = useState<SortKey>('createdAt');
+    const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+
     // Function to fetch all feature requests from the API
     const fetchRequests = async () => {
         try {
@@ -81,7 +90,7 @@ export default function FeatureRequests() {
         }
     };
 
-    // Function to handle form submission for a new request
+    // Form submission and other handlers remain the same...
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         try {
@@ -95,7 +104,6 @@ export default function FeatureRequests() {
                 throw new Error('Failed to submit feature request');
             }
 
-            // Clear the form and refresh the data
             setTitle('');
             setDescription('');
             setPriority("Medium");
@@ -108,7 +116,6 @@ export default function FeatureRequests() {
         }
     };
     
-    // Function to handle updating a request
     const handleUpdate = async (e: FormEvent) => {
         e.preventDefault();
         if (!selectedRequest) return;
@@ -129,7 +136,6 @@ export default function FeatureRequests() {
                 throw new Error('Failed to update feature request');
             }
 
-            // Close edit mode and refresh the data
             setIsEditing(false);
             setSelectedRequest(null);
             fetchRequests();
@@ -140,7 +146,6 @@ export default function FeatureRequests() {
         }
     };
 
-    // Function to handle deleting a request
     const handleDelete = async () => {
         if (!selectedRequest) return;
 
@@ -153,7 +158,6 @@ export default function FeatureRequests() {
                 throw new Error('Failed to delete feature request');
             }
 
-            // Close the dialog and refresh the data
             setSelectedRequest(null);
             fetchRequests();
             toast.success('Feature request deleted successfully!');
@@ -163,26 +167,63 @@ export default function FeatureRequests() {
         }
     };
 
-    // Handler to open the detail view dialog
     const handleViewDetails = (request: FeatureRequest) => {
         setSelectedRequest(request);
-        // Initialize edit form states with selected request data
         setEditTitle(request.title);
         setEditDescription(request.description);
         setEditPriority(request.priority);
         setEditStatus(request.status);
     };
 
-    // Handler to close the detail view dialog
     const handleCloseDetails = () => {
         setSelectedRequest(null);
         setIsEditing(false);
     };
 
-    // Initial data fetch on component mount
     useEffect(() => {
         fetchRequests();
     }, []);
+
+    // Step 4: Add sorting logic
+    const sortedRequests = useMemo(() => {
+        const sorted = [...requests].sort((a, b) => {
+            const valA = a[sortKey];
+            const valB = b[sortKey];
+
+            if (valA < valB) return -1;
+            if (valA > valB) return 1;
+            return 0;
+        });
+
+        if (sortOrder === 'desc') {
+            return sorted.reverse();
+        }
+
+        return sorted;
+    }, [requests, sortKey, sortOrder]);
+
+
+    // Step 5: Create a reusable sortable header component
+    const SortableHeader = ({ tkey, label }: { tkey: SortKey, label: string }) => {
+        const handleSort = (key: SortKey) => {
+            if (sortKey === key) {
+                setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+            } else {
+                setSortKey(key);
+                setSortOrder('asc');
+            }
+        };
+
+        return (
+            <TableHead onClick={() => handleSort(tkey)} className="cursor-pointer hover:bg-muted/50">
+                <div className="flex items-center gap-2">
+                    {label}
+                    {sortKey === tkey && <ArrowUpDown className="h-4 w-4" />}
+                </div>
+            </TableHead>
+        );
+    };
+
 
     return (
         <div className="flex flex-col space-y-4">
@@ -234,17 +275,19 @@ export default function FeatureRequests() {
                 </CardHeader>
                 <CardContent>
                     <Table>
+                        {/* Step 6: Update the TableHeader to use the SortableHeader component */}
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Priority</TableHead>
-                                <TableHead>Submitted By</TableHead>
-                                <TableHead>Date</TableHead>
+                                <SortableHeader tkey="title" label="Title" />
+                                <SortableHeader tkey="status" label="Status" />
+                                <SortableHeader tkey="priority" label="Priority" />
+                                <SortableHeader tkey="submittedBy" label="Submitted By" />
+                                <SortableHeader tkey="createdAt" label="Date" />
                             </TableRow>
                         </TableHeader>
+                        {/* Step 7: Update the TableBody to map over sortedRequests */}
                         <TableBody>
-                            {requests.map((request) => (
+                            {sortedRequests.map((request) => (
                                 <TableRow
                                     key={request.id}
                                     onClick={() => handleViewDetails(request)}
@@ -262,7 +305,7 @@ export default function FeatureRequests() {
                 </CardContent>
             </Card>
 
-            {/* Feature Request Detail Dialog */}
+            {/* The Dialog for viewing/editing details remains the same */}
             <Dialog open={!!selectedRequest} onOpenChange={handleCloseDetails}>
                 {selectedRequest && !isEditing && (
                     <DialogContent className="sm:max-w-[425px]">

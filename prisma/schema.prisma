@@ -15,9 +15,12 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
-  password  String   // Added password field
+  password  String
   avatar    String?
   role      UserRole @default(USER)
+  // Step 1.1: Add the isActive field to control account status
+  // It defaults to 'false', so all new accounts are disabled.
+  isActive  Boolean  @default(false) 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -61,7 +64,6 @@ model Project {
   id          String        @id @default(cuid())
   name        String
   description String?       @db.Text
-  // Added projectGoal field
   projectGoal String?       @db.Text
   status      ProjectStatus @default(PLANNING)
   priority    Priority      @default(MEDIUM)
@@ -79,7 +81,6 @@ model Project {
   categories    Category[]
   files         File[]
   notifications Notification[]
-  // Relation to the new TimelineEvent model
   timelineEvents TimelineEvent[]
 
   @@map("projects")
