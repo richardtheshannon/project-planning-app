@@ -14,6 +14,7 @@ async function getUsers() {
       role: true,      // Added role
       isActive: true,  // Added isActive status
       createdAt: true,
+      avatar: true,    // We will need the avatar field for the new UI
     },
     orderBy: {
       createdAt: 'desc', // Show newest users first

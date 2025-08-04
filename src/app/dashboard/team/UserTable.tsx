@@ -5,8 +5,19 @@ import { useSession } from 'next-auth/react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Toaster, toast } from "sonner";
 import { Card, CardContent } from '@/components/ui/card';
+import { UserActions } from './UserActions';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Eye } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // Define the User type to match the data passed from the server component
 type User = {
@@ -16,6 +27,7 @@ type User = {
     role: string;
     isActive: boolean;
     createdAt: Date;
+    avatar?: string | null;
 };
 
 export default function UserTable({ users: initialUsers }: { users: User[] }) {
@@ -24,7 +36,8 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
 
     // This function is called when an admin toggles the switch
     const handleToggleActive = async (userId: string, newStatus: boolean) => {
-        // Immediately update the UI for a responsive feel (optimistic update)
+        // Optimistic update
+        const originalUsers = users;
         setUsers(currentUsers =>
             currentUsers.map(user =>
                 user.id === userId ? { ...user, isActive: newStatus } : user
@@ -41,23 +54,32 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
             if (!response.ok) {
                 const errorData = await response.json();
                 // Revert the UI change if the API call fails
-                setUsers(initialUsers);
-                throw new Error(errorData.message || 'Failed to update user status');
+                setUsers(originalUsers);
+                console.error('Failed to update user status:', errorData.message);
             }
-
-            toast.success(`User has been ${newStatus ? 'enabled' : 'disabled'}.`);
         } catch (error) {
             // Revert on error as well
-            setUsers(initialUsers);
-            toast.error((error as Error).message || "An unexpected error occurred.");
+            setUsers(originalUsers);
+            console.error("An unexpected error occurred:", error);
         }
+    };
+
+    const handleUserUpdate = () => {
+        // We'll refetch the data to ensure the UI is in sync with the database.
+        // This is a simple but effective way to handle updates without complex state management.
+        window.location.reload();
+    };
+
+    const handleUserDelete = (deletedUserId: string) => {
+        // Filter out the deleted user from the state
+        setUsers(currentUsers => currentUsers.filter(user => user.id !== deletedUserId));
+        // A full page reload is not strictly necessary here, but we can do it for consistency
     };
 
     const isAdmin = session?.user?.role === 'ADMIN';
 
     return (
         <>
-            <Toaster position="bottom-right" />
             <Card>
                 <CardContent className="p-0">
                     <Table>
@@ -68,12 +90,21 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
                                 <TableHead>Role</TableHead>
                                 <TableHead>Status</TableHead>
                                 {isAdmin && <TableHead className="text-right">Enable/Disable</TableHead>}
+                                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {users.map((user) => (
                                 <TableRow key={user.id}>
-                                    <TableCell className="font-medium">{user.name}</TableCell>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            <Avatar className="h-6 w-6">
+                                                <AvatarImage src={user.avatar || undefined} />
+                                                <AvatarFallback>{user.name?.charAt(0) || '?'}</AvatarFallback>
+                                            </Avatar>
+                                            {user.name}
+                                        </div>
+                                    </TableCell>
                                     <TableCell>{user.email}</TableCell>
                                     <TableCell>
                                         <Badge variant={user.role === 'ADMIN' ? 'default' : 'secondary'}>
@@ -92,6 +123,15 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
                                                 checked={user.isActive}
                                                 onCheckedChange={(newStatus) => handleToggleActive(user.id, newStatus)}
                                                 disabled={user.id === session?.user?.id}
+                                            />
+                                        </TableCell>
+                                    )}
+                                    {isAdmin && (
+                                        <TableCell className="text-right">
+                                            <UserActions
+                                                user={user}
+                                                onUserUpdated={handleUserUpdate}
+                                                onUserDeleted={() => handleUserDelete(user.id)}
                                             />
                                         </TableCell>
                                     )}
