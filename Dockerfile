@@ -1,28 +1,22 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18-alpine
-
-# --- FIX START: Install OpenSSL for Prisma ---
-# Install dependencies needed for Prisma to connect to the database
-RUN apk add --no-cache openssl-dev
-# --- FIX END ---
+# Use a more complete base image to avoid missing system libraries
+FROM node:18
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json (or yarn.lock)
+# Copy package.json and package-lock.json first to leverage Docker layer caching
 COPY package*.json ./
 
-# Install app dependencies
-# Use a clean install to ensure dependencies match the lock file
+# --- FIX START: Copy the Prisma schema before installing dependencies ---
+# This ensures the schema is available for the 'postinstall' script
+COPY prisma ./prisma
+# --- FIX END ---
+
+# Install app dependencies. This will also trigger the 'postinstall' script.
 RUN npm ci
 
-# Bundle app source
+# Copy the rest of the application source code
 COPY . .
-
-# --- FIX START: Generate Prisma Client ---
-# This ensures the client is generated with the correct engine for the container's OS
-RUN npx prisma generate
-# --- FIX END ---
 
 # Creates a Next.js production build
 RUN npm run build
