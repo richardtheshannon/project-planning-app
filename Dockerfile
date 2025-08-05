@@ -11,8 +11,10 @@ COPY package*.json ./
 # This ensures the schema is available for the 'postinstall' script
 COPY prisma ./prisma
 
+# --- FIX START: Add --legacy-peer-deps to resolve dependency conflicts ---
 # Install app dependencies. This will also trigger the 'postinstall' script.
-RUN npm ci
+RUN npm ci --legacy-peer-deps
+# --- FIX END ---
 
 # Copy the rest of the application source code
 COPY . .
@@ -23,8 +25,5 @@ RUN npm run build
 # Expose the port the app runs on
 EXPOSE 3000
 
-# --- FIX START: Modify the startup command ---
-# First, push any pending schema changes to the database to ensure it's in sync.
-# Then, start the Next.js application.
-CMD ["sh", "-c", "npx prisma db push && npm start"]
-# --- FIX END ---
+# Define the command to run the app
+CMD ["npm", "start"]
