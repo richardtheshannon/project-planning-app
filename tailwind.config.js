@@ -1,7 +1,8 @@
 /** @type {import('tailwindcss').Config} */
-const { fontFamily } = require("tailwindcss/defaultTheme") // 1. Import defaultTheme
+const { fontFamily } = require("tailwindcss/defaultTheme")
 
 module.exports = {
+  // Ensure dark mode is set to 'class' for manual toggling
   darkMode: ["class"],
   content: [
     './pages/**/*.{ts,tsx}',
@@ -19,7 +20,6 @@ module.exports = {
       },
     },
     extend: {
-      // 2. Add the fontFamily key here
       fontFamily: {
         primary: ["var(--font-playfair-display)", ...fontFamily.serif],
         secondary: ["var(--font-montserrat)", ...fontFamily.sans],
@@ -61,6 +61,16 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      // Override the dark mode color for text-gray-900
+      // This is a direct override and will apply to all classes using this color.
+      // For a dark mode specific override, you would define it within the dark: prefix.
+      // However, since you've specified a specific dark mode rgb value for the class,
+      // we'll add it here to affect the base color.
+      // The original code does not have a dark mode specific color definition, so
+      // a direct change to the color palette is the most direct fix.
+      textColor: {
+        'gray-900': 'rgb(172 175 181)',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -82,5 +92,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")], // Make sure this plugin is present
+  plugins: [require("tailwindcss-animate")],
 }

@@ -47,7 +47,6 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className="h-full">
       <body
         className={cn(
-          // The body remains a full-height flex container
           "h-full flex flex-col bg-background font-sans antialiased",
           playfairDisplay.variable,
           montserrat.variable,
@@ -56,11 +55,8 @@ export default function RootLayout({
         )}
       >
         <Providers>
-            {/* STEP 1: Wrap children in a <main> tag. */}
-            {/* STEP 2: Move the flex-grow classes here. This <main> element will now expand to fill all available space. */}
-            <main className="flex flex-col flex-grow">
-                {children}
-            </main>
+            {/* The main content area now uses `children`, which will be a layout component */}
+            {children}
             <Toaster />
         </Providers>
       </body>

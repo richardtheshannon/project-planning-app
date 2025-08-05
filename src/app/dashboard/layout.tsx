@@ -18,12 +18,43 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Home, Briefcase, Users, FileText, Settings, LogOut } from "lucide-react";
+// The .tsx extension has been removed from the import path below
+import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
+import { cn } from "@/lib/utils";
 
-// This component contains the logic for the sidebar's contents
+// This new component renders the actual layout. It's a child of the provider,
+// so it can safely call the useLayoutPreference hook.
+function LayoutRenderer({ children }: { children: React.ReactNode }) {
+  const { data: session } = useSession();
+  const { isRightHanded } = useLayoutPreference(); // This call is now safe
+
+  return (
+    <div className={cn("flex h-screen w-full", { "flex-row-reverse": isRightHanded })}>
+      <Sidebar>
+        <SidebarItems />
+      </Sidebar>
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className={cn("border-b px-4 py-3 flex items-center gap-4", { "flex-row-reverse": isRightHanded })}>
+          <SidebarTrigger />
+          <h1 className="text-xl font-semibold">
+            {session?.user?.name || session?.user?.email}
+          </h1>
+        </header>
+        <main className="flex-1 overflow-auto">
+          <div className="p-6">
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// This component has been updated to handle right-handed alignment more explicitly.
 function SidebarItems() {
   const pathname = usePathname();
-  // Get the sidebar's state (open/closed, mobile/desktop)
   const { open, setOpen, isMobile } = useSidebar();
+  const { isRightHanded } = useLayoutPreference(); // Get the layout preference
 
   const handleNavigation = () => {
     if (isMobile) {
@@ -43,7 +74,6 @@ function SidebarItems() {
     <>
       <SidebarHeader>
         <div className="flex justify-center">
-          {/* Conditionally render the logo based on the sidebar state */}
           {open && (
             <Link href="/dashboard">
               <Image
@@ -67,10 +97,19 @@ function SidebarItems() {
                   isActive={pathname === item.href}
                   onClick={handleNavigation}
                 >
-                  <Link href={item.href} className="flex items-center gap-2">
-                    <item.icon className="h-4 w-4 flex-shrink-0" />
-                    {/* Conditionally render the label */}
-                    {open && <span className="truncate">{item.label}</span>}
+                  {/* Conditionally render order and apply right-alignment */}
+                  <Link href={item.href} className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}>
+                    {isRightHanded ? (
+                      <>
+                        {open && <span className="truncate">{item.label}</span>}
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                      </>
+                    ) : (
+                      <>
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        {open && <span className="truncate">{item.label}</span>}
+                      </>
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -80,10 +119,19 @@ function SidebarItems() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => signOut()} className="flex items-center gap-2">
-            <LogOut className="h-4 w-4 flex-shrink-0" />
-            {/* Conditionally render the label */}
-            {open && <span>Logout</span>}
+          {/* Apply conditional rendering to the logout button */}
+          <SidebarMenuButton onClick={() => signOut()} className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}>
+            {isRightHanded ? (
+              <>
+                {open && <span>Logout</span>}
+                <LogOut className="h-4 w-4 flex-shrink-0" />
+              </>
+            ) : (
+              <>
+                <LogOut className="h-4 w-4 flex-shrink-0" />
+                {open && <span>Logout</span>}
+              </>
+            )}
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarFooter>
@@ -92,6 +140,7 @@ function SidebarItems() {
 }
 
 
+// This is the main export for the layout file
 export default function DashboardLayout({
   children,
 }: {
@@ -111,28 +160,13 @@ export default function DashboardLayout({
     redirect("/auth/signin");
   }
 
+  // We wrap the entire layout in the LayoutPreferenceProvider.
+  // This makes the context available to all child components, including LayoutRenderer.
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full">
-        <Sidebar>
-          <SidebarItems />
-        </Sidebar>
-        {/* Add min-w-0 to the main content area to prevent horizontal overflow */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="border-b px-4 py-3 flex items-center gap-4">
-            <SidebarTrigger />
-            <h1 className="text-xl font-semibold">
-              {session.user?.name || session.user?.email}
-            </h1>
-          </header>
-          <main className="flex-1 overflow-auto">
-            {/* The p-6 was moved here to ensure the whole area scrolls */}
-            <div className="p-6">
-                {children}
-            </div>
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <LayoutPreferenceProvider>
+      <SidebarProvider>
+        <LayoutRenderer>{children}</LayoutRenderer>
+      </SidebarProvider>
+    </LayoutPreferenceProvider>
   );
 }
