@@ -11,12 +11,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "binaryTargets": [
       "native",
-      "windows"
+      "rhel-openssl-1.0.x"
     ]
   },
   "dependencies": {
