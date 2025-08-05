@@ -14,12 +14,6 @@
     "db:push": "prisma db push",
     "postinstall": "prisma generate"
   },
-  "prisma": {
-    "binaryTargets": [
-      "native",
-      "rhel-openssl-1.0.x"
-    ]
-  },
   "dependencies": {
     "@prisma/client": "^5.7.0",
     "@radix-ui/react-alert-dialog": "^1.1.14",
