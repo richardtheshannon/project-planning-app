@@ -10,8 +10,10 @@ async function ensureDirExists(dirPath: string) {
     await stat(dirPath);
   } catch (error: any) {
     if (error.code === 'ENOENT') {
+      // Use recursive true to create any necessary parent directories
       await mkdir(dirPath, { recursive: true });
     } else {
+      // Re-throw other errors
       throw error;
     }
   }
@@ -76,23 +78,27 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", projectId);
+    // --- FIX START: Change upload directory to the persistent volume ---
+    // The '/data' path corresponds to the Mount Path you created in Railway.
+    const uploadDir = path.join("/data", "uploads", projectId);
+    // --- FIX END ---
     await ensureDirExists(uploadDir);
 
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const filename = uniqueSuffix + '-' + file.name.replace(/\s/g, '_');
     const filePath = path.join(uploadDir, filename);
-    const publicUrl = `uploads/${projectId}/${filename}`; // Relative path for client-side access
 
     await writeFile(filePath, buffer);
 
     const newFileRecord = await prisma.file.create({
       data: {
         originalName: file.name,
-        filename: filename,
+        filename: filename, // The unique, safe filename
         mimetype: file.type || 'application/octet-stream',
         size: file.size,
-        path: publicUrl,
+        // --- FIX START: Store the full physical path in the database ---
+        path: filePath, // e.g., /data/uploads/project_id/unique-file-name.pdf
+        // --- FIX END ---
         projectId: projectId,
         uploaderId: userId,
       },
@@ -138,7 +144,6 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// --- UPDATED DELETE FUNCTION ---
 export async function DELETE(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -147,9 +152,8 @@ export async function DELETE(request: NextRequest) {
         }
         const userId = session.user.id;
 
-        // Read the fileId from the request body
-        const body = await request.json();
-        const { fileId } = body;
+        const { searchParams } = new URL(request.url);
+        const fileId = searchParams.get('fileId');
 
         if (!fileId) {
             return NextResponse.json({ error: "File ID is required" }, { status: 400 });
@@ -171,13 +175,16 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "You do not have permission to delete this file." }, { status: 403 });
         }
 
-        const filePath = path.join(process.cwd(), "public", fileToDelete.path);
+        // --- FIX START: Use the full physical path from the database ---
+        // The 'path' field now contains the full path, e.g., /data/uploads/...
+        const filePath = fileToDelete.path;
+        // --- FIX END ---
         try {
             await unlink(filePath);
         } catch (error: any) {
+            // It's okay if the file doesn't exist, we can still delete the DB record
             if (error.code !== 'ENOENT') {
                 console.error("Error deleting physical file:", error);
-                // Decide if you want to stop or continue if physical file deletion fails
             }
         }
 
