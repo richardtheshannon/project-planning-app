@@ -150,6 +150,11 @@ export default function ProjectDetailPage() {
     priority: "MEDIUM",
   });
 
+  // --- FIX START ---
+  // Get the base URL from environment variables. Fallback to an empty string.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  // --- FIX END ---
+
   useEffect(() => {
     if (projectId) {
       fetchProjectAndFiles();
@@ -500,31 +505,32 @@ export default function ProjectDetailPage() {
         {project.files.length > 0 ? (
            <div>
             <div className="md:hidden space-y-4">
-              {project.files.map(file => (
-                <Card key={file.id}>
-                  <CardContent className="p-4 space-y-3">
-                     {/* --- FIX START --- */}
-                     <a href={`/${file.path}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
-                        <FileIcon size={16} />{file.originalName}
-                      </a>
-                      {/* --- FIX END --- */}
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Size:</span>
-                        <span>{formatFileSize(file.size)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Added:</span>
-                        <span>{new Date(file.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex justify-end gap-2 pt-2">
-                        <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
-                        {/* --- FIX START --- */}
-                        <a href={`/${file.path}`} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
-                        {/* --- FIX END --- */}
-                      </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {project.files.map(file => {
+                // --- FIX START ---
+                const fileUrl = `${appUrl}/${file.path}`;
+                // --- FIX END ---
+                return (
+                  <Card key={file.id}>
+                    <CardContent className="p-4 space-y-3">
+                       <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
+                          <FileIcon size={16} />{file.originalName}
+                        </a>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Size:</span>
+                          <span>{formatFileSize(file.size)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Added:</span>
+                          <span>{new Date(file.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                          <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
+                          <a href={fileUrl} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
+                        </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             <div className="hidden md:block">
@@ -539,25 +545,26 @@ export default function ProjectDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {project.files.map(file => (
-                      <TableRow key={file.id}>
-                        <TableCell>
-                          {/* --- FIX START --- */}
-                          <a href={`/${file.path}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
-                            <FileIcon size={16} />{file.originalName}
-                          </a>
-                          {/* --- FIX END --- */}
-                        </TableCell>
-                        <TableCell>{formatFileSize(file.size)}</TableCell>
-                        <TableCell>{new Date(file.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
-                          {/* --- FIX START --- */}
-                          <a href={`/${file.path}`} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
-                          {/* --- FIX END --- */}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {project.files.map(file => {
+                      // --- FIX START ---
+                      const fileUrl = `${appUrl}/${file.path}`;
+                      // --- FIX END ---
+                      return (
+                        <TableRow key={file.id}>
+                          <TableCell>
+                            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
+                              <FileIcon size={16} />{file.originalName}
+                            </a>
+                          </TableCell>
+                          <TableCell>{formatFileSize(file.size)}</TableCell>
+                          <TableCell>{new Date(file.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
+                            <a href={fileUrl} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </Card>
