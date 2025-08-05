@@ -103,7 +103,7 @@ interface Project {
   }[];
   contacts: Contact[];
   tasks: Task[];
-  files: ProjectFile[]; 
+  files: ProjectFile[];
   _count: {
     tasks: number;
     members: number;
@@ -125,10 +125,10 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
-  
+
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
-  
+
   const [showEditProjectDialog, setShowEditProjectDialog] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<Partial<Project> | null>(null);
 
@@ -141,7 +141,7 @@ export default function ProjectDetailPage() {
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditContactDialogOpen, setIsEditContactDialogOpen] = useState(false);
-  
+
   const [fileToDelete, setFileToDelete] = useState<ProjectFile | null>(null);
 
   const [newTask, setNewTask] = useState({
@@ -169,7 +169,7 @@ export default function ProjectDetailPage() {
 
       const projectData: Project = await projectResponse.json();
       const filesData: ProjectFile[] = await filesResponse.json();
-      
+
       projectData.files = filesData;
       setProject(projectData);
 
@@ -182,7 +182,7 @@ export default function ProjectDetailPage() {
       setLoading(false);
     }
   };
-  
+
   const handleContactAdded = (newContact: Contact) => {
     setProject(p => p ? { ...p, contacts: [...p.contacts, newContact] } : null);
   };
@@ -219,7 +219,7 @@ export default function ProjectDetailPage() {
       toast({ title: "Error", description: "Failed to create task", variant: "destructive" });
     }
   };
-  
+
   const handleEditProjectClick = () => {
     if (!project) return;
     setProjectToEdit({
@@ -263,7 +263,7 @@ export default function ProjectDetailPage() {
   const handleTaskUpdated = (updatedTask: Task) => {
     setProject(p => p ? { ...p, tasks: p.tasks.map(t => t.id === updatedTask.id ? updatedTask : t) } : null);
   };
-  
+
   const handleTaskDeletion = async () => {
     if (!taskToDelete) return;
     try {
@@ -295,7 +295,7 @@ export default function ProjectDetailPage() {
   const handleContactUpdated = (updatedContact: Contact) => {
     setProject(p => p ? { ...p, contacts: p.contacts.map(c => c.id === updatedContact.id ? updatedContact : c) } : null);
   };
-  
+
   const handleFileUploaded = (newFile: ProjectFile) => {
     setProject(p => p ? { ...p, files: [newFile, ...p.files], _count: {...p._count, files: p._count.files + 1} } : null);
   };
@@ -303,7 +303,11 @@ export default function ProjectDetailPage() {
   const handleDeleteFile = async () => {
     if (!fileToDelete) return;
     try {
-      const response = await fetch(`/api/files?fileId=${fileToDelete.id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/files`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: fileToDelete.id }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete file');
@@ -368,7 +372,7 @@ export default function ProjectDetailPage() {
           <h1 className="text-3xl font-bold">{project.name}</h1>
           <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Description</h2>
           <p className="text-muted-foreground mt-1 max-w-prose">{project.description || "No description provided."}</p>
-          
+
           <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Goal</h2>
           <p className="text-muted-foreground mt-1 max-w-prose">{project.projectGoal || "No goal defined."}</p>
 
@@ -411,7 +415,7 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card><CardHeader><CardTitle>Tasks</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.tasks.length}</div><Button className="mt-4 w-full" size="sm" onClick={() => setShowCreateTaskDialog(true)}>New Task</Button></CardContent></Card>
         <Card><CardHeader><CardTitle>Project Contacts</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.contacts.length}</div><div className="mt-4"><AddContactDialog projectId={project.id} onContactAdded={handleContactAdded} /></div></CardContent></Card>
@@ -419,7 +423,7 @@ export default function ProjectDetailPage() {
       </div>
 
       <TimelineSection projectId={project.id} isOwner={isOwner} />
-      
+
       <div className="my-8">
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         {project.tasks.length > 0 ? (
@@ -499,9 +503,11 @@ export default function ProjectDetailPage() {
               {project.files.map(file => (
                 <Card key={file.id}>
                   <CardContent className="p-4 space-y-3">
-                     <a href={file.path} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
+                     {/* --- FIX START --- */}
+                     <a href={`/${file.path}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
                         <FileIcon size={16} />{file.originalName}
                       </a>
+                      {/* --- FIX END --- */}
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Size:</span>
                         <span>{formatFileSize(file.size)}</span>
@@ -512,7 +518,9 @@ export default function ProjectDetailPage() {
                       </div>
                       <div className="flex justify-end gap-2 pt-2">
                         <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
-                        <a href={file.path} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
+                        {/* --- FIX START --- */}
+                        <a href={`/${file.path}`} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
+                        {/* --- FIX END --- */}
                       </div>
                   </CardContent>
                 </Card>
@@ -534,15 +542,19 @@ export default function ProjectDetailPage() {
                     {project.files.map(file => (
                       <TableRow key={file.id}>
                         <TableCell>
-                          <a href={file.path} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
+                          {/* --- FIX START --- */}
+                          <a href={`/${file.path}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
                             <FileIcon size={16} />{file.originalName}
                           </a>
+                          {/* --- FIX END --- */}
                         </TableCell>
                         <TableCell>{formatFileSize(file.size)}</TableCell>
                         <TableCell>{new Date(file.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
-                          <a href={file.path} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
+                          {/* --- FIX START --- */}
+                          <a href={`/${file.path}`} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
+                          {/* --- FIX END --- */}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -574,7 +586,7 @@ export default function ProjectDetailPage() {
 
       <EditTaskDialog task={selectedTask} isOpen={isEditTaskDialogOpen} onOpenChange={setIsEditTaskDialogOpen} onTaskUpdated={handleTaskUpdated} />
       <EditContactDialog contact={selectedContact} isOpen={isEditContactDialogOpen} onOpenChange={setIsEditContactDialogOpen} onContactUpdated={handleContactUpdated} />
-      
+
       <AlertDialog open={!!fileToDelete} onOpenChange={() => setFileToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{fileToDelete?.originalName}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
@@ -584,7 +596,7 @@ export default function ProjectDetailPage() {
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}><DialogContent><DialogHeader><DialogTitle>Delete Project</DialogTitle><DialogDescription>This will permanently delete the project and all its data. This action cannot be undone.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button><Button variant="destructive" onClick={handleDeleteProject}>Delete Project</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={showCreateTaskDialog} onOpenChange={setShowCreateTaskDialog}><DialogContent><DialogHeader><DialogTitle>Create New Task</DialogTitle></DialogHeader><div className="grid gap-4 py-4"><div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="title" className="text-right">Title</Label><Input id="title" value={newTask.title} onChange={e => setNewTask(p => ({...p, title: e.target.value}))} className="col-span-3" /></div><div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={newTask.description} onChange={e => setNewTask(p => ({...p, description: e.target.value}))} className="col-span-3" /></div><div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="priority" className="text-right">Priority</Label><Select value={newTask.priority} onValueChange={value => setNewTask(p => ({...p, priority: value as Task['priority']}))}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LOW">Low</SelectItem><SelectItem value="MEDIUM">Medium</SelectItem><SelectItem value="HIGH">High</SelectItem><SelectItem value="URGENT">Urgent</SelectItem></SelectContent></Select></div ></div><DialogFooter><Button variant="outline" onClick={() => setShowCreateTaskDialog(false)}>Cancel</Button><Button onClick={handleCreateTask}>Create Task</Button></DialogFooter></DialogContent></Dialog>
-      
+
       <Dialog open={showEditProjectDialog} onOpenChange={setShowEditProjectDialog}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
