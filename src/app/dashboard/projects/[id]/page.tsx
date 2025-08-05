@@ -54,7 +54,7 @@ import { EditContactDialog } from "@/components/projects/EditContactDialog";
 import { UploadFileDialog } from "@/components/projects/UploadFileDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Download, Trash, Pencil } from "lucide-react";
-import { TimelineSection } from "@/components/projects/TimelineSection"; // STEP 1: Import the new component
+import { TimelineSection } from "@/components/projects/TimelineSection";
 
 // Import the shared ProjectFile type
 import { ProjectFile } from "@/types";
@@ -136,6 +136,7 @@ export default function ProjectDetailPage() {
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null); // State for task deletion
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditContactDialogOpen, setIsEditContactDialogOpen] = useState(false);
@@ -262,6 +263,29 @@ export default function ProjectDetailPage() {
   const handleTaskUpdated = (updatedTask: Task) => {
     setProject(p => p ? { ...p, tasks: p.tasks.map(t => t.id === updatedTask.id ? updatedTask : t) } : null);
   };
+  
+  const handleTaskDeletion = async () => {
+    if (!taskToDelete) return;
+    try {
+      const response = await fetch(`/api/tasks/${taskToDelete.id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete task');
+      }
+      toast({ title: 'Success', description: 'Task deleted successfully.' });
+      setProject(p => p ? {
+        ...p,
+        tasks: p.tasks.filter(t => t.id !== taskToDelete.id),
+        _count: { ...p._count, tasks: p._count.tasks - 1 }
+      } : null);
+    } catch (error) {
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.', variant: 'destructive' });
+    } finally {
+      setTaskToDelete(null);
+    }
+  };
 
   const handleEditContactClick = (contact: Contact) => {
     setSelectedContact(contact);
@@ -385,7 +409,6 @@ export default function ProjectDetailPage() {
         <Card><CardHeader><CardTitle>Files</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.files.length}</div><div className="mt-4"><UploadFileDialog projectId={project.id} onFileUploaded={handleFileUploaded} /></div></CardContent></Card>
       </div>
 
-      {/* STEP 2: Render the new TimelineSection component */}
       <TimelineSection projectId={project.id} isOwner={isOwner} />
       
       <div className="my-8">
@@ -394,8 +417,8 @@ export default function ProjectDetailPage() {
           <div>
             <div className="md:hidden space-y-4">
               {sortedTasks.map(task => (
-                <Card key={task.id} onClick={() => handleEditTaskClick(task)} className="cursor-pointer">
-                  <CardContent className="p-4 space-y-2">
+                <Card key={task.id} className="relative">
+                  <CardContent className="p-4 space-y-2" onClick={() => handleEditTaskClick(task)}>
                     <div className="font-bold">{task.title}</div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Status</span>
@@ -410,6 +433,11 @@ export default function ProjectDetailPage() {
                       <span className="text-sm">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</span>
                     </div>
                   </CardContent>
+                  {isOwner && (
+                    <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}>
+                      <Trash size={16} className="text-destructive" />
+                    </Button>
+                  )}
                 </Card>
               ))}
             </div>
@@ -422,15 +450,23 @@ export default function ProjectDetailPage() {
                       <SortableHeader sortKey="status">Status</SortableHeader>
                       <SortableHeader sortKey="priority">Priority</SortableHeader>
                       <SortableHeader sortKey="dueDate">Due Date</SortableHeader>
+                      {isOwner && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedTasks.map(task => (
-                      <TableRow key={task.id} onClick={() => handleEditTaskClick(task)} className="cursor-pointer">
-                        <TableCell>{task.title}</TableCell>
-                        <TableCell><Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge></TableCell>
-                        <TableCell><Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge></TableCell>
-                        <TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</TableCell>
+                      <TableRow key={task.id} >
+                        <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer">{task.title}</TableCell>
+                        <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer"><Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge></TableCell>
+                        <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer"><Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge></TableCell>
+                        <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</TableCell>
+                        {isOwner && (
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}>
+                              <Trash size={16} className="text-destructive" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -510,6 +546,23 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* --- DIALOGS & MODALS --- */}
+      <AlertDialog open={!!taskToDelete} onOpenChange={() => setTaskToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete the task "{taskToDelete?.title}". This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleTaskDeletion} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Task
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <EditTaskDialog task={selectedTask} isOpen={isEditTaskDialogOpen} onOpenChange={setIsEditTaskDialogOpen} onTaskUpdated={handleTaskUpdated} />
       <EditContactDialog contact={selectedContact} isOpen={isEditContactDialogOpen} onOpenChange={setIsEditContactDialogOpen} onContactUpdated={handleContactUpdated} />
       

@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Eye } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+// The Avatar components are no longer needed here
+// import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // Define the User type to match the data passed from the server component
 type User = {
@@ -96,14 +97,9 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
                         <TableBody>
                             {users.map((user) => (
                                 <TableRow key={user.id}>
+                                    {/* The Avatar component has been removed from this cell */}
                                     <TableCell className="font-medium">
-                                        <div className="flex items-center gap-2">
-                                            <Avatar className="h-6 w-6">
-                                                <AvatarImage src={user.avatar || undefined} />
-                                                <AvatarFallback>{user.name?.charAt(0) || '?'}</AvatarFallback>
-                                            </Avatar>
-                                            {user.name}
-                                        </div>
+                                        {user.name}
                                     </TableCell>
                                     <TableCell>{user.email}</TableCell>
                                     <TableCell>
