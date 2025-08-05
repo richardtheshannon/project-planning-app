@@ -128,7 +128,8 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, projectGoal, status, priority, startDate, endDate } = body;
+    // Destructure the new 'website' field from the body
+    const { name, description, projectGoal, website, status, priority, startDate, endDate } = body;
 
     // Basic validation
     if (!name) {
@@ -141,6 +142,7 @@ export async function PUT(
         name,
         description,
         projectGoal,
+        website, // Add the website field to the update payload
         status,
         priority,
         // Handle date conversion, ensuring null is passed if date is empty

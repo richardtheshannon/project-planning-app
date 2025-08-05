@@ -53,7 +53,7 @@ import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
 import { UploadFileDialog } from "@/components/projects/UploadFileDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Download, Trash, Pencil } from "lucide-react";
+import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Download, Trash, Pencil, Link2 } from "lucide-react";
 import { TimelineSection } from "@/components/projects/TimelineSection";
 
 // Import the shared ProjectFile type
@@ -84,6 +84,7 @@ interface Project {
   name: string;
   description: string | null;
   projectGoal: string | null;
+  website: string | null; // Added website field
   status: string;
   priority: string;
   startDate: string | null;
@@ -136,7 +137,7 @@ export default function ProjectDetailPage() {
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
-  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null); // State for task deletion
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditContactDialogOpen, setIsEditContactDialogOpen] = useState(false);
@@ -225,6 +226,7 @@ export default function ProjectDetailPage() {
         name: project.name,
         description: project.description,
         projectGoal: project.projectGoal,
+        website: project.website, // Add website to edit state
         status: project.status,
         priority: project.priority,
         startDate: project.startDate ? project.startDate.split('T')[0] : '',
@@ -245,7 +247,6 @@ export default function ProjectDetailPage() {
               const errorData = await response.json();
               throw new Error(errorData.error || 'Failed to update project');
           }
-          const updatedProjectData = await response.json();
           await fetchProjectAndFiles();
           toast({ title: "Success", description: "Project updated successfully." });
           setShowEditProjectDialog(false);
@@ -253,7 +254,6 @@ export default function ProjectDetailPage() {
           toast({ title: "Error", description: error instanceof Error ? error.message : "An unknown error occurred.", variant: "destructive" });
       }
   };
-
 
   const handleEditTaskClick = (task: Task) => {
     setSelectedTask(task);
@@ -389,6 +389,15 @@ export default function ProjectDetailPage() {
           <CardHeader><CardTitle className="flex items-center gap-2"><User size={20} />Project Information</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div><Label>Owner</Label><p className="text-sm text-muted-foreground">{project.owner.name || project.owner.email}</p></div>
+            {project.website && (
+              <div>
+                <Label>Website</Label>
+                <a href={project.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1.5">
+                  <Link2 size={14} />
+                  <span className="truncate">{project.website}</span>
+                </a>
+              </div>
+            )}
             <div><Label>Contacts</Label><p className="text-sm text-muted-foreground">{project.contacts.length} contact(s)</p></div>
             <div><Label>Created</Label><p className="text-sm text-muted-foreground">{new Date(project.createdAt).toLocaleDateString()}</p></div>
           </CardContent>
@@ -596,6 +605,10 @@ export default function ProjectDetailPage() {
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="projectGoal" className="text-right pt-2">Goal</Label>
               <Textarea id="projectGoal" value={projectToEdit?.projectGoal || ''} onChange={(e) => setProjectToEdit(p => ({...p, projectGoal: e.target.value}))} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="website" className="text-right">Website</Label>
+              <Input id="website" value={projectToEdit?.website || ''} onChange={(e) => setProjectToEdit(p => ({...p, website: e.target.value}))} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="status" className="text-right">Status</Label>
