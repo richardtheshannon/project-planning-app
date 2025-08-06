@@ -25,7 +25,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error("No user found with this email");
         }
 
-        // Step 2.1: Check if the user's account is active BEFORE checking the password.
+        // Check if the user's account is active BEFORE checking the password.
         if (!user.isActive) {
           // This specific error message will be sent to the front end.
           throw new Error("Account not activated");
@@ -53,7 +53,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt"
   },
   callbacks: {
-    // Step 2.2: Add isActive and role to the JWT token
+    // Add isActive and role to the JWT token
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role;
@@ -62,7 +62,7 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    // Step 2.3: Add isActive and role to the session object
+    // Add isActive and role to the session object
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string;
@@ -74,7 +74,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/auth/signin",
-    // Step 2.4: Add a custom error page to handle our "Account not activated" message
+    // Add a custom error page to handle our "Account not activated" message
     error: "/auth/signin", 
   },
 }

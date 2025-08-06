@@ -102,7 +102,7 @@ export default async function Dashboard() {
           <CardContent>
             <div className="flex flex-col space-y-4">
               <Button asChild>
-                <Link href="/dashboard/projects/create">
+                <Link href="/dashboard/projects/new">
                   Create New Project
                 </Link>
               </Button>
