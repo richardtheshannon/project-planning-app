@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"  // Fixed import path
-import { prisma } from "@/lib/prisma"  // Changed to match your prisma export
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,12 +64,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, status, priority, startDate, endDate } = body
+    // Destructure the fields, using the correct 'projectGoal' name
+    const { name, description, projectGoal, website, status, priority, startDate, endDate } = body
 
     const project = await prisma.project.create({
       data: {
         name,
         description: description || null,
+        projectGoal: projectGoal || null, // Use the correct field name
+        website: website || null,
         status: status || "PLANNING",
         priority: priority || "MEDIUM",
         startDate: startDate ? new Date(startDate) : null,

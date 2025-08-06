@@ -2,7 +2,6 @@
 const { fontFamily } = require("tailwindcss/defaultTheme")
 
 module.exports = {
-  // Ensure dark mode is set to 'class' for manual toggling
   darkMode: ["class"],
   content: [
     './pages/**/*.{ts,tsx}',
@@ -21,10 +20,10 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        primary: ["var(--font-playfair-display)", ...fontFamily.serif],
-        secondary: ["var(--font-montserrat)", ...fontFamily.sans],
-        body: ["var(--font-roboto)", ...fontFamily.sans],
-        mono: ["var(--font-roboto-mono)", ...fontFamily.mono],
+        // UPDATED: `font-sans` now uses Nunito
+        sans: ["var(--font-nunito)", ...fontFamily.sans],
+        // UPDATED: `font-serif` now uses Roboto
+        serif: ["var(--font-roboto)", ...fontFamily.serif],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -60,16 +59,6 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-      },
-      // Override the dark mode color for text-gray-900
-      // This is a direct override and will apply to all classes using this color.
-      // For a dark mode specific override, you would define it within the dark: prefix.
-      // However, since you've specified a specific dark mode rgb value for the class,
-      // we'll add it here to affect the base color.
-      // The original code does not have a dark mode specific color definition, so
-      // a direct change to the color palette is the most direct fix.
-      textColor: {
-        'gray-900': 'rgb(172 175 181)',
       },
       borderRadius: {
         lg: "var(--radius)",

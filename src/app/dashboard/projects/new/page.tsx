@@ -18,6 +18,8 @@ export default function NewProjectPage() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    goal: "", // Added goal
+    website: "", // Added website
     status: "PLANNING",
     priority: "MEDIUM",
     startDate: "",
@@ -38,53 +40,41 @@ export default function NewProjectPage() {
         body: JSON.stringify({
           ...formData,
           startDate: formData.startDate || null,
-          endDate: formData.endDate || null
-        })
+          endDate: formData.endDate || null,
+        }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to create project')
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create project")
       }
 
-      const project = await response.json()
-      router.push('/dashboard/projects')
-      router.refresh()
+      const newProject = await response.json()
+      router.push(`/dashboard/projects/${newProject.id}`)
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : "An unknown error occurred")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
-        <Link href="/dashboard/projects" className="text-sm text-gray-600 hover:text-gray-900">
-          ← Back to Projects
-        </Link>
-      </div>
-
-      <Card>
+    <div>
+      <Card className="max-w-4xl mx-auto">
         <CardHeader>
-          <CardTitle>Create New Project</CardTitle>
+          <CardTitle className="text-2xl">Create a New Project</CardTitle>
         </CardHeader>
         <CardContent>
+          {error && <p className="text-red-500 bg-red-100 p-3 rounded-md mb-4">{error}</p>}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-
             <div className="space-y-2">
-              <Label htmlFor="name">Project Name *</Label>
+              <Label htmlFor="name">Project Name</Label>
               <Input
                 id="name"
-                type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
                 required
-                placeholder="Enter project name"
               />
             </div>
 
@@ -94,20 +84,36 @@ export default function NewProjectPage() {
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Enter project description"
-                rows={4}
+              />
+            </div>
+            
+            {/* New Goal Field */}
+            <div className="space-y-2">
+              <Label htmlFor="goal">Project Goal</Label>
+              <Input
+                id="goal"
+                value={formData.goal}
+                onChange={(e) => setFormData({...formData, goal: e.target.value})}
+              />
+            </div>
+
+            {/* New Website Field */}
+            <div className="space-y-2">
+              <Label htmlFor="website">Website</Label>
+              <Input
+                id="website"
+                type="url"
+                value={formData.website}
+                onChange={(e) => setFormData({...formData, website: e.target.value})}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={formData.status} 
-                  onValueChange={(value) => setFormData({...formData, status: value})}
-                >
-                  <SelectTrigger id="status">
-                    <SelectValue />
+                <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="PLANNING">Planning</SelectItem>
@@ -121,12 +127,9 @@ export default function NewProjectPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="priority">Priority</Label>
-                <Select 
-                  value={formData.priority} 
-                  onValueChange={(value) => setFormData({...formData, priority: value})}
-                >
-                  <SelectTrigger id="priority">
-                    <SelectValue />
+                <Select value={formData.priority} onValueChange={(value) => setFormData({...formData, priority: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="LOW">Low</SelectItem>

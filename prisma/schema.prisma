@@ -63,7 +63,7 @@ model Project {
   name        String
   description String?       @db.Text
   projectGoal String?       @db.Text
-  website     String?       // New field for the project website
+  website     String?
   status      ProjectStatus @default(PLANNING)
   priority    Priority      @default(MEDIUM)
   startDate   DateTime?

@@ -17,25 +17,44 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Home, Briefcase, Users, FileText, Settings, LogOut } from "lucide-react";
-// The .tsx extension has been removed from the import path below
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
 
-// This new component renders the actual layout. It's a child of the provider,
-// so it can safely call the useLayoutPreference hook.
 function LayoutRenderer({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
-  const { isRightHanded } = useLayoutPreference(); // This call is now safe
+  const { isRightHanded } = useLayoutPreference();
+  const { setOpen } = useSidebar(); 
 
   return (
     <div className={cn("flex h-screen w-full", { "flex-row-reverse": isRightHanded })}>
-      <Sidebar>
+      <Sidebar className="hidden md:flex">
         <SidebarItems />
       </Sidebar>
+
       <div className="flex-1 flex flex-col min-w-0">
         <header className={cn("border-b px-4 py-3 flex items-center gap-4", { "flex-row-reverse": isRightHanded })}>
-          <SidebarTrigger />
+          {/* MOBILE-ONLY TRIGGER (uses Sheet) */}
+          <div className="md:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <SidebarTrigger />
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[260px] p-0">
+                <Sidebar isMobileSheet={true}>
+                  <SidebarItems isMobileSheet={true} />
+                </Sidebar>
+              </SheetContent>
+            </Sheet>
+          </div>
+          
+          {/* DESKTOP-ONLY TRIGGER (collapses/expands) */}
+          <SidebarTrigger 
+            className="hidden md:flex" 
+            onClick={() => setOpen((prev) => !prev)}
+          />
+
           <h1 className="text-xl font-semibold">
             {session?.user?.name || session?.user?.email}
           </h1>
@@ -50,17 +69,10 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// This component has been updated to handle right-handed alignment more explicitly.
-function SidebarItems() {
+function SidebarItems({ isMobileSheet = false }: { isMobileSheet?: boolean }) {
   const pathname = usePathname();
-  const { open, setOpen, isMobile } = useSidebar();
-  const { isRightHanded } = useLayoutPreference(); // Get the layout preference
-
-  const handleNavigation = () => {
-    if (isMobile) {
-      setOpen(false);
-    }
-  };
+  const { open } = useSidebar();
+  const { isRightHanded } = useLayoutPreference();
 
   const menuItems = [
     { icon: Home, label: "Dashboard", href: "/dashboard" },
@@ -70,21 +82,22 @@ function SidebarItems() {
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
   ];
 
+  const showText = isMobileSheet || open;
+
   return (
     <>
       <SidebarHeader>
-        <div className="flex justify-center">
-          {open && (
-            <Link href="/dashboard">
-              <Image
-                src="/media/icon-96x96.png"
-                alt="Company Logo"
-                width={48}
-                height={48}
-                priority
-              />
-            </Link>
-          )}
+        <div className="flex justify-center items-center p-2">
+          <Link href="/dashboard">
+            <Image
+              src="/media/icon-96x96.png"
+              alt="Company Logo"
+              width={showText ? 48 : 32}
+              height={showText ? 48 : 32}
+              priority
+              className="transition-all"
+            />
+          </Link>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -95,19 +108,17 @@ function SidebarItems() {
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === item.href}
-                  onClick={handleNavigation}
                 >
-                  {/* Conditionally render order and apply right-alignment */}
                   <Link href={item.href} className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}>
                     {isRightHanded ? (
                       <>
-                        {open && <span className="truncate">{item.label}</span>}
+                        {showText && <span className="truncate">{item.label}</span>}
                         <item.icon className="h-4 w-4 flex-shrink-0" />
                       </>
                     ) : (
                       <>
                         <item.icon className="h-4 w-4 flex-shrink-0" />
-                        {open && <span className="truncate">{item.label}</span>}
+                        {showText && <span className="truncate">{item.label}</span>}
                       </>
                     )}
                   </Link>
@@ -119,17 +130,16 @@ function SidebarItems() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenuItem>
-          {/* Apply conditional rendering to the logout button */}
           <SidebarMenuButton onClick={() => signOut()} className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}>
             {isRightHanded ? (
               <>
-                {open && <span>Logout</span>}
+                {showText && <span>Logout</span>}
                 <LogOut className="h-4 w-4 flex-shrink-0" />
               </>
             ) : (
               <>
                 <LogOut className="h-4 w-4 flex-shrink-0" />
-                {open && <span>Logout</span>}
+                {showText && <span>Logout</span>}
               </>
             )}
           </SidebarMenuButton>
@@ -139,8 +149,6 @@ function SidebarItems() {
   );
 }
 
-
-// This is the main export for the layout file
 export default function DashboardLayout({
   children,
 }: {
@@ -160,8 +168,6 @@ export default function DashboardLayout({
     redirect("/auth/signin");
   }
 
-  // We wrap the entire layout in the LayoutPreferenceProvider.
-  // This makes the context available to all child components, including LayoutRenderer.
   return (
     <LayoutPreferenceProvider>
       <SidebarProvider>

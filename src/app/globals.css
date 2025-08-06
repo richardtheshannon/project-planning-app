@@ -55,16 +55,12 @@
   }
   body {
     @apply bg-background text-foreground;
-    @apply font-body; /* 1. Set Roboto as the default body font */
+    /* The default body font (Montserrat) is already applied via `font-sans` in layout.tsx */
+    /* The line `@apply font-body;` has been removed to fix the error. */
   }
 
-  /* 2. Apply specific fonts to headings */
-  h1, h2, h3 {
-    @apply font-primary; /* Playfair Display */
-  }
-
-  /* 3. Apply secondary font to h4, h5, h6. The .font-secondary utility class is still available from tailwind.config.js */
-  h4, h5, h6 {
-    @apply font-secondary; /* Montserrat */
+  /* CORRECTED: Apply the default serif font (Playfair Display) to all heading levels */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
   }
 }

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Menu } from "lucide-react"
 
 interface SidebarContextProps {
@@ -31,7 +31,7 @@ interface SidebarProviderProps {
 
 export function SidebarProvider({
   children,
-  defaultOpen = true,
+  defaultOpen = false,
   open: openProp,
   onOpenChange,
 }: SidebarProviderProps) {
@@ -54,9 +54,10 @@ export function SidebarProvider({
 
   React.useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
+      const isMobileNow = window.innerWidth < 768;
+      setIsMobile(isMobileNow);
     }
-    checkMobile()
+    checkMobile();
     window.addEventListener("resize", checkMobile)
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
@@ -68,47 +69,32 @@ export function SidebarProvider({
   )
 }
 
+// UPDATED: Added isMobileSheet to the props
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   side?: "left" | "right"
   variant?: "default" | "floating"
-  collapsible?: "offcanvas" | "none"
+  isMobileSheet?: boolean;
 }
 
 export function Sidebar({
   side = "left",
   variant = "default",
-  collapsible = "offcanvas",
   className,
   children,
+  isMobileSheet = false, // Destructure the new prop
   ...props
 }: SidebarProps) {
-  const { open, setOpen, isMobile } = useSidebar()
+  const { open } = useSidebar()
 
-  if (isMobile && collapsible === "offcanvas") {
-    return (
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side={side}
-          className={cn(
-            "w-[260px] p-0 [&>button]:hidden",
-            className
-          )}
-        >
-          <div className="flex h-full flex-col">
-            {children}
-          </div>
-        </SheetContent>
-      </Sheet>
-    )
-  }
+  // UPDATED: The condition for width now also checks if it's the mobile sheet
+  const isOpen = open || isMobileSheet;
 
   return (
     <aside
-      data-state={open ? "open" : "closed"}
+      data-state={isOpen ? "open" : "closed"}
       className={cn(
         "relative flex h-full flex-col bg-background transition-all duration-300",
-        // Use explicit widths for clarity
-        open ? "w-[260px]" : "w-[60px]",
+        isOpen ? "w-[260px]" : "w-[60px]", // Use the new isOpen variable
         variant === "floating" && "m-4 rounded-lg border shadow-sm",
         side === "right" && "order-last",
         className
@@ -120,40 +106,35 @@ export function Sidebar({
   )
 }
 
-export function SidebarTrigger({
-  className,
-  onClick,
-  ...props
-}: React.ComponentProps<typeof Button>) {
-  const { setOpen } = useSidebar()
-
+export const SidebarTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<typeof Button>
+>(({ className, ...props }, ref) => {
   return (
     <Button
+      ref={ref}
       variant="ghost"
       size="icon"
       className={cn("h-9 w-9", className)}
-      onClick={(e) => {
-        onClick?.(e)
-        setOpen((prev) => !prev)
-      }}
       {...props}
     >
       <Menu className="h-4 w-4" />
       <span className="sr-only">Toggle sidebar</span>
     </Button>
   )
-}
+})
+SidebarTrigger.displayName = "SidebarTrigger"
+
 
 export function SidebarHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  const { open } = useSidebar(); // Get the state
+  const { open } = useSidebar();
   return (
     <div
       className={cn(
         "flex flex-col gap-2",
-        // Conditionally change padding
         open ? "p-4" : "p-2",
         className
       )}
@@ -166,12 +147,11 @@ export function SidebarContent({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  const { open } = useSidebar(); // Get the state
+  const { open } = useSidebar();
   return (
     <div
       className={cn(
         "flex flex-1 flex-col gap-2 overflow-auto",
-        // Conditionally change padding
         open ? "p-4" : "p-2",
         className
       )}
@@ -184,12 +164,11 @@ export function SidebarFooter({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  const { open } = useSidebar(); // Get the state
+  const { open } = useSidebar();
   return (
     <div
       className={cn(
         "flex flex-col gap-2",
-        // Conditionally change padding
         open ? "p-4" : "p-2",
         className
       )}

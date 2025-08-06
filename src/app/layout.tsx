@@ -1,37 +1,28 @@
 // src/app/layout.tsx
 
 import type { Metadata } from "next";
-import { Playfair_Display, Montserrat, Roboto, Roboto_Mono } from "next/font/google";
+// UPDATED: Import Nunito and remove Playfair_Display and Montserrat
+import { Roboto, Nunito } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
-// Font configurations remain the same
-const playfairDisplay = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair-display",
-  display: 'swap',
-});
-
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  variable: "--font-montserrat",
-  display: 'swap',
-});
-
+// UPDATED: Configure Roboto for titles (serif)
 const roboto = Roboto({
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "700", "900"], // Added 900 for bolder titles
   variable: "--font-roboto",
   display: 'swap',
 });
 
-const robotoMono = Roboto_Mono({
+// NEW: Configure Nunito for paragraphs (sans)
+const nunito = Nunito({
   subsets: ["latin"],
-  variable: "--font-roboto-mono",
+  variable: "--font-nunito",
   display: 'swap',
 });
+
 
 export const metadata: Metadata = {
   title: "Project Planning App",
@@ -48,14 +39,12 @@ export default function RootLayout({
       <body
         className={cn(
           "h-full flex flex-col bg-background font-sans antialiased",
-          playfairDisplay.variable,
-          montserrat.variable,
+          // UPDATED: Pass the new font variables to the body
           roboto.variable,
-          robotoMono.variable
+          nunito.variable
         )}
       >
         <Providers>
-            {/* The main content area now uses `children`, which will be a layout component */}
             {children}
             <Toaster />
         </Providers>

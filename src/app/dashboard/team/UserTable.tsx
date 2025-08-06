@@ -1,3 +1,5 @@
+// src/app/dashboard/team/UserTable.tsx
+
 "use client";
 
 import { useState } from 'react';
@@ -7,18 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from '@/components/ui/card';
 import { UserActions } from './UserActions';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Eye } from 'lucide-react';
-// The Avatar components are no longer needed here
-// import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import AddUserForm from './AddUserForm'; // Import the new form component
+import { Toaster } from 'react-hot-toast'; // Import the Toaster for notifications
 
 // Define the User type to match the data passed from the server component
 type User = {
@@ -38,7 +30,7 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
     // This function is called when an admin toggles the switch
     const handleToggleActive = async (userId: string, newStatus: boolean) => {
         // Optimistic update
-        const originalUsers = users;
+        const originalUsers = [...users];
         setUsers(currentUsers =>
             currentUsers.map(user =>
                 user.id === userId ? { ...user, isActive: newStatus } : user
@@ -65,22 +57,24 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
         }
     };
 
-    const handleUserUpdate = () => {
-        // We'll refetch the data to ensure the UI is in sync with the database.
-        // This is a simple but effective way to handle updates without complex state management.
+    // This function will be called from both UserActions and AddUserForm.
+    // It forces a page reload to fetch the latest user data.
+    const handleDataUpdate = () => {
         window.location.reload();
     };
 
     const handleUserDelete = (deletedUserId: string) => {
-        // Filter out the deleted user from the state
+        // Filter out the deleted user from the state to provide immediate UI feedback.
         setUsers(currentUsers => currentUsers.filter(user => user.id !== deletedUserId));
-        // A full page reload is not strictly necessary here, but we can do it for consistency
     };
 
     const isAdmin = session?.user?.role === 'ADMIN';
 
     return (
         <>
+            {/* The Toaster component is required for react-hot-toast to display notifications */}
+            <div><Toaster position="top-center" reverseOrder={false} /></div>
+
             <Card>
                 <CardContent className="p-0">
                     <Table>
@@ -97,7 +91,6 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
                         <TableBody>
                             {users.map((user) => (
                                 <TableRow key={user.id}>
-                                    {/* The Avatar component has been removed from this cell */}
                                     <TableCell className="font-medium">
                                         {user.name}
                                     </TableCell>
@@ -114,7 +107,6 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
                                     </TableCell>
                                     {isAdmin && (
                                         <TableCell className="text-right">
-                                            {/* Prevent an admin from disabling their own account */}
                                             <Switch
                                                 checked={user.isActive}
                                                 onCheckedChange={(newStatus) => handleToggleActive(user.id, newStatus)}
@@ -126,7 +118,7 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
                                         <TableCell className="text-right">
                                             <UserActions
                                                 user={user}
-                                                onUserUpdated={handleUserUpdate}
+                                                onUserUpdated={handleDataUpdate}
                                                 onUserDeleted={() => handleUserDelete(user.id)}
                                             />
                                         </TableCell>
@@ -137,6 +129,11 @@ export default function UserTable({ users: initialUsers }: { users: User[] }) {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Render the AddUserForm below the table if the user is an admin */}
+            {isAdmin && (
+                <AddUserForm onUserAdded={handleDataUpdate} />
+            )}
         </>
     );
 }
