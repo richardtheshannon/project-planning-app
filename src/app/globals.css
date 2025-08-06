@@ -55,12 +55,43 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* The default body font (Montserrat) is already applied via `font-sans` in layout.tsx */
-    /* The line `@apply font-body;` has been removed to fix the error. */
   }
 
-  /* CORRECTED: Apply the default serif font (Playfair Display) to all heading levels */
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
+  }
+
+  /* Styles for the responsive table on mobile */
+  @media (max-width: 767px) {
+    .responsive-table thead {
+      @apply hidden;
+    }
+
+    .responsive-table tbody,
+    .responsive-table tr {
+      @apply block;
+    }
+
+
+    .responsive-table tr {
+      @apply mb-4 border rounded-lg p-2;
+    }
+
+    .responsive-table td {
+      @apply block text-right p-2 border-b-0;
+      position: relative;
+      padding-left: 50%;
+    }
+
+    .responsive-table td::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 0;
+      width: 45%;
+      padding-left: 0.5rem; /* Corresponds to p-2 */
+      font-weight: 600; /* Corresponds to font-semibold */
+      text-align: left;
+      @apply text-muted-foreground;
+    }
   }
 }

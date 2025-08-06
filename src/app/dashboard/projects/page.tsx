@@ -192,7 +192,8 @@ export default function ProjectsPage() {
 
       {viewMode === 'table' ? (
         <Card>
-          <Table>
+          {/* This className connects the table to the styles in globals.css */}
+          <Table className="responsive-table">
             <TableHeader>
               <TableRow>
                 <SortableHeader sortKey="name">Project Name</SortableHeader>
@@ -206,16 +207,17 @@ export default function ProjectsPage() {
             <TableBody>
               {sortedProjects.map((project) => (
                 <TableRow key={project.id}>
-                  <TableCell className="font-medium">
+                  {/* The data-label attributes provide the labels for the mobile view */}
+                  <TableCell data-label="Project Name" className="font-medium">
                     <Link href={`/dashboard/projects/${project.id}`} className="hover:underline">
                       {project.name}
                     </Link>
                   </TableCell>
-                  <TableCell>{getStatusBadge(project.status)}</TableCell>
-                  <TableCell>{getPriorityBadge(project.priority)}</TableCell>
-                  <TableCell>{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</TableCell>
-                  <TableCell>0</TableCell>
-                  <TableCell>0</TableCell>
+                  <TableCell data-label="Status">{getStatusBadge(project.status)}</TableCell>
+                  <TableCell data-label="Priority">{getPriorityBadge(project.priority)}</TableCell>
+                  <TableCell data-label="Due Date">{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</TableCell>
+                  <TableCell data-label="Tasks">0</TableCell>
+                  <TableCell data-label="Members">0</TableCell>
                 </TableRow>
               ))}
             </TableBody>

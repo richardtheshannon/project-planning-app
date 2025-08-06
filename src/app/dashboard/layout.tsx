@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useSession, signOut } from "next-auth/react";
 import { redirect, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -17,7 +18,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Home, Briefcase, Users, FileText, Settings, LogOut } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
@@ -27,29 +28,34 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   const { isRightHanded } = useLayoutPreference();
   const { setOpen } = useSidebar(); 
 
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = React.useState(false);
+
   return (
     <div className={cn("flex h-screen w-full", { "flex-row-reverse": isRightHanded })}>
       <Sidebar className="hidden md:flex">
-        <SidebarItems />
+        <SidebarItems onLinkClick={() => {}} />
       </Sidebar>
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className={cn("border-b px-4 py-3 flex items-center gap-4", { "flex-row-reverse": isRightHanded })}>
-          {/* MOBILE-ONLY TRIGGER (uses Sheet) */}
           <div className="md:hidden">
-            <Sheet>
+            <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
                 <SidebarTrigger />
               </SheetTrigger>
               <SheetContent side="left" className="w-[260px] p-0">
+                {/* KEY CHANGE: Added accessible title and description */}
+                <SheetTitle className="sr-only">Mobile Navigation Menu</SheetTitle>
+                <SheetDescription className="sr-only">
+                  A list of links to navigate through the application sections.
+                </SheetDescription>
                 <Sidebar isMobileSheet={true}>
-                  <SidebarItems isMobileSheet={true} />
+                  <SidebarItems isMobileSheet={true} onLinkClick={() => setIsMobileSheetOpen(false)} />
                 </Sidebar>
               </SheetContent>
             </Sheet>
           </div>
           
-          {/* DESKTOP-ONLY TRIGGER (collapses/expands) */}
           <SidebarTrigger 
             className="hidden md:flex" 
             onClick={() => setOpen((prev) => !prev)}
@@ -69,7 +75,13 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SidebarItems({ isMobileSheet = false }: { isMobileSheet?: boolean }) {
+function SidebarItems({ 
+  isMobileSheet = false,
+  onLinkClick,
+}: { 
+  isMobileSheet?: boolean;
+  onLinkClick?: () => void;
+}) {
   const pathname = usePathname();
   const { open } = useSidebar();
   const { isRightHanded } = useLayoutPreference();
@@ -88,7 +100,7 @@ function SidebarItems({ isMobileSheet = false }: { isMobileSheet?: boolean }) {
     <>
       <SidebarHeader>
         <div className="flex justify-center items-center p-2">
-          <Link href="/dashboard">
+          <Link href="/dashboard" onClick={onLinkClick}>
             <Image
               src="/media/icon-96x96.png"
               alt="Company Logo"
@@ -109,7 +121,11 @@ function SidebarItems({ isMobileSheet = false }: { isMobileSheet?: boolean }) {
                   asChild
                   isActive={pathname === item.href}
                 >
-                  <Link href={item.href} className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}>
+                  <Link 
+                    href={item.href} 
+                    className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}
+                    onClick={onLinkClick}
+                  >
                     {isRightHanded ? (
                       <>
                         {showText && <span className="truncate">{item.label}</span>}
@@ -130,7 +146,13 @@ function SidebarItems({ isMobileSheet = false }: { isMobileSheet?: boolean }) {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => signOut()} className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}>
+          <SidebarMenuButton 
+            onClick={() => {
+              signOut();
+              if (onLinkClick) onLinkClick();
+            }} 
+            className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}
+          >
             {isRightHanded ? (
               <>
                 {showText && <span>Logout</span>}

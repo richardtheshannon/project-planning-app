@@ -53,7 +53,8 @@ import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
 import { UploadFileDialog } from "@/components/projects/UploadFileDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Download, Trash, Pencil, Link2 } from "lucide-react";
+// COLLAPSIBLE: Import ChevronDown icon for the expand/collapse indicator
+import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Download, Trash, Pencil, Link2, ChevronDown } from "lucide-react";
 import { TimelineSection } from "@/components/projects/TimelineSection";
 
 // Import the shared ProjectFile type
@@ -114,6 +115,9 @@ interface Project {
 type SortKey = 'status' | 'priority' | 'dueDate';
 type SortDirection = 'asc' | 'desc';
 
+// COLLAPSIBLE: Define a type for the names of our collapsible sections
+type CollapsibleSectionName = 'projectInfo' | 'timelineInfo' | 'timelineEvents' | 'tasks' | 'contacts' | 'files';
+
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -125,6 +129,16 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+
+  // COLLAPSIBLE: State to manage which sections are open. All are closed initially.
+  const [openSections, setOpenSections] = useState<Record<CollapsibleSectionName, boolean>>({
+    projectInfo: false,
+    timelineInfo: false,
+    timelineEvents: false,
+    tasks: true, // LAYOUT: Set tasks to be open by default
+    contacts: false,
+    files: false,
+  });
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
@@ -150,10 +164,7 @@ export default function ProjectDetailPage() {
     priority: "MEDIUM",
   });
 
-  // --- FIX START ---
-  // Get the base URL from environment variables. Fallback to an empty string.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-  // --- FIX END ---
 
   useEffect(() => {
     if (projectId) {
@@ -187,6 +198,33 @@ export default function ProjectDetailPage() {
       setLoading(false);
     }
   };
+
+  // COLLAPSIBLE: Function to toggle a section's open/closed state
+  const toggleSection = (sectionName: CollapsibleSectionName) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }));
+  };
+
+  // ACTION BUTTON: Updated header to accept an 'action' prop for buttons
+  const CollapsibleHeader = ({ sectionName, title, action }: { sectionName: CollapsibleSectionName, title: string, action?: React.ReactNode }) => (
+    <div className="flex items-center justify-between w-full">
+        <div 
+            className="flex items-center gap-3 cursor-pointer flex-grow"
+            onClick={() => toggleSection(sectionName)}
+        >
+            <h3 className="text-xl font-semibold">
+                {title}
+            </h3>
+            <ChevronDown
+                size={24}
+                className={`text-muted-foreground transition-transform duration-300 ${openSections[sectionName] ? 'rotate-180' : ''}`}
+            />
+        </div>
+        {action && <div className="ml-4 flex-shrink-0">{action}</div>}
+    </div>
+  );
 
   const handleContactAdded = (newContact: Contact) => {
     setProject(p => p ? { ...p, contacts: [...p.contacts, newContact] } : null);
@@ -371,209 +409,260 @@ export default function ProjectDetailPage() {
   if (error || !project) return <div className="text-red-600 p-4"> {error || "Project not found"} <Link href="/dashboard/projects"><Button>Back</Button></Link></div>;
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">{project.name}</h1>
-          <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Description</h2>
-          <p className="text-muted-foreground mt-1 max-w-prose">{project.description || "No description provided."}</p>
-
-          <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Goal</h2>
-          <p className="text-muted-foreground mt-1 max-w-prose">{project.projectGoal || "No goal defined."}</p>
-
-          <div className="flex items-center gap-2 mt-4">
-            <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
-            <Badge className={getPriorityColor(project.priority)}>{project.priority}</Badge>
-          </div>
-        </div>
-        <div className="flex gap-2 flex-shrink-0">
-          <Link href="/dashboard/projects"><Button variant="outline">Back to Projects</Button></Link>
-          {isOwner && <Button onClick={handleEditProjectClick}><Pencil size={16} className="mr-2" />Edit Project</Button>}
-          {isOwner && <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}><Trash2 size={16} className="mr-2" />Delete Project</Button>}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><User size={20} />Project Information</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div><Label>Owner</Label><p className="text-sm text-muted-foreground">{project.owner.name || project.owner.email}</p></div>
-            {project.website && (
-              <div>
-                <Label>Website</Label>
-                <a href={project.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1.5">
-                  <Link2 size={14} />
-                  <span className="truncate">{project.website}</span>
-                </a>
-              </div>
-            )}
-            <div><Label>Contacts</Label><p className="text-sm text-muted-foreground">{project.contacts.length} contact(s)</p></div>
-            <div><Label>Created</Label><p className="text-sm text-muted-foreground">{new Date(project.createdAt).toLocaleDateString()}</p></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Calendar size={20} />Timeline</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div><Label>Start Date</Label><p className="text-sm text-muted-foreground">{project.startDate ? new Date(project.startDate).toLocaleDateString() : "Not set"}</p></div>
-            <div><Label>End Date</Label><p className="text-sm text-muted-foreground">{project.endDate ? new Date(project.endDate).toLocaleDateString() : "Not set"}</p></div>
-            <div><Label>Last Updated</Label><p className="text-sm text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString()}</p></div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card><CardHeader><CardTitle>Tasks</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.tasks.length}</div><Button className="mt-4 w-full" size="sm" onClick={() => setShowCreateTaskDialog(true)}>New Task</Button></CardContent></Card>
-        <Card><CardHeader><CardTitle>Project Contacts</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.contacts.length}</div><div className="mt-4"><AddContactDialog projectId={project.id} onContactAdded={handleContactAdded} /></div></CardContent></Card>
-        <Card><CardHeader><CardTitle>Files</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.files.length}</div><div className="mt-4"><UploadFileDialog projectId={project.id} onFileUploaded={handleFileUploaded} /></div></CardContent></Card>
-      </div>
-
-      <TimelineSection projectId={project.id} isOwner={isOwner} />
-
-      <div className="my-8">
-        <h3 className="text-xl font-semibold mb-4">Tasks</h3>
-        {project.tasks.length > 0 ? (
+    // LAYOUT: Use a div for the dialogs so they are not affected by the grid layout
+    <div>
+      {/* LAYOUT: Main grid for the two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4 md:p-6">
+        
+        {/* LAYOUT: Left column (2/3 width) */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* LAYOUT UPDATE: Project details now live at the top of the left column */}
           <div>
-            <div className="md:hidden space-y-4">
-              {sortedTasks.map(task => (
-                <Card key={task.id} className="relative">
-                  <CardContent className="p-4 space-y-2" onClick={() => handleEditTaskClick(task)}>
-                    <div className="font-bold">{task.title}</div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Status</span>
-                      <Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge>
+            <h1 className="text-3xl font-bold">{project.name}</h1>
+            <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Description</h2>
+            <p className="text-muted-foreground mt-1 max-w-prose">{project.description || "No description provided."}</p>
+
+            <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Goal</h2>
+            <p className="text-muted-foreground mt-1 max-w-prose">{project.projectGoal || "No goal defined."}</p>
+
+            <div className="flex items-center gap-2 mt-4">
+              <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
+              <Badge className={getPriorityColor(project.priority)}>{project.priority}</Badge>
+            </div>
+
+            {/* ACTION BUTTON: Mobile-only button container */}
+            <div className="flex flex-col gap-2 mt-4 lg:hidden">
+              <Link href="/dashboard/projects"><Button variant="outline" className="w-full">Back to Projects</Button></Link>
+              {isOwner && <Button onClick={handleEditProjectClick} className="w-full"><Pencil size={16} className="mr-2" />Edit Project</Button>}
+              {isOwner && <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} className="w-full"><Trash2 size={16} className="mr-2" />Delete Project</Button>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CollapsibleHeader sectionName="projectInfo" title="Project Information" />
+              </CardHeader>
+              {openSections.projectInfo && (
+                <CardContent className="space-y-4 pt-2">
+                  <div><Label>Owner</Label><p className="text-sm text-muted-foreground">{project.owner.name || project.owner.email}</p></div>
+                  {project.website && (
+                    <div>
+                      <Label>Website</Label>
+                      <a href={project.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1.5">
+                        <Link2 size={14} />
+                        <span className="truncate">{project.website}</span>
+                      </a>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Priority</span>
-                       <Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge>
-                    </div>
-                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Due Date</span>
-                      <span className="text-sm">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</span>
-                    </div>
-                  </CardContent>
-                  {isOwner && (
-                    <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}>
-                      <Trash size={16} className="text-destructive" />
-                    </Button>
                   )}
-                </Card>
-              ))}
-            </div>
-            <div className="hidden md:block">
-              <Card>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <SortableHeader sortKey="status">Status</SortableHeader>
-                      <SortableHeader sortKey="priority">Priority</SortableHeader>
-                      <SortableHeader sortKey="dueDate">Due Date</SortableHeader>
-                      {isOwner && <TableHead className="text-right">Actions</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedTasks.map(task => (
-                      <TableRow key={task.id} >
-                        <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer">{task.title}</TableCell>
-                        <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer"><Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge></TableCell>
-                        <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer"><Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge></TableCell>
-                        <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</TableCell>
-                        {isOwner && (
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}>
-                              <Trash size={16} className="text-destructive" />
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            </div>
+                  <div><Label>Contacts</Label><p className="text-sm text-muted-foreground">{project.contacts.length} contact(s)</p></div>
+                  <div><Label>Created</Label><p className="text-sm text-muted-foreground">{new Date(project.createdAt).toLocaleDateString()}</p></div>
+                </CardContent>
+              )}
+            </Card>
+            <Card>
+              <CardHeader>
+                <CollapsibleHeader sectionName="timelineInfo" title="Timeline" />
+              </CardHeader>
+              {openSections.timelineInfo && (
+                <CardContent className="space-y-4 pt-2">
+                  <div><Label>Start Date</Label><p className="text-sm text-muted-foreground">{project.startDate ? new Date(project.startDate).toLocaleDateString() : "Not set"}</p></div>
+                  <div><Label>End Date</Label><p className="text-sm text-muted-foreground">{project.endDate ? new Date(project.endDate).toLocaleDateString() : "Not set"}</p></div>
+                  <div><Label>Last Updated</Label><p className="text-sm text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString()}</p></div>
+                </CardContent>
+              )}
+            </Card>
           </div>
-        ) : <p className="text-center text-muted-foreground py-8">No tasks created yet.</p>}
-      </div>
 
-      <div className="my-8">
-        <h3 className="text-xl font-semibold mb-4">Contacts</h3>
-        {project.contacts.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{project.contacts.map(contact => (<Card key={contact.id} onClick={() => handleEditContactClick(contact)} className="cursor-pointer hover:bg-muted/50"><CardContent className="pt-6 flex items-center space-x-4"><Avatar><AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${contact.name}`} /><AvatarFallback>{contact.name.charAt(0)}</AvatarFallback></Avatar><div><p className="font-semibold">{contact.name}</p><p className="text-sm text-muted-foreground flex items-center"><Mail size={16} className="mr-2" />{contact.email || 'No email'}</p></div></CardContent></Card>))}</div> : <p className="text-center text-muted-foreground py-8">No contacts added yet.</p>}
-      </div>
+          <Card>
+            <CardHeader>
+              <CollapsibleHeader sectionName="timelineEvents" title="Timeline Events" />
+            </CardHeader>
+            {openSections.timelineEvents && (
+              <CardContent>
+                <TimelineSection projectId={project.id} isOwner={isOwner} />
+              </CardContent>
+            )}
+          </Card>
 
-      <div className="my-8">
-        <h3 className="text-xl font-semibold mb-4">Files</h3>
-        {project.files.length > 0 ? (
-           <div>
-            <div className="md:hidden space-y-4">
-              {project.files.map(file => {
-                // --- FIX START ---
-                const fileUrl = `${appUrl}/${file.path}`;
-                // --- FIX END ---
-                return (
-                  <Card key={file.id}>
-                    <CardContent className="p-4 space-y-3">
-                       <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
-                          <FileIcon size={16} />{file.originalName}
-                        </a>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Size:</span>
-                          <span>{formatFileSize(file.size)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Added:</span>
-                          <span>{new Date(file.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex justify-end gap-2 pt-2">
-                          <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
-                          <a href={fileUrl} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
-                        </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+          <Card>
+            <CardHeader>
+              {/* ACTION BUTTON: Added action prop to pass in the AddContactDialog */}
+              <CollapsibleHeader 
+                sectionName="contacts" 
+                title={`Contacts (${project.contacts.length})`}
+                action={isOwner ? <AddContactDialog projectId={project.id} onContactAdded={handleContactAdded} /> : undefined}
+              />
+            </CardHeader>
+            {openSections.contacts && (
+              <CardContent>
+                {project.contacts.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{project.contacts.map(contact => (<Card key={contact.id} onClick={() => handleEditContactClick(contact)} className="cursor-pointer hover:bg-muted/50"><CardContent className="pt-6 flex items-center space-x-4"><Avatar><AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${contact.name}`} /><AvatarFallback>{contact.name.charAt(0)}</AvatarFallback></Avatar><div><p className="font-semibold">{contact.name}</p><p className="text-sm text-muted-foreground flex items-center"><Mail size={16} className="mr-2" />{contact.email || 'No email'}</p></div></CardContent></Card>))}</div> : <p className="text-center text-muted-foreground py-8">No contacts added yet.</p>}
+              </CardContent>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader>
+              {/* ACTION BUTTON: Added action prop to pass in the UploadFileDialog */}
+              <CollapsibleHeader 
+                sectionName="files" 
+                title={`Files (${project.files.length})`}
+                action={isOwner ? <UploadFileDialog projectId={project.id} onFileUploaded={handleFileUploaded} /> : undefined}
+              />
+            </CardHeader>
+            {openSections.files && (
+              <CardContent>
+                {project.files.length > 0 ? (
+                  <div>
+                    <div className="md:hidden space-y-4">
+                      {project.files.map(file => {
+                        const fileUrl = `${appUrl}/${file.path}`;
+                        return (
+                          <Card key={file.id}>
+                            <CardContent className="p-4 space-y-3">
+                              <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
+                                <FileIcon size={16} />{file.originalName}
+                              </a>
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Size:</span>
+                                <span>{formatFileSize(file.size)}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Added:</span>
+                                <span>{new Date(file.createdAt).toLocaleDateString()}</span>
+                              </div>
+                              <div className="flex justify-end gap-2 pt-2">
+                                <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
+                                <a href={fileUrl} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                    <div className="hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Size</TableHead>
+                            <TableHead>Date Added</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {project.files.map(file => {
+                            const fileUrl = `${appUrl}/${file.path}`;
+                            return (
+                              <TableRow key={file.id}>
+                                <TableCell>
+                                  <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
+                                    <FileIcon size={16} />{file.originalName}
+                                  </a>
+                                </TableCell>
+                                <TableCell>{formatFileSize(file.size)}</TableCell>
+                                <TableCell>{new Date(file.createdAt).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
+                                  <a href={fileUrl} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : <p className="text-center text-muted-foreground py-8">No files uploaded yet.</p>}
+              </CardContent>
+            )}
+          </Card>
+        </div>
+
+        {/* LAYOUT: Right column (1/3 width) */}
+        {/* STICKY: Added classes to make this column sticky on large screens */}
+        <div className="lg:col-span-1 space-y-8 lg:sticky lg:top-6 lg:self-start">
+            {/* ACTION BUTTON: Desktop-only button container */}
+            <div className="hidden lg:flex gap-2 flex-shrink-0">
+              <Link href="/dashboard/projects"><Button variant="outline">Back to Projects</Button></Link>
+              {isOwner && <Button onClick={handleEditProjectClick}><Pencil size={16} className="mr-2" />Edit</Button>}
+              {isOwner && <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}><Trash2 size={16} className="mr-2" />Delete</Button>}
             </div>
 
-            <div className="hidden md:block">
-              <Card>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Date Added</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {project.files.map(file => {
-                      // --- FIX START ---
-                      const fileUrl = `${appUrl}/${file.path}`;
-                      // --- FIX END ---
-                      return (
-                        <TableRow key={file.id}>
-                          <TableCell>
-                            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
-                              <FileIcon size={16} />{file.originalName}
-                            </a>
-                          </TableCell>
-                          <TableCell>{formatFileSize(file.size)}</TableCell>
-                          <TableCell>{new Date(file.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
-                            <a href={fileUrl} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </Card>
-            </div>
-          </div>
-        ) : <p className="text-center text-muted-foreground py-8">No files uploaded yet.</p>}
+            <Card><CardHeader><CardTitle>Tasks</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.tasks.length}</div><Button className="mt-4 w-full" size="sm" onClick={() => setShowCreateTaskDialog(true)}>New Task</Button></CardContent></Card>
+            <Card>
+                <CardHeader>
+                <CollapsibleHeader sectionName="tasks" title="Task List" />
+                </CardHeader>
+                {openSections.tasks && (
+                <CardContent>
+                    {project.tasks.length > 0 ? (
+                    <div>
+                        <div className="md:hidden space-y-4">
+                        {sortedTasks.map(task => (
+                            <Card key={task.id} className="relative">
+                            <CardContent className="p-4 space-y-2" onClick={() => handleEditTaskClick(task)}>
+                                <div className="font-bold">{task.title}</div>
+                                <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">Status</span>
+                                <Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">Priority</span>
+                                <Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">Due Date</span>
+                                <span className="text-sm">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</span>
+                                </div>
+                            </CardContent>
+                            {isOwner && (
+                                <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}>
+                                <Trash size={16} className="text-destructive" />
+                                </Button>
+                            )}
+                            </Card>
+                        ))}
+                        </div>
+                        <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                            <TableRow>
+                                <TableHead>Title</TableHead>
+                                <SortableHeader sortKey="status">Status</SortableHeader>
+                                <SortableHeader sortKey="priority">Priority</SortableHeader>
+                                <SortableHeader sortKey="dueDate">Due Date</SortableHeader>
+                                {isOwner && <TableHead className="text-right">Actions</TableHead>}
+                            </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                            {sortedTasks.map(task => (
+                                <TableRow key={task.id} >
+                                <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer">{task.title}</TableCell>
+                                <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer"><Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge></TableCell>
+                                <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer"><Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge></TableCell>
+                                <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</TableCell>
+                                {isOwner && (
+                                    <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}>
+                                        <Trash size={16} className="text-destructive" />
+                                    </Button>
+                                    </TableCell>
+                                )}
+                                </TableRow>
+                            ))}
+                            </TableBody>
+                        </Table>
+                        </div>
+                    </div>
+                    ) : <p className="text-center text-muted-foreground py-8">No tasks created yet.</p>}
+                </CardContent>
+                )}
+            </Card>
+        </div>
       </div>
 
-      {/* --- DIALOGS & MODALS --- */}
+      {/* --- DIALOGS & MODALS (No changes needed here) --- */}
       <AlertDialog open={!!taskToDelete} onOpenChange={() => setTaskToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

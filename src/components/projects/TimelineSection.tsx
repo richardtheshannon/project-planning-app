@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -204,55 +205,87 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
             </Button>
         )}
       </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50px]">Status</TableHead>
-              <SortableHeader sortKey="eventDate">Date</SortableHeader>
-              <TableHead>Event</TableHead>
-              <SortableHeader sortKey="isCompleted">Completed</SortableHeader>
-              {isOwner && <TableHead className="text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedEvents.length > 0 ? (
-              sortedEvents.map((event) => (
-                <TableRow key={event.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={event.isCompleted}
-                      onCheckedChange={() => isOwner && toggleComplete(event)}
-                      disabled={!isOwner}
-                    />
-                  </TableCell>
-                  <TableCell>{new Date(event.eventDate).toLocaleDateString()}</TableCell>
-                  <TableCell className="font-medium">{event.title}</TableCell>
-                  <TableCell>
-                    {event.isCompleted ? <Badge variant="secondary">Completed</Badge> : <Badge variant="outline">Pending</Badge>}
-                  </TableCell>
-                  {isOwner && (
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(event)}>
-                        <Pencil size={16} />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)}>
-                        <Trash2 size={16} className="text-red-500" />
-                      </Button>
-                    </TableCell>
-                  )}
+      
+      {sortedEvents.length > 0 ? (
+        <div>
+          {/* --- KEY CHANGE: Mobile Card View --- */}
+          {/* This view is only visible on screens smaller than the 'md' breakpoint */}
+          <div className="md:hidden space-y-4">
+            {sortedEvents.map((event) => (
+              <Card key={event.id} className="relative">
+                <CardContent className="p-4 space-y-2" onClick={() => isOwner && handleOpenDialog(event)}>
+                  <div className="font-bold">{event.title}</div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Date</span>
+                    <span className="text-sm">{new Date(event.eventDate).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <Badge variant={event.isCompleted ? "secondary" : "outline"}>
+                      {event.isCompleted ? "Completed" : "Pending"}
+                    </Badge>
+                  </div>
+                </CardContent>
+                {isOwner && (
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEventToDelete(event); }}>
+                      <Trash2 size={16} className="text-destructive" />
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+
+          {/* --- KEY CHANGE: Desktop Table View --- */}
+          {/* This view is hidden on screens smaller than 'md' and visible on 'md' and larger */}
+          <div className="hidden md:block rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">Status</TableHead>
+                  <SortableHeader sortKey="eventDate">Date</SortableHeader>
+                  <TableHead>Event</TableHead>
+                  <SortableHeader sortKey="isCompleted">Completed</SortableHeader>
+                  {isOwner && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={isOwner ? 5 : 4} className="h-24 text-center">
-                  No timeline events yet.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {sortedEvents.map((event) => (
+                  <TableRow key={event.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={event.isCompleted}
+                        onCheckedChange={() => isOwner && toggleComplete(event)}
+                        disabled={!isOwner}
+                      />
+                    </TableCell>
+                    <TableCell>{new Date(event.eventDate).toLocaleDateString()}</TableCell>
+                    <TableCell className="font-medium">{event.title}</TableCell>
+                    <TableCell>
+                      {event.isCompleted ? <Badge variant="secondary">Completed</Badge> : <Badge variant="outline">Pending</Badge>}
+                    </TableCell>
+                    {isOwner && (
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(event)}>
+                          <Pencil size={16} />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)}>
+                          <Trash2 size={16} className="text-red-500" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center text-muted-foreground py-8 border rounded-md">
+          No timeline events yet.
+        </div>
+      )}
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
