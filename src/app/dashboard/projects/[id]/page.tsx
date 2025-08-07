@@ -116,7 +116,7 @@ type SortKey = 'status' | 'priority' | 'dueDate';
 type SortDirection = 'asc' | 'desc';
 
 // COLLAPSIBLE: Define a type for the names of our collapsible sections
-type CollapsibleSectionName = 'projectInfo' | 'timelineInfo' | 'timelineEvents' | 'tasks' | 'contacts' | 'files';
+type CollapsibleSectionName = 'projectDetails' | 'timelineEvents' | 'tasks' | 'contacts' | 'files';
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -132,8 +132,7 @@ export default function ProjectDetailPage() {
 
   // COLLAPSIBLE: State to manage which sections are open. All are closed initially.
   const [openSections, setOpenSections] = useState<Record<CollapsibleSectionName, boolean>>({
-    projectInfo: false,
-    timelineInfo: false,
+    projectDetails: false,
     timelineEvents: false,
     tasks: true, // LAYOUT: Set tasks to be open by default
     contacts: false,
@@ -330,6 +329,10 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleDeleteTaskInitiated = (task: Task) => {
+    setTaskToDelete(task);
+  };
+
   const handleEditContactClick = (contact: Contact) => {
     setSelectedContact(contact);
     setIsEditContactDialogOpen(true);
@@ -412,18 +415,18 @@ export default function ProjectDetailPage() {
     // LAYOUT: Use a div for the dialogs so they are not affected by the grid layout
     <div>
       {/* LAYOUT: Main grid for the two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4 md:p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 p-4 md:p-6">
         
-        {/* LAYOUT: Left column (2/3 width) */}
-        <div className="lg:col-span-2 space-y-8">
+        {/* LAYOUT: Left column (3/5 width) */}
+        <div className="lg:col-span-3 space-y-8">
           {/* LAYOUT UPDATE: Project details now live at the top of the left column */}
           <div>
             <h1 className="text-3xl font-bold">{project.name}</h1>
             <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Description</h2>
-            <p className="text-muted-foreground mt-1 max-w-prose">{project.description || "No description provided."}</p>
+            <p className="text-muted-foreground mt-1">{project.description || "No description provided."}</p>
 
             <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Goal</h2>
-            <p className="text-muted-foreground mt-1 max-w-prose">{project.projectGoal || "No goal defined."}</p>
+            <p className="text-muted-foreground mt-1">{project.projectGoal || "No goal defined."}</p>
 
             <div className="flex items-center gap-2 mt-4">
               <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
@@ -438,13 +441,13 @@ export default function ProjectDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CollapsibleHeader sectionName="projectInfo" title="Project Information" />
-              </CardHeader>
-              {openSections.projectInfo && (
-                <CardContent className="space-y-4 pt-2">
+          <Card>
+            <CardHeader>
+              <CollapsibleHeader sectionName="projectDetails" title="Project Details" />
+            </CardHeader>
+            {openSections.projectDetails && (
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div className="space-y-4">
                   <div><Label>Owner</Label><p className="text-sm text-muted-foreground">{project.owner.name || project.owner.email}</p></div>
                   {project.website && (
                     <div>
@@ -457,22 +460,15 @@ export default function ProjectDetailPage() {
                   )}
                   <div><Label>Contacts</Label><p className="text-sm text-muted-foreground">{project.contacts.length} contact(s)</p></div>
                   <div><Label>Created</Label><p className="text-sm text-muted-foreground">{new Date(project.createdAt).toLocaleDateString()}</p></div>
-                </CardContent>
-              )}
-            </Card>
-            <Card>
-              <CardHeader>
-                <CollapsibleHeader sectionName="timelineInfo" title="Timeline" />
-              </CardHeader>
-              {openSections.timelineInfo && (
-                <CardContent className="space-y-4 pt-2">
+                </div>
+                <div className="space-y-4">
                   <div><Label>Start Date</Label><p className="text-sm text-muted-foreground">{project.startDate ? new Date(project.startDate).toLocaleDateString() : "Not set"}</p></div>
                   <div><Label>End Date</Label><p className="text-sm text-muted-foreground">{project.endDate ? new Date(project.endDate).toLocaleDateString() : "Not set"}</p></div>
                   <div><Label>Last Updated</Label><p className="text-sm text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString()}</p></div>
-                </CardContent>
-              )}
-            </Card>
-          </div>
+                </div>
+              </CardContent>
+            )}
+          </Card>
 
           <Card>
             <CardHeader>
@@ -579,9 +575,9 @@ export default function ProjectDetailPage() {
           </Card>
         </div>
 
-        {/* LAYOUT: Right column (1/3 width) */}
+        {/* LAYOUT: Right column (2/5 width) */}
         {/* STICKY: Added classes to make this column sticky on large screens */}
-        <div className="lg:col-span-1 space-y-8 lg:sticky lg:top-6 lg:self-start">
+        <div className="lg:col-span-2 space-y-8 lg:sticky lg:top-6 lg:self-start">
             {/* ACTION BUTTON: Desktop-only button container */}
             <div className="hidden lg:flex gap-2 flex-shrink-0">
               <Link href="/dashboard/projects"><Button variant="outline">Back to Projects</Button></Link>
@@ -600,8 +596,8 @@ export default function ProjectDetailPage() {
                     <div>
                         <div className="md:hidden space-y-4">
                         {sortedTasks.map(task => (
-                            <Card key={task.id} className="relative">
-                            <CardContent className="p-4 space-y-2" onClick={() => handleEditTaskClick(task)}>
+                            <Card key={task.id} className="relative" onClick={() => handleEditTaskClick(task)}>
+                            <CardContent className="p-4 space-y-2">
                                 <div className="font-bold">{task.title}</div>
                                 <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Status</span>
@@ -616,11 +612,6 @@ export default function ProjectDetailPage() {
                                 <span className="text-sm">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</span>
                                 </div>
                             </CardContent>
-                            {isOwner && (
-                                <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}>
-                                <Trash size={16} className="text-destructive" />
-                                </Button>
-                            )}
                             </Card>
                         ))}
                         </div>
@@ -632,23 +623,15 @@ export default function ProjectDetailPage() {
                                 <SortableHeader sortKey="status">Status</SortableHeader>
                                 <SortableHeader sortKey="priority">Priority</SortableHeader>
                                 <SortableHeader sortKey="dueDate">Due Date</SortableHeader>
-                                {isOwner && <TableHead className="text-right">Actions</TableHead>}
                             </TableRow>
                             </TableHeader>
                             <TableBody>
                             {sortedTasks.map(task => (
-                                <TableRow key={task.id} >
-                                <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer">{task.title}</TableCell>
-                                <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer"><Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge></TableCell>
-                                <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer"><Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge></TableCell>
-                                <TableCell onClick={() => handleEditTaskClick(task)} className="cursor-pointer">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</TableCell>
-                                {isOwner && (
-                                    <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}>
-                                        <Trash size={16} className="text-destructive" />
-                                    </Button>
-                                    </TableCell>
-                                )}
+                                <TableRow key={task.id} onClick={() => handleEditTaskClick(task)} className="cursor-pointer">
+                                <TableCell>{task.title}</TableCell>
+                                <TableCell><Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge></TableCell>
+                                <TableCell><Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge></TableCell>
+                                <TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</TableCell>
                                 </TableRow>
                             ))}
                             </TableBody>
@@ -680,7 +663,13 @@ export default function ProjectDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <EditTaskDialog task={selectedTask} isOpen={isEditTaskDialogOpen} onOpenChange={setIsEditTaskDialogOpen} onTaskUpdated={handleTaskUpdated} />
+      <EditTaskDialog 
+        task={selectedTask} 
+        isOpen={isEditTaskDialogOpen} 
+        onOpenChange={setIsEditTaskDialogOpen} 
+        onTaskUpdated={handleTaskUpdated}
+        onTaskDeleted={handleDeleteTaskInitiated}
+      />
       <EditContactDialog contact={selectedContact} isOpen={isEditContactDialogOpen} onOpenChange={setIsEditContactDialogOpen} onContactUpdated={handleContactUpdated} />
 
       <AlertDialog open={!!fileToDelete} onOpenChange={() => setFileToDelete(null)}>

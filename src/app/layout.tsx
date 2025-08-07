@@ -36,6 +36,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full">
+      <head>
+        <meta name="theme-color" content="#333333" />
+        <link rel="manifest" href="/manifest.json" />
+      </head>
       <body
         className={cn(
           "h-full flex flex-col bg-background font-sans antialiased",

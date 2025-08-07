@@ -22,8 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
+import { Trash2 } from 'lucide-react';
 
-// Step 1: Removed assignee from the Task interface
 interface Task {
   id: string;
   title: string;
@@ -38,9 +38,10 @@ interface EditTaskDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onTaskUpdated: (updatedTask: Task) => void;
+  onTaskDeleted: (task: Task) => void; // Add this prop
 }
 
-export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated }: EditTaskDialogProps) {
+export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated, onTaskDeleted }: EditTaskDialogProps) {
   const [editedTask, setEditedTask] = useState(task);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -66,7 +67,6 @@ export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated }: Ed
       const response = await fetch(`/api/tasks/${editedTask.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        // Step 2: Removed assigneeId from the submitted data
         body: JSON.stringify(editedTask),
       });
 
@@ -94,6 +94,12 @@ export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated }: Ed
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeleteClick = () => {
+    if (!task) return;
+    onTaskDeleted(task);
+    onOpenChange(false); // Close the edit dialog
   };
 
   if (!editedTask) {
@@ -155,7 +161,6 @@ export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated }: Ed
               </SelectContent>
             </Select>
           </div>
-          {/* Step 3: Removed the Assignee select input from the form */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="dueDate" className="text-right">
               Due Date
@@ -163,11 +168,17 @@ export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated }: Ed
             <Input id="dueDate" type="date" value={editedTask.dueDate ? new Date(editedTask.dueDate).toISOString().split('T')[0] : ''} onChange={handleInputChange} className="col-span-3" />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Save Changes'}
-          </Button>
+        <DialogFooter className="sm:justify-between">
+            <Button variant="destructive" onClick={handleDeleteClick}>
+                <Trash2 size={16} className="mr-2" />
+                Delete Task
+            </Button>
+            <div className="flex gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button onClick={handleSubmit} disabled={isLoading}>
+                    {isLoading ? 'Saving...' : 'Save Changes'}
+                </Button>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

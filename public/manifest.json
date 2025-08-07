@@ -1,0 +1,19 @@
+{
+  "name": "Project Planning App",
+  "short_name": "ProjectApp",
+  "icons": [
+    {
+      "src": "/media/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/media/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#333333",
+  "background_color": "#333333",
+  "display": "standalone"
+}
