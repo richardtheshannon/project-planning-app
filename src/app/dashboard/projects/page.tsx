@@ -161,90 +161,94 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-3xl font-bold">Projects</h1>
           <p className="text-muted-foreground">Manage and track all your projects</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col items-stretch md:items-end gap-4">
           <Input
             placeholder="Search projects..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-64"
+            className="w-full md:w-64"
           />
-          <div className="flex items-center gap-2">
-            <Button variant={viewMode === 'table' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('table')}>
-              <List className="h-4 w-4" />
-            </Button>
-            <Button variant={viewMode === 'card' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('card')}>
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center justify-between md:justify-end gap-2">
+            {/* REVISED: This container for the toggle buttons is now hidden on mobile */}
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant={viewMode === 'table' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('table')}>
+                <List className="h-4 w-4" />
+              </Button>
+              <Button variant={viewMode === 'card' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('card')}>
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
+            <Link href="/dashboard/projects/new">
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create New Project
+              </Button>
+            </Link>
           </div>
-          <Link href="/dashboard/projects/new">
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create New Project
-            </Button>
-          </Link>
         </div>
       </div>
 
-      {viewMode === 'table' ? (
+      {/* REVISED: Conditionally rendering table for desktop and cards for mobile */}
+      {/* Table View: Shown only on medium screens and up when viewMode is 'table' */}
+      <div className={viewMode === 'table' ? 'hidden md:block' : 'hidden'}>
         <Card>
-          {/* This className connects the table to the styles in globals.css */}
-          <Table className="responsive-table">
-            <TableHeader>
-              <TableRow>
-                <SortableHeader sortKey="name">Project Name</SortableHeader>
-                <SortableHeader sortKey="status">Status</SortableHeader>
-                <SortableHeader sortKey="priority">Priority</SortableHeader>
-                <SortableHeader sortKey="endDate">Due Date</SortableHeader>
-                <TableHead>Tasks</TableHead>
-                <TableHead>Members</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedProjects.map((project) => (
-                <TableRow key={project.id}>
-                  {/* The data-label attributes provide the labels for the mobile view */}
-                  <TableCell data-label="Project Name" className="font-medium">
-                    <Link href={`/dashboard/projects/${project.id}`} className="hover:underline">
-                      {project.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell data-label="Status">{getStatusBadge(project.status)}</TableCell>
-                  <TableCell data-label="Priority">{getPriorityBadge(project.priority)}</TableCell>
-                  <TableCell data-label="Due Date">{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</TableCell>
-                  <TableCell data-label="Tasks">0</TableCell>
-                  <TableCell data-label="Members">0</TableCell>
+            <Table className="w-full">
+                <TableHeader>
+                <TableRow>
+                    <SortableHeader sortKey="name">Project Name</SortableHeader>
+                    <SortableHeader sortKey="status">Status</SortableHeader>
+                    <SortableHeader sortKey="priority">Priority</SortableHeader>
+                    <SortableHeader sortKey="endDate">Due Date</SortableHeader>
+                    <TableHead>Tasks</TableHead>
+                    <TableHead>Members</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {sortedProjects.map((project) => (
+                    <TableRow key={project.id}>
+                    <TableCell className="font-medium break-all">
+                        <Link href={`/dashboard/projects/${project.id}`} className="hover:underline">
+                        {project.name}
+                        </Link>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(project.status)}</TableCell>
+                    <TableCell>{getPriorityBadge(project.priority)}</TableCell>
+                    <TableCell>{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell>0</TableCell>
+                    <TableCell>0</TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
         </Card>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {sortedProjects.map((project) => (
-            <Card key={project.id}>
-              <CardHeader>
-                <CardTitle>
-                  <Link href={`/dashboard/projects/${project.id}`} className="hover:underline">
-                    {project.name}
-                  </Link>
-                </CardTitle>
-                <CardDescription>{project.description?.substring(0, 100)}...</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center text-sm text-muted-foreground">
-                    {getStatusBadge(project.status)}
-                    {getPriorityBadge(project.priority)}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      </div>
+
+      {/* Card View: Shown on mobile always, or on desktop when viewMode is 'card' */}
+      <div className={viewMode === 'card' ? 'grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid md:hidden gap-6'}>
+        {sortedProjects.map((project) => (
+        <Card key={project.id}>
+            <CardHeader>
+            <CardTitle>
+                <Link href={`/dashboard/projects/${project.id}`} className="hover:underline">
+                {project.name}
+                </Link>
+            </CardTitle>
+            <CardDescription>{project.description?.substring(0, 100)}...</CardDescription>
+            </CardHeader>
+            <CardContent>
+            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                {getStatusBadge(project.status)}
+                {getPriorityBadge(project.priority)}
+            </div>
+            </CardContent>
+        </Card>
+        ))}
+      </div>
     </div>
   )
 }

@@ -53,7 +53,6 @@ import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
 import { UploadFileDialog } from "@/components/projects/UploadFileDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// COLLAPSIBLE: Import ChevronDown icon for the expand/collapse indicator
 import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Download, Trash, Pencil, Link2, ChevronDown } from "lucide-react";
 import { TimelineSection } from "@/components/projects/TimelineSection";
 
@@ -85,7 +84,7 @@ interface Project {
   name: string;
   description: string | null;
   projectGoal: string | null;
-  website: string | null; // Added website field
+  website: string | null;
   status: string;
   priority: string;
   startDate: string | null;
@@ -115,7 +114,6 @@ interface Project {
 type SortKey = 'status' | 'priority' | 'dueDate';
 type SortDirection = 'asc' | 'desc';
 
-// COLLAPSIBLE: Define a type for the names of our collapsible sections
 type CollapsibleSectionName = 'projectDetails' | 'timelineEvents' | 'tasks' | 'contacts' | 'files';
 
 export default function ProjectDetailPage() {
@@ -130,11 +128,10 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
 
-  // COLLAPSIBLE: State to manage which sections are open. All are closed initially.
   const [openSections, setOpenSections] = useState<Record<CollapsibleSectionName, boolean>>({
     projectDetails: false,
     timelineEvents: false,
-    tasks: true, // LAYOUT: Set tasks to be open by default
+    tasks: true,
     contacts: false,
     files: false,
   });
@@ -198,7 +195,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // COLLAPSIBLE: Function to toggle a section's open/closed state
   const toggleSection = (sectionName: CollapsibleSectionName) => {
     setOpenSections(prev => ({
       ...prev,
@@ -206,9 +202,9 @@ export default function ProjectDetailPage() {
     }));
   };
 
-  // ACTION BUTTON: Updated header to accept an 'action' prop for buttons
+  // REVISED: The header component is now responsive.
   const CollapsibleHeader = ({ sectionName, title, action }: { sectionName: CollapsibleSectionName, title: string, action?: React.ReactNode }) => (
-    <div className="flex items-center justify-between w-full">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full gap-4 md:gap-0">
         <div 
             className="flex items-center gap-3 cursor-pointer flex-grow"
             onClick={() => toggleSection(sectionName)}
@@ -221,7 +217,7 @@ export default function ProjectDetailPage() {
                 className={`text-muted-foreground transition-transform duration-300 ${openSections[sectionName] ? 'rotate-180' : ''}`}
             />
         </div>
-        {action && <div className="ml-4 flex-shrink-0">{action}</div>}
+        {action && <div className="w-full md:w-auto md:ml-4 flex-shrink-0">{action}</div>}
     </div>
   );
 
@@ -268,7 +264,7 @@ export default function ProjectDetailPage() {
         name: project.name,
         description: project.description,
         projectGoal: project.projectGoal,
-        website: project.website, // Add website to edit state
+        website: project.website,
         status: project.status,
         priority: project.priority,
         startDate: project.startDate ? project.startDate.split('T')[0] : '',
@@ -412,14 +408,10 @@ export default function ProjectDetailPage() {
   if (error || !project) return <div className="text-red-600 p-4"> {error || "Project not found"} <Link href="/dashboard/projects"><Button>Back</Button></Link></div>;
 
   return (
-    // LAYOUT: Use a div for the dialogs so they are not affected by the grid layout
     <div>
-      {/* LAYOUT: Main grid for the two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 p-4 md:p-6">
         
-        {/* LAYOUT: Left column (3/5 width) */}
         <div className="lg:col-span-3 space-y-8">
-          {/* LAYOUT UPDATE: Project details now live at the top of the left column */}
           <div>
             <h1 className="text-3xl font-bold">{project.name}</h1>
             <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Description</h2>
@@ -433,7 +425,6 @@ export default function ProjectDetailPage() {
               <Badge className={getPriorityColor(project.priority)}>{project.priority}</Badge>
             </div>
 
-            {/* ACTION BUTTON: Mobile-only button container */}
             <div className="flex flex-col gap-2 mt-4 lg:hidden">
               <Link href="/dashboard/projects"><Button variant="outline" className="w-full">Back to Projects</Button></Link>
               {isOwner && <Button onClick={handleEditProjectClick} className="w-full"><Pencil size={16} className="mr-2" />Edit Project</Button>}
@@ -483,7 +474,6 @@ export default function ProjectDetailPage() {
 
           <Card>
             <CardHeader>
-              {/* ACTION BUTTON: Added action prop to pass in the AddContactDialog */}
               <CollapsibleHeader 
                 sectionName="contacts" 
                 title={`Contacts (${project.contacts.length})`}
@@ -499,7 +489,6 @@ export default function ProjectDetailPage() {
 
           <Card>
             <CardHeader>
-              {/* ACTION BUTTON: Added action prop to pass in the UploadFileDialog */}
               <CollapsibleHeader 
                 sectionName="files" 
                 title={`Files (${project.files.length})`}
@@ -575,10 +564,7 @@ export default function ProjectDetailPage() {
           </Card>
         </div>
 
-        {/* LAYOUT: Right column (2/5 width) */}
-        {/* STICKY: Added classes to make this column sticky on large screens */}
         <div className="lg:col-span-2 space-y-8 lg:sticky lg:top-6 lg:self-start">
-            {/* ACTION BUTTON: Desktop-only button container */}
             <div className="hidden lg:flex gap-2 flex-shrink-0">
               <Link href="/dashboard/projects"><Button variant="outline">Back to Projects</Button></Link>
               {isOwner && <Button onClick={handleEditProjectClick}><Pencil size={16} className="mr-2" />Edit</Button>}

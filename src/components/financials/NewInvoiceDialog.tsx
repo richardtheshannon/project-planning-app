@@ -4,12 +4,10 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format } from "date-fns";
-import { Calendar as CalendarIcon, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -35,26 +33,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Client, InvoiceStatus } from "@prisma/client";
 
-// CORRECTED: Changed the approach for the 'amount' field to resolve type conflicts.
-// We now validate it as a string and refine it to ensure it's a positive number.
+// REVERTING TO STABLE: Using strings for dates to work with standard HTML5 inputs.
 const formSchema = z.object({
   clientId: z.string().min(1, { message: "Please select a client." }),
   amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
     message: "Amount must be a positive number.",
   }),
   status: z.nativeEnum(InvoiceStatus),
-  issuedDate: z.date(),
-  dueDate: z.date(),
+  issuedDate: z.string().min(1, { message: "Please select an issue date." }),
+  dueDate: z.string().min(1, { message: "Please select a due date." }),
 });
 
-// Define the type for our form values based on the schema
 type InvoiceFormValues = z.infer<typeof formSchema>;
 
 interface NewInvoiceDialogProps {
@@ -71,8 +62,8 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
     clientId: "",
     amount: "",
     status: "DRAFT",
-    issuedDate: undefined,
-    dueDate: undefined,
+    issuedDate: "",
+    dueDate: "",
   };
 
   const form = useForm<InvoiceFormValues>({
@@ -80,7 +71,6 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
     defaultValues: defaultFormValues,
   });
 
-  // Fetch clients when the dialog is opened
   useEffect(() => {
     if (isOpen) {
       const fetchClients = async () => {
@@ -97,15 +87,16 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
     }
   }, [isOpen]);
 
-  // The 'values' parameter is now correctly typed based on our new schema.
   async function onSubmit(values: InvoiceFormValues) {
     setIsSubmitting(true);
     setError(null);
 
-    // Manually parse the amount to a float before sending to the API.
+    // Convert date strings and amount back to correct types for the API
     const payload = {
       ...values,
       amount: parseFloat(values.amount),
+      issuedDate: new Date(values.issuedDate),
+      dueDate: new Date(values.dueDate),
     };
 
     try {
@@ -178,7 +169,6 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
                     <FormItem>
                       <FormLabel>Amount</FormLabel>
                       <FormControl>
-                        {/* The input type is still "number" for the browser UI */}
                         <Input type="number" placeholder="0.00" step="0.01" {...field} />
                       </FormControl>
                       <FormMessage />
@@ -207,82 +197,33 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
                   )}
                 />
             </div>
+            {/* Using standard HTML5 date inputs for stability */}
             <div className="grid grid-cols-2 gap-4">
                 <FormField
-                control={form.control}
-                name="issuedDate"
-                render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Issued Date</FormLabel>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                            )}
-                            >
-                            {field.value ? (
-                                format(field.value, "PPP")
-                            ) : (
-                                <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                        />
-                        </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                    </FormItem>
-                )}
+                    control={form.control}
+                    name="issuedDate"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Issued Date</FormLabel>
+                            <FormControl>
+                                <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
                 />
                 <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Due Date</FormLabel>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                            )}
-                            >
-                            {field.value ? (
-                                format(field.value, "PPP")
-                            ) : (
-                                <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                        />
-                        </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                    </FormItem>
-                )}
+                    control={form.control}
+                    name="dueDate"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Due Date</FormLabel>
+                            <FormControl>
+                                <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
                 />
             </div>
             {error && <p className="text-sm font-medium text-destructive">{error}</p>}
