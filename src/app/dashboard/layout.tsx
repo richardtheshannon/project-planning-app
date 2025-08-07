@@ -19,7 +19,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Home, Briefcase, Users, FileText, Settings, LogOut } from "lucide-react";
+// Import the new icon
+import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
 
@@ -44,7 +45,6 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
                 <SidebarTrigger />
               </SheetTrigger>
               <SheetContent side="left" className="w-[260px] p-0">
-                {/* KEY CHANGE: Added accessible title and description */}
                 <SheetTitle className="sr-only">Mobile Navigation Menu</SheetTitle>
                 <SheetDescription className="sr-only">
                   A list of links to navigate through the application sections.
@@ -86,9 +86,11 @@ function SidebarItems({
   const { open } = useSidebar();
   const { isRightHanded } = useLayoutPreference();
 
+  // Add the new Financials link to the menu
   const menuItems = [
     { icon: Home, label: "Dashboard", href: "/dashboard" },
     { icon: Briefcase, label: "Projects", href: "/dashboard/projects" },
+    { icon: Landmark, label: "Financials", href: "/dashboard/financials" }, // NEW ITEM
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: FileText, label: "Documents", href: "/dashboard/documents" },
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
@@ -119,7 +121,7 @@ function SidebarItems({
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === item.href}
+                  isActive={pathname.startsWith(item.href) && (item.href !== "/dashboard" || pathname === "/dashboard")}
                 >
                   <Link 
                     href={item.href} 

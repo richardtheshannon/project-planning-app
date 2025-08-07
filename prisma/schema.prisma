@@ -30,6 +30,14 @@ model User {
   timeEntries      TimeEntry[]
   createdFiles     File[]
   notifications    Notification[]
+
+  // Financial Relations
+  clients          Client[]
+  invoices         Invoice[]
+  expenses         Expense[]
+  subscriptions    Subscription[]
+  budgets          Budget[]
+  financialDocuments FinancialDocument[]
 }
 
 // User roles
@@ -310,4 +318,93 @@ model FeatureRequest {
   submittedBy String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// --- NEW FINANCIAL MODELS ---
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  userId    String // Foreign key to the User who owns this client
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices  Invoice[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  status        InvoiceStatus @default(DRAFT) // DRAFT, PENDING, PAID, OVERDUE
+  amount        Float
+  issuedDate    DateTime
+  dueDate       DateTime
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id])
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents     FinancialDocument[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  OVERDUE
+}
+
+model Expense {
+  id          String    @id @default(cuid())
+  amount      Float
+  category    String
+  vendor      String?
+  expenseDate DateTime
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents   FinancialDocument[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Subscription {
+  id              String   @id @default(cuid())
+  name            String
+  amount          Float
+  billingCycle    String // e.g., "MONTHLY", "ANNUALLY"
+  nextPaymentDate DateTime
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Budget {
+  id        String   @id @default(cuid())
+  category  String
+  amount    Float
+  month     Int // e.g., 8 for August
+  year      Int // e.g., 2025
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, category, month, year]) // Ensure one budget per category per month
+}
+
+model FinancialDocument {
+  id          String   @id @default(cuid())
+  fileName    String
+  fileUrl     String // URL to the stored file (e.g., on a service like S3 or similar)
+  uploadDate  DateTime @default(now())
+  category    String // "Receipt", "Tax Form", "Contract"
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceId   String?
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+  expenseId   String?
+  expense     Expense? @relation(fields: [expenseId], references: [id])
 }
