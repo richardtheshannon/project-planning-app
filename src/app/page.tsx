@@ -21,8 +21,19 @@ export default function LandingPage() {
       <div className="flex w-full max-w-md flex-col items-center text-center lg:max-w-none">
         
         <div className="mb-8">
+          {/* Light Mode Logo */}
           <Image
+            className="block dark:hidden"
             src="/media/hoiz-logo-title-subtitle-01.png"
+            alt="Salesfield Network Logo"
+            width={400}
+            height={115}
+            priority
+          />
+          {/* Dark Mode Logo */}
+          <Image
+            className="hidden dark:block"
+            src="/media/hoiz-logo-title-subtitle-02.png"
             alt="Salesfield Network Logo"
             width={400}
             height={115}
