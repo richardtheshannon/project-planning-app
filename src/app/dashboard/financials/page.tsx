@@ -5,8 +5,8 @@ import { DollarSign, AlertTriangle, BarChart2, Plus, Upload } from "lucide-react
 export default function FinancialsOverviewPage() {
   return (
     <div className="space-y-8">
-      {/* Section: Quick Actions */}
-      <div className="flex justify-end gap-2">
+      {/* Section: Quick Actions - REVISED FOR RESPONSIVENESS */}
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
         <Button>
           <Plus className="mr-2 h-4 w-4" /> New Invoice
         </Button>

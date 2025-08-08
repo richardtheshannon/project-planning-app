@@ -1,10 +1,8 @@
-// src/app/layout.tsx
-
 import type { Metadata } from "next";
 // UPDATED: Import Nunito and remove Playfair_Display and Montserrat
 import { Roboto, Nunito } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/components/providers";
+import Providers from "./providers"; // Import the new Providers component
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +46,7 @@ export default function RootLayout({
           nunito.variable
         )}
       >
+        {/* Wrap the children with the Providers component to enable session management */}
         <Providers>
             {children}
             <Toaster />

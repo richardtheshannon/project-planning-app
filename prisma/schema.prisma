@@ -322,11 +322,26 @@ model FeatureRequest {
 
 // --- FINANCIAL MODELS ---
 
+enum ContractTerm {
+  ONE_MONTH
+  ONE_TIME
+  THREE_MONTH
+  SIX_MONTH
+  ONE_YEAR
+}
+
 model Client {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?
-  userId    String // Foreign key to the User who owns this client
+  id                String        @id @default(cuid())
+  name              String
+  email             String?
+  website           String?
+  notes             String?       @db.Text
+  contractTerm      ContractTerm  @default(ONE_TIME)
+  contractAmount    Float?
+  contractStartDate DateTime?
+
+  // Relations
+  userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   invoices  Invoice[]
   createdAt DateTime @default(now())
@@ -356,7 +371,6 @@ enum InvoiceStatus {
   OVERDUE
 }
 
-// REVISED EXPENSE MODEL
 model Expense {
   id          String          @id @default(cuid())
   description String
@@ -365,7 +379,7 @@ model Expense {
   date        DateTime
   userId      String
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documents   FinancialDocument[] // This correctly establishes the back-relation
+  documents   FinancialDocument[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
@@ -401,15 +415,15 @@ model Budget {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, category, month, year]) // Ensure one budget per category per month
+  @@unique([userId, category, month, year])
 }
 
 model FinancialDocument {
   id          String   @id @default(cuid())
   fileName    String
-  fileUrl     String // URL to the stored file (e.g., on a service like S3 or similar)
+  fileUrl     String
   uploadDate  DateTime @default(now())
-  category    String // "Receipt", "Tax Form", "Contract"
+  category    String
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   invoiceId   String?
