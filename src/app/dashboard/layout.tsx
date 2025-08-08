@@ -5,8 +5,8 @@ import { useSession, signOut } from "next-auth/react";
 import { redirect, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar-provider"; // UPDATED IMPORT
 import {
-  SidebarProvider,
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -16,10 +16,8 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/sidebar"; // UPDATED IMPORT
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-// Import the new icon
 import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
@@ -58,7 +56,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
           
           <SidebarTrigger 
             className="hidden md:flex" 
-            onClick={() => setOpen((prev) => !prev)}
+            onClick={() => setOpen((prev: boolean) => !prev)}
           />
 
           <h1 className="text-xl font-semibold">
@@ -86,11 +84,10 @@ function SidebarItems({
   const { open } = useSidebar();
   const { isRightHanded } = useLayoutPreference();
 
-  // Add the new Financials link to the menu
   const menuItems = [
     { icon: Home, label: "Dashboard", href: "/dashboard" },
     { icon: Briefcase, label: "Projects", href: "/dashboard/projects" },
-    { icon: Landmark, label: "Financials", href: "/dashboard/financials" }, // NEW ITEM
+    { icon: Landmark, label: "Financials", href: "/dashboard/financials" },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: FileText, label: "Documents", href: "/dashboard/documents" },
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
@@ -194,7 +191,7 @@ export default function DashboardLayout({
 
   return (
     <LayoutPreferenceProvider>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={true}>
         <LayoutRenderer>{children}</LayoutRenderer>
       </SidebarProvider>
     </LayoutPreferenceProvider>

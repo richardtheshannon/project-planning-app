@@ -3,73 +3,11 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Menu } from "lucide-react"
+import { useSidebar } from "./sidebar-provider" // UPDATED IMPORT
 
-interface SidebarContextProps {
-  open: boolean
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>
-  isMobile: boolean
-}
+// The context and provider have been moved to sidebar-provider.tsx
 
-const SidebarContext = React.createContext<SidebarContextProps | undefined>(undefined)
-
-export function useSidebar() {
-  const context = React.useContext(SidebarContext)
-  if (!context) {
-    throw new Error("useSidebar must be used within a SidebarProvider")
-  }
-  return context
-}
-
-interface SidebarProviderProps {
-  children: React.ReactNode
-  defaultOpen?: boolean
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-}
-
-export function SidebarProvider({
-  children,
-  defaultOpen = false,
-  open: openProp,
-  onOpenChange,
-}: SidebarProviderProps) {
-  const [_open, _setOpen] = React.useState(defaultOpen)
-  const [isMobile, setIsMobile] = React.useState(false)
-
-  const open = openProp !== undefined ? openProp : _open
-  
-  const setOpen: React.Dispatch<React.SetStateAction<boolean>> = React.useCallback(
-    (value) => {
-      const newValue = typeof value === "function" ? value(open) : value
-      if (onOpenChange) {
-        onOpenChange(newValue)
-      } else {
-        _setOpen(value)
-      }
-    },
-    [open, onOpenChange]
-  )
-
-  React.useEffect(() => {
-    const checkMobile = () => {
-      const isMobileNow = window.innerWidth < 768;
-      setIsMobile(isMobileNow);
-    }
-    checkMobile();
-    window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [])
-
-  return (
-    <SidebarContext.Provider value={{ open, setOpen, isMobile }}>
-      {children}
-    </SidebarContext.Provider>
-  )
-}
-
-// UPDATED: Added isMobileSheet to the props
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   side?: "left" | "right"
   variant?: "default" | "floating"
@@ -81,12 +19,11 @@ export function Sidebar({
   variant = "default",
   className,
   children,
-  isMobileSheet = false, // Destructure the new prop
+  isMobileSheet = false,
   ...props
 }: SidebarProps) {
   const { open } = useSidebar()
 
-  // UPDATED: The condition for width now also checks if it's the mobile sheet
   const isOpen = open || isMobileSheet;
 
   return (
@@ -94,7 +31,7 @@ export function Sidebar({
       data-state={isOpen ? "open" : "closed"}
       className={cn(
         "relative flex h-full flex-col bg-background transition-all duration-300",
-        isOpen ? "w-[260px]" : "w-[60px]", // Use the new isOpen variable
+        isOpen ? "w-[260px]" : "w-[60px]",
         variant === "floating" && "m-4 rounded-lg border shadow-sm",
         side === "right" && "order-last",
         className
