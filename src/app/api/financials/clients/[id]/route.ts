@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import * as z from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { ContractTerm } from "@prisma/client";
 
 // Zod schema for UPDATING a client.
+// The invalid 'ContractTerm' import has been removed.
 const clientUpdateSchema = z.object({
   name: z.string().min(2, {
     message: "Client name must be at least 2 characters.",
@@ -13,7 +13,9 @@ const clientUpdateSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   contractStartDate: z.coerce.date().optional().nullable(),
-  contractTerm: z.nativeEnum(ContractTerm).optional(),
+  // contractTerm is now validated as a simple string.
+  contractTerm: z.string().optional(),
+  frequency: z.string().optional(),
   contractAmount: z.number().positive("Amount must be a positive number.").optional().nullable(),
   notes: z.string().optional(),
 }).partial();
@@ -41,8 +43,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         // Security check: Ensure the client belongs to the logged-in user.
         userId: session.user.id,
       },
-      // --- CHANGE ---
-      // Include the related invoices in the response.
       include: {
         invoices: {
           orderBy: {

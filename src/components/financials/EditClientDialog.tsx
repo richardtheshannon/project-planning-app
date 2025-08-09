@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/popover";
 import { Edit, Loader2, CalendarIcon } from "lucide-react";
 
+// ADDED: frequency to the form schema
 const formSchema = z.object({
   name: z.string().min(2, {
     message: "Client name must be at least 2 characters.",
@@ -52,6 +53,7 @@ const formSchema = z.object({
   website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   contractStartDate: z.date().optional().nullable(),
   contractTerm: z.string(),
+  frequency: z.string().optional(),
   contractAmount: z.number().positive("Amount must be a positive number.").nullable(),
   notes: z.string().optional(),
 });
@@ -74,6 +76,8 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
       website: client.website || "",
       notes: client.notes || "",
       contractTerm: client.contractTerm || "ONE_TIME",
+      // ADDED: default value for frequency
+      frequency: client.frequency || "One-Time",
       contractAmount: client.contractAmount ?? null,
       contractStartDate: client.contractStartDate ? new Date(client.contractStartDate) : null,
     },
@@ -201,7 +205,8 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
+            {/* UPDATED: Changed to a 3-column grid to accommodate the new field */}
+            <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="contractTerm"
@@ -220,6 +225,31 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
                         <SelectItem value="SIX_MONTH">6 Month</SelectItem>
                         <SelectItem value="ONE_YEAR">1 Year</SelectItem>
                         <SelectItem value="ONE_TIME">One-Time</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {/* ADDED: New FormField for Frequency */}
+              <FormField
+                control={form.control}
+                name="frequency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Frequency</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="One-Time">One-Time</SelectItem>
+                        <SelectItem value="1 Month">1 Month</SelectItem>
+                        <SelectItem value="3 Month">3 Month</SelectItem>
+                        <SelectItem value="6 Month">6 Month</SelectItem>
+                        <SelectItem value="Annually">Annually</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

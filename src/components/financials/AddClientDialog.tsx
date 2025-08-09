@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ContractTerm } from "@prisma/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/popover";
 import { Plus, Loader2, CalendarIcon } from "lucide-react";
 
-// Define the form schema with proper types
+// Define the form schema with the new frequency field
 const formSchema = z.object({
   name: z.string().min(2, {
     message: "Client name must be at least 2 characters.",
@@ -51,7 +51,9 @@ const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   contractStartDate: z.date().optional().nullable(),
-  contractTerm: z.nativeEnum(ContractTerm),
+  // FIXED: Changed from nativeEnum to a simple string
+  contractTerm: z.string(),
+  frequency: z.string().optional(),
   contractAmount: z.number().positive("Amount must be a positive number.").optional().nullable(),
   notes: z.string().optional(),
 });
@@ -73,7 +75,9 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
       email: "",
       website: "",
       notes: "",
-      contractTerm: ContractTerm.ONE_TIME,
+      // FIXED: Use a string for the default value
+      contractTerm: "ONE_TIME",
+      frequency: "One-Time",
       contractAmount: null,
       contractStartDate: null,
     },
@@ -94,13 +98,16 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
         throw new Error(errorData.error || 'Failed to create client');
       }
 
+      toast({ title: "Success", description: "New client has been added." });
       form.reset();
       onClientAdded();
       setIsOpen(false);
     } catch (err) {
       console.error(err);
-      form.setError("root.serverError", {
-        type: err instanceof Error ? err.message : "An unknown error occurred.",
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Could not create client.",
+        variant: "destructive",
       });
     }
   }
@@ -121,7 +128,7 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <FormField<FormData, "name">
+            <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
@@ -137,7 +144,7 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                 </FormItem>
               )}
             />
-            <FormField<FormData, "email">
+            <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
@@ -154,7 +161,7 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                 </FormItem>
               )}
             />
-            <FormField<FormData, "website">
+            <FormField
               control={form.control}
               name="website"
               render={({ field }) => (
@@ -171,7 +178,7 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                 </FormItem>
               )}
             />
-            <FormField<FormData, "contractStartDate">
+            <FormField
               control={form.control}
               name="contractStartDate"
               render={({ field }) => (
@@ -209,8 +216,8 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-                <FormField<FormData, "contractTerm">
+            <div className="grid grid-cols-3 gap-4">
+                <FormField
                     control={form.control}
                     name="contractTerm"
                     render={({ field }) => (
@@ -226,18 +233,43 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    <SelectItem value={ContractTerm.ONE_MONTH}>1 Month</SelectItem>
-                                    <SelectItem value={ContractTerm.THREE_MONTH}>3 Month</SelectItem>
-                                    <SelectItem value={ContractTerm.SIX_MONTH}>6 Month</SelectItem>
-                                    <SelectItem value={ContractTerm.ONE_YEAR}>1 Year</SelectItem>
-                                    <SelectItem value={ContractTerm.ONE_TIME}>One-Time</SelectItem>
+                                    {/* FIXED: Use strings for the values */}
+                                    <SelectItem value="ONE_MONTH">1 Month</SelectItem>
+                                    <SelectItem value="THREE_MONTH">3 Month</SelectItem>
+                                    <SelectItem value="SIX_MONTH">6 Month</SelectItem>
+                                    <SelectItem value="ONE_YEAR">1 Year</SelectItem>
+                                    <SelectItem value="ONE_TIME">One-Time</SelectItem>
                                 </SelectContent>
                             </Select>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
-                 <FormField<FormData, "contractAmount">
+                <FormField
+                  control={form.control}
+                  name="frequency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Frequency</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="One-Time">One-Time</SelectItem>
+                          <SelectItem value="1 Month">1 Month</SelectItem>
+                          <SelectItem value="3 Month">3 Month</SelectItem>
+                          <SelectItem value="6 Month">6 Month</SelectItem>
+                          <SelectItem value="Annually">Annually</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
                   control={form.control}
                   name="contractAmount"
                   render={({ field }) => (
@@ -246,15 +278,13 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                       <FormControl>
                         <Input 
                           type="number" 
-                          placeholder="e.g., 1500" 
-                          name={field.name}
-                          ref={field.ref}
+                          placeholder="e.g., 1500"
+                          {...field}
                           value={field.value ?? ''} 
                           onChange={(e) => {
                             const val = e.target.value;
                             field.onChange(val === '' ? null : parseFloat(val));
                           }}
-                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -262,7 +292,7 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                   )}
                 />
             </div>
-            <FormField<FormData, "notes">
+            <FormField
               control={form.control}
               name="notes"
               render={({ field }) => (
@@ -281,8 +311,6 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
               )}
             />
             
-            {form.formState.errors.root?.serverError && <p className="text-sm font-medium text-destructive">{form.formState.errors.root.serverError.type}</p>}
-
             <DialogFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
