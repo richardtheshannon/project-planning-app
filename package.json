@@ -4,14 +4,14 @@
   "private": true,
   "engines": {
     "node": "18.x",
-    "npm": "9.x"
+    "npm": ">=9.x"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "prisma db push",
+    "db:push": "prisma db push --accept-data-loss",
     "postinstall": "prisma generate"
   },
   "overrides": {
