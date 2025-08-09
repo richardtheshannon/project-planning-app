@@ -5,13 +5,14 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import * as z from "zod";
+import { BillingCycle } from "@prisma/client";
 
-// Zod schema for validating the PATCH request body
+// ✅ STEP 1: Update Zod schema for validation
 const subscriptionUpdateSchema = z.object({
-  name: z.string().min(2, "Name is required.").optional(),
+  name: z.string().min(1, "Name is required.").optional(),
   amount: z.number().positive("Amount must be a positive number.").optional(),
-  billingCycle: z.string().min(1, "Billing cycle is required.").optional(),
-  nextPaymentDate: z.string().datetime("Invalid date format.").optional(),
+  billingCycle: z.nativeEnum(BillingCycle).optional(),
+  dueDate: z.date().optional().nullable(),
 });
 
 /**
@@ -63,18 +64,25 @@ export async function PATCH(
   }
 
   const { id } = params;
-  const body = await request.json();
-
-  const validation = subscriptionUpdateSchema.safeParse(body);
-
-  if (!validation.success) {
-    return NextResponse.json(
-      { error: "Invalid input", issues: validation.error.issues },
-      { status: 400 }
-    );
-  }
-
+  
   try {
+    const body = await request.json();
+
+    // ✅ STEP 2: Parse dueDate string into a Date object if it exists
+    if (body.dueDate) {
+        body.dueDate = new Date(body.dueDate);
+    }
+
+    const validation = subscriptionUpdateSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Invalid input", issues: validation.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    // ✅ STEP 3: Update the subscription with the validated data
     const updatedSubscription = await prisma.subscription.update({
       where: {
         id: id,
@@ -86,6 +94,7 @@ export async function PATCH(
     return NextResponse.json(updatedSubscription);
   } catch (error) {
     console.error("Error updating subscription:", error);
+    // Prisma's error code for a record not found during an update
     if (error instanceof Error && 'code' in error && (error as any).code === 'P2025') {
         return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
     }

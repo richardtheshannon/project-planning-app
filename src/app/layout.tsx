@@ -1,26 +1,25 @@
 import type { Metadata } from "next";
-// UPDATED: Import Nunito and remove Playfair_Display and Montserrat
+// STEP 1: Import both Roboto and Nunito fonts from next/font/google.
 import { Roboto, Nunito } from "next/font/google";
 import "./globals.css";
-import Providers from "./providers"; // Import the new Providers component
+import Providers from "./providers";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
-// UPDATED: Configure Roboto for titles (serif)
+// STEP 2: Configure Roboto for titles. 
+// We assign it the CSS variable '--font-roboto'.
 const roboto = Roboto({
   subsets: ["latin"],
-  weight: ["400", "500", "700", "900"], // Added 900 for bolder titles
+  weight: ["400", "500", "700"],
   variable: "--font-roboto",
-  display: 'swap',
 });
 
-// NEW: Configure Nunito for paragraphs (sans)
+// STEP 3: Configure Nunito for paragraphs.
+// We assign it the CSS variable '--font-nunito'.
 const nunito = Nunito({
   subsets: ["latin"],
   variable: "--font-nunito",
-  display: 'swap',
 });
-
 
 export const metadata: Metadata = {
   title: "Project Planning App",
@@ -39,14 +38,15 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body
+        // STEP 4: Apply both font variables to the body tag.
+        // The 'cn' utility merges our base classes with both new font variables.
+        // 'font-sans' is the default, so Nunito will be the paragraph font.
         className={cn(
           "h-full flex flex-col bg-background font-sans antialiased",
-          // UPDATED: Pass the new font variables to the body
           roboto.variable,
           nunito.variable
         )}
       >
-        {/* Wrap the children with the Providers component to enable session management */}
         <Providers>
             {children}
             <Toaster />

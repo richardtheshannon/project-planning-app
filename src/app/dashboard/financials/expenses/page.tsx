@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { LogExpenseDialog } from "@/components/financials/LogExpenseDialog";
 import { AddSubscriptionDialog } from "@/components/financials/AddSubscriptionDialog";
 import EditExpenseDialog from "@/components/financials/EditExpenseDialog";
-import EditSubscriptionDialog from "@/components/financials/EditSubscriptionDialog"; // Import the subscription dialog
+import EditSubscriptionDialog from "@/components/financials/EditSubscriptionDialog";
 import { Expense, ExpenseCategory, Subscription } from "@prisma/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
@@ -57,7 +57,7 @@ function ExpenseList({ expenses, onExpenseSelect }: { expenses: Expense[], onExp
     );
 }
 
-// CORRECTED: Component to display the list of subscriptions now includes a selection handler
+// Component to display the list of subscriptions
 function SubscriptionList({ subscriptions, onSubscriptionSelect }: { subscriptions: Subscription[], onSubscriptionSelect: (subscription: Subscription) => void }) {
     if (subscriptions.length === 0) {
         return (
@@ -72,7 +72,7 @@ function SubscriptionList({ subscriptions, onSubscriptionSelect }: { subscriptio
                 <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Billing Cycle</TableHead>
-                    <TableHead>Next Payment</TableHead>
+                    {/* STEP 1: Remove the "Next Payment" header */}
                     <TableHead className="text-right">Amount</TableHead>
                 </TableRow>
             </TableHeader>
@@ -83,7 +83,7 @@ function SubscriptionList({ subscriptions, onSubscriptionSelect }: { subscriptio
                         <TableCell>
                             <Badge variant="secondary">{sub.billingCycle}</Badge>
                         </TableCell>
-                        <TableCell>{format(new Date(sub.nextPaymentDate), "MMM d, yyyy")}</TableCell>
+                        {/* STEP 2: Remove the TableCell that tried to format the date */}
                         <TableCell className="text-right">
                             {new Intl.NumberFormat("en-US", {
                                 style: "currency",
@@ -105,27 +105,22 @@ export default function ExpensesPage() {
   const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State for managing the Edit Expense Dialog
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [isExpenseEditDialogOpen, setIsExpenseEditDialogOpen] = useState(false);
 
-  // CORRECTED: State for managing the Edit Subscription Dialog
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [isSubscriptionEditDialogOpen, setIsSubscriptionEditDialogOpen] = useState(false);
 
-  // Handler to open the expense dialog
   const handleExpenseSelect = (expense: Expense) => {
     setSelectedExpense(expense);
     setIsExpenseEditDialogOpen(true);
   };
 
-  // CORRECTED: Handler to open the subscription dialog
   const handleSubscriptionSelect = (subscription: Subscription) => {
     setSelectedSubscription(subscription);
     setIsSubscriptionEditDialogOpen(true);
   };
 
-  // Function to fetch expenses
   const fetchExpenses = useCallback(async () => {
     setIsLoadingExpenses(true);
     try {
@@ -142,7 +137,6 @@ export default function ExpensesPage() {
     }
   }, []);
 
-  // Function to fetch subscriptions
   const fetchSubscriptions = useCallback(async () => {
     setIsLoadingSubscriptions(true);
     try {
@@ -159,7 +153,6 @@ export default function ExpensesPage() {
     }
   }, []);
 
-  // Fetch all data on mount
   useEffect(() => {
     fetchExpenses();
     fetchSubscriptions();
@@ -199,19 +192,16 @@ export default function ExpensesPage() {
         <CardContent>
             {isLoadingSubscriptions && <p className="text-muted-foreground">Loading subscriptions...</p>}
             {error && <p className="text-destructive">{error}</p>}
-            {/* CORRECTED: Pass the selection handler to the SubscriptionList */}
             {!isLoadingSubscriptions && !error && <SubscriptionList subscriptions={subscriptions} onSubscriptionSelect={handleSubscriptionSelect} />}
         </CardContent>
       </Card>
 
-      {/* The Edit Dialogs are now rendered here */}
       <EditExpenseDialog
         expense={selectedExpense}
         isOpen={isExpenseEditDialogOpen}
         onOpenChange={setIsExpenseEditDialogOpen}
         onExpenseUpdated={fetchExpenses}
       />
-      {/* CORRECTED: Render the EditSubscriptionDialog */}
       <EditSubscriptionDialog
         subscription={selectedSubscription}
         isOpen={isSubscriptionEditDialogOpen}

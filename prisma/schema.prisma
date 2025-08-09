@@ -393,16 +393,21 @@ enum ExpenseCategory {
   OTHER
 }
 
+enum BillingCycle {
+  MONTHLY
+  ANNUALLY
+}
+
 model Subscription {
-  id              String   @id @default(cuid())
-  name            String
-  amount          Float
-  billingCycle    String // e.g., "MONTHLY", "ANNUALLY"
-  nextPaymentDate DateTime
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now()) @updatedAt // FIXED: Added default value
+  id           String       @id @default(cuid())
+  name         String
+  amount       Float
+  billingCycle BillingCycle @default(MONTHLY)
+  dueDate      DateTime?    // ✅ ADDED: Optional due date for annual subscriptions
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @default(now()) @updatedAt
 }
 
 model Budget {

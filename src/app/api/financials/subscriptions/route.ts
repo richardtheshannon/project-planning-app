@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, BillingCycle } from '@prisma/client';
+import * as z from 'zod';
 
 const prisma = new PrismaClient();
+
+// ✅ STEP 1: Update Zod schema to include the optional and nullable dueDate
+const subscriptionCreateSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  amount: z.number().positive("Amount must be a positive number"),
+  billingCycle: z.nativeEnum(BillingCycle),
+  dueDate: z.date().optional().nullable(),
+});
 
 // GET /api/financials/subscriptions
 // Fetches all subscriptions for the logged-in user
@@ -23,7 +32,7 @@ export async function GET(request: Request) {
         userId: session.user.id,
       },
       orderBy: {
-        nextPaymentDate: 'asc',
+        createdAt: 'asc',
       },
     });
     return NextResponse.json(subscriptions);
@@ -49,22 +58,32 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { name, amount, billingCycle, nextPaymentDate } = await request.json();
+    const body = await request.json();
+    
+    // The body's date will be a string, so we need to parse it for Zod
+    if (body.dueDate) {
+        body.dueDate = new Date(body.dueDate);
+    }
+    
+    const validation = subscriptionCreateSchema.safeParse(body);
 
-    // Basic validation
-    if (!name || !amount || !billingCycle || !nextPaymentDate) {
-      return new NextResponse(JSON.stringify({ error: 'Missing required fields' }), {
+    if (!validation.success) {
+      return new NextResponse(JSON.stringify({ error: 'Invalid input', details: validation.error.flatten() }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    
+    // ✅ STEP 2: Destructure the new dueDate from the validated data
+    const { name, amount, billingCycle, dueDate } = validation.data;
 
+    // ✅ STEP 3: Add dueDate to the data object for creation
     const newSubscription = await prisma.subscription.create({
       data: {
         name,
-        amount: parseFloat(amount),
+        amount,
         billingCycle,
-        nextPaymentDate: new Date(nextPaymentDate),
+        dueDate, // Add the due date here
         userId: session.user.id,
       },
     });

@@ -91,15 +91,28 @@ export default async function FinancialsOverviewPage() {
     // --- YTD Calculations ---
     const paidInvoicesYTD = allInvoices.filter(inv => inv.status === 'PAID' && isWithinInterval(inv.issuedDate, { start: startDateYTD, end: endDateYTD }));
     totalRevenue = paidInvoicesYTD.reduce((sum, invoice) => sum + invoice.amount, 0);
-    const expensesYTD = allExpenses.filter(exp => isWithinInterval(exp.date, { start: startDateYTD, end: endDateYTD }));
-    totalExpensesYTD = expensesYTD.reduce((sum, expense) => sum + expense.amount, 0);
+    
+    const oneTimeExpensesYTD = allExpenses.filter(exp => isWithinInterval(exp.date, { start: startDateYTD, end: endDateYTD })).reduce((sum, expense) => sum + expense.amount, 0);
+    
     totalSubscriptionsYTD = allSubscriptions.reduce((sum, sub) => {
-      if (sub.billingCycle.toUpperCase() === 'MONTHLY') return sum + (sub.amount * 12);
-      if (sub.billingCycle.toUpperCase() === 'ANNUALLY') return sum + sub.amount;
+      if (sub.billingCycle === 'MONTHLY') return sum + (sub.amount * 12);
+      if (sub.billingCycle === 'ANNUALLY') return sum + sub.amount;
       return sum;
     }, 0);
+
+    totalExpensesYTD = oneTimeExpensesYTD + totalSubscriptionsYTD;
+    
     totalTaxesDue = totalRevenue * 0.20;
-    netIncomeYTD = totalRevenue - totalTaxesDue - totalExpensesYTD - totalSubscriptionsYTD;
+
+    netIncomeYTD = totalRevenue - totalTaxesDue - totalExpensesYTD;
+
+    upcomingPayments = allSubscriptions.reduce((sum, sub) => {
+        if (sub.billingCycle === 'MONTHLY') {
+            return sum + sub.amount;
+        }
+        return sum;
+    }, 0);
+
 
     // --- Monthly Item Filtering ---
     lastMonthInvoices = allInvoices.filter(inv => isWithinInterval(inv.issuedDate, { start: lastMonthStart, end: lastMonthEnd }));
@@ -154,26 +167,25 @@ export default async function FinancialsOverviewPage() {
       }
     });
 
+    // ✅ --- CORRECTED Subscription Calculation Logic ---
     allSubscriptions.forEach(sub => {
-      let paymentDate = new Date(sub.nextPaymentDate);
-      while (paymentDate <= nextMonthEnd) {
-        if (isWithinInterval(paymentDate, { start: lastMonthStart, end: lastMonthEnd })) {
-          lastMonthSubscriptionItems.push(sub);
+        if (sub.billingCycle === 'MONTHLY') {
+            // Monthly subscriptions apply to every month's summary
+            lastMonthSubscriptionItems.push(sub);
+            thisMonthSubscriptionItems.push(sub);
+            nextMonthSubscriptionItems.push(sub);
+        } else if (sub.billingCycle === 'ANNUALLY' && sub.dueDate) {
+            // Annual subscriptions are now checked by their specific due date
+            if (isWithinInterval(sub.dueDate, { start: lastMonthStart, end: lastMonthEnd })) {
+                lastMonthSubscriptionItems.push(sub);
+            }
+            if (isWithinInterval(sub.dueDate, { start: thisMonthStart, end: thisMonthEnd })) {
+                thisMonthSubscriptionItems.push(sub);
+            }
+            if (isWithinInterval(sub.dueDate, { start: nextMonthStart, end: nextMonthEnd })) {
+                nextMonthSubscriptionItems.push(sub);
+            }
         }
-        if (isWithinInterval(paymentDate, { start: thisMonthStart, end: thisMonthEnd })) {
-          thisMonthSubscriptionItems.push(sub);
-        }
-        if (isWithinInterval(paymentDate, { start: nextMonthStart, end: nextMonthEnd })) {
-          nextMonthSubscriptionItems.push(sub);
-        }
-        if (sub.billingCycle.toUpperCase() === 'MONTHLY') {
-          paymentDate = addMonths(paymentDate, 1);
-        } else if (sub.billingCycle.toUpperCase() === 'ANNUALLY') {
-          paymentDate = addMonths(paymentDate, 12);
-        } else {
-          break;
-        }
-      }
     });
     
     lastMonthSubscriptionsTotal = lastMonthSubscriptionItems.reduce((sum, s) => sum + s.amount, 0);
@@ -201,11 +213,11 @@ export default async function FinancialsOverviewPage() {
       {/* YTD Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Revenue (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Based on paid invoices this year.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Expenses (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalExpensesYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Based on logged one-time expenses.</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Expenses (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalExpensesYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Includes one-time expenses & subscriptions.</p></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Subscriptions (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalSubscriptionsYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Based on annualized subscription costs.</p></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Net Income (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{netIncomeYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Revenue minus taxes & all expenses.</p></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Taxes Due (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalTaxesDue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Estimated 20% of total revenue.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Upcoming Payments</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{upcomingPayments.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Subscriptions due in the next 30 days.</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Upcoming Payments</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{upcomingPayments.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Total of all monthly subscriptions.</p></CardContent></Card>
       </div>
 
       {/* Monthly Breakdown Cards */}

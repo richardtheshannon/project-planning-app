@@ -20,9 +20,9 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        // UPDATED: `font-sans` now uses Nunito
+        // STEP 1: Re-establish 'Nunito' as the primary sans-serif font.
         sans: ["var(--font-nunito)", ...fontFamily.sans],
-        // UPDATED: `font-serif` now uses Roboto
+        // STEP 2: Re-establish 'Roboto' as the primary serif font for titles.
         serif: ["var(--font-roboto)", ...fontFamily.serif],
       },
       colors: {

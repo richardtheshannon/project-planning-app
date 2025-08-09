@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus } from "lucide-react";
+import { CalendarIcon, Plus } from "lucide-react";
+import { BillingCycle } from "@prisma/client";
+import { format } from "date-fns";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -26,21 +30,25 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
-// Zod schema for form validation
+// ✅ STEP 1: Update Zod schema to include optional dueDate and use z.number() for amount
 const formSchema = z.object({
   name: z.string().min(1, { message: "Subscription name is required." }),
-  amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-    message: "Amount must be a positive number.",
-  }),
-  billingCycle: z.enum(["MONTHLY", "ANNUALLY"]),
-  nextPaymentDate: z.string().min(1, { message: "Please select a date." }),
+  amount: z.number().min(0.01, "Amount must be a positive number."),
+  billingCycle: z.nativeEnum(BillingCycle),
+  dueDate: z.date().optional(),
 });
 
 type SubscriptionFormValues = z.infer<typeof formSchema>;
@@ -51,29 +59,28 @@ interface AddSubscriptionDialogProps {
 
 export function AddSubscriptionDialog({ onSubscriptionAdded }: AddSubscriptionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const defaultFormValues: Partial<SubscriptionFormValues> = {
-    name: "",
-    amount: "",
-    billingCycle: "MONTHLY",
-    nextPaymentDate: "",
-  };
-
+  // ✅ STEP 2: Update default form values
   const form = useForm<SubscriptionFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultFormValues,
+    defaultValues: {
+      name: "",
+      amount: 0,
+      billingCycle: BillingCycle.MONTHLY,
+      dueDate: undefined,
+    },
   });
 
-  async function onSubmit(values: SubscriptionFormValues) {
-    setIsSubmitting(true);
-    setError(null);
+  // ✅ STEP 3: Watch the billingCycle field
+  const billingCycle = form.watch("billingCycle");
 
+  async function onSubmit(values: FieldValues) {
+    // ✅ STEP 4: Update the payload to handle the new fields
     const payload = {
-      ...values,
+      name: values.name,
       amount: parseFloat(values.amount),
-      nextPaymentDate: new Date(values.nextPaymentDate),
+      billingCycle: values.billingCycle,
+      dueDate: values.billingCycle === BillingCycle.ANNUALLY ? values.dueDate : null,
     };
 
     try {
@@ -88,13 +95,13 @@ export function AddSubscriptionDialog({ onSubscriptionAdded }: AddSubscriptionDi
         throw new Error(errorData.error || 'Failed to add subscription');
       }
 
-      form.reset(defaultFormValues);
+      toast.success("Subscription added successfully!");
+      form.reset();
       onSubscriptionAdded();
       setIsOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unknown error occurred.");
-    } finally {
-      setIsSubmitting(false);
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      toast.error(errorMessage);
     }
   }
 
@@ -127,59 +134,96 @@ export function AddSubscriptionDialog({ onSubscriptionAdded }: AddSubscriptionDi
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="0.00" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="billingCycle"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Billing Cycle</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a cycle" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="MONTHLY">Monthly</SelectItem>
-                        <SelectItem value="ANNUALLY">Annually</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
             <FormField
               control={form.control}
-              name="nextPaymentDate"
+              name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Next Payment Date</FormLabel>
+                  <FormLabel>Amount</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    {/* ✅ STEP 5: Update Input to handle parseFloat */}
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+            <FormField
+              control={form.control}
+              name="billingCycle"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Billing Cycle</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a cycle" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={BillingCycle.MONTHLY}>Monthly</SelectItem>
+                      <SelectItem value={BillingCycle.ANNUALLY}>Annually</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* ✅ STEP 6: Conditionally render the Due Date picker */}
+            {billingCycle === BillingCycle.ANNUALLY && (
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Due Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) =>
+                            date < new Date("1900-01-01")
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
             <DialogFooter>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Subscription"}
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Saving..." : "Save Subscription"}
               </Button>
             </DialogFooter>
           </form>
