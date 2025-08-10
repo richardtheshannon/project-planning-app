@@ -2,7 +2,8 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import type { Invoice, Expense, Subscription, Client, Prisma } from "@prisma/client";
+// Explicitly import ExpenseCategory enum from the Prisma client
+import { type Invoice, type Expense, type Subscription, type Client, type Prisma, ExpenseCategory } from "@prisma/client";
 import { getMonth, getYear, subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 
 // UI component imports
@@ -94,24 +95,24 @@ export default async function FinancialsOverviewPage() {
     
     const oneTimeExpensesYTD = allExpenses.filter(exp => isWithinInterval(exp.date, { start: startDateYTD, end: endDateYTD })).reduce((sum, expense) => sum + expense.amount, 0);
     
+    // This calculation is for the "Subscriptions (YTD)" card and remains correct.
     totalSubscriptionsYTD = allSubscriptions.reduce((sum, sub) => {
       if (sub.billingCycle === 'MONTHLY') return sum + (sub.amount * 12);
       if (sub.billingCycle === 'ANNUALLY') return sum + sub.amount;
       return sum;
     }, 0);
 
+    // This explicitly calculates the total expenses as requested.
     totalExpensesYTD = oneTimeExpensesYTD + totalSubscriptionsYTD;
     
     totalTaxesDue = totalRevenue * 0.20;
 
+    // This calculation for Net Income is correct based on the logic above.
     netIncomeYTD = totalRevenue - totalTaxesDue - totalExpensesYTD;
 
-    upcomingPayments = allSubscriptions.reduce((sum, sub) => {
-        if (sub.billingCycle === 'MONTHLY') {
-            return sum + sub.amount;
-        }
-        return sum;
-    }, 0);
+    // --- UPDATED CALCULATION for Upcoming Payments ---
+    // Now includes both monthly and annual subscriptions.
+    upcomingPayments = allSubscriptions.reduce((sum, sub) => sum + sub.amount, 0);
 
 
     // --- Monthly Item Filtering ---
@@ -167,35 +168,61 @@ export default async function FinancialsOverviewPage() {
       }
     });
 
-    // ✅ --- CORRECTED Subscription Calculation Logic ---
+    // ✅ --- REVISED Subscription Calculation Logic ---
+    // This loop now correctly sorts subscriptions into either the monthly subscription list
+    // or, if they are annual, converts them into a one-time expense for the month they are due.
     allSubscriptions.forEach(sub => {
         if (sub.billingCycle === 'MONTHLY') {
-            // Monthly subscriptions apply to every month's summary
+            // Monthly subscriptions apply to every month's summary under the "Subscriptions" list
             lastMonthSubscriptionItems.push(sub);
             thisMonthSubscriptionItems.push(sub);
             nextMonthSubscriptionItems.push(sub);
         } else if (sub.billingCycle === 'ANNUALLY' && sub.dueDate) {
-            // Annual subscriptions are now checked by their specific due date
+            // Create a synthetic Expense object from the annual subscription
+            // This allows it to be displayed in the "Expenses" list for the month it's due.
+            const syntheticExpense: Expense = {
+                id: `sub-${sub.id}`, // Prefix to avoid key collisions with real expenses
+                description: `${sub.name} (Annual)`,
+                amount: sub.amount,
+                date: sub.dueDate,
+                userId: sub.userId,
+                createdAt: sub.createdAt,
+                updatedAt: sub.updatedAt,
+                // Changed from SUBSCRIPTION to OTHER as it's a valid enum member
+                category: ExpenseCategory.OTHER,
+            };
+
+            // Check which month the annual subscription is due and add it to that month's EXPENSE list
             if (isWithinInterval(sub.dueDate, { start: lastMonthStart, end: lastMonthEnd })) {
-                lastMonthSubscriptionItems.push(sub);
+                lastMonthExpenseItems.push(syntheticExpense);
             }
             if (isWithinInterval(sub.dueDate, { start: thisMonthStart, end: thisMonthEnd })) {
-                thisMonthSubscriptionItems.push(sub);
+                thisMonthExpenseItems.push(syntheticExpense);
             }
             if (isWithinInterval(sub.dueDate, { start: nextMonthStart, end: nextMonthEnd })) {
-                nextMonthSubscriptionItems.push(sub);
+                nextMonthExpenseItems.push(syntheticExpense);
             }
         }
     });
     
+    // --- REVISED Monthly Total Calculations ---
+    // Recalculate monthly expenses now that they include annual subscriptions
+    lastMonthExpenses = lastMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
+    thisMonthExpenses = thisMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
+    nextMonthExpenses = nextMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
+
+    // Calculate subscription totals (this will now only be monthly subscriptions)
     lastMonthSubscriptionsTotal = lastMonthSubscriptionItems.reduce((sum, s) => sum + s.amount, 0);
     thisMonthSubscriptionsTotal = thisMonthSubscriptionItems.reduce((sum, s) => sum + s.amount, 0);
     nextMonthSubscriptionsTotal = nextMonthSubscriptionItems.reduce((sum, s) => sum + s.amount, 0);
 
+    // The final expense total for the card summary is the sum of one-time expenses,
+    // annual subscriptions (now in the expense items), and monthly subscriptions.
     lastMonthExpenses += lastMonthSubscriptionsTotal;
     thisMonthExpenses += thisMonthSubscriptionsTotal;
     nextMonthExpenses += nextMonthSubscriptionsTotal;
 
+    // Calculate Net income
     lastMonthNet = lastMonthIncome - (lastMonthIncome * 0.20) - lastMonthExpenses;
     thisMonthNet = thisMonthIncome - (thisMonthIncome * 0.20) - thisMonthExpenses;
     nextMonthNet = nextMonthIncome - (nextMonthIncome * 0.20) - nextMonthExpenses;
@@ -212,12 +239,12 @@ export default async function FinancialsOverviewPage() {
 
       {/* YTD Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Revenue (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Based on paid invoices this year.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Expenses (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalExpensesYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Includes one-time expenses & subscriptions.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Subscriptions (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalSubscriptionsYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Based on annualized subscription costs.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Net Income (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{netIncomeYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Revenue minus taxes & all expenses.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Taxes Due (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalTaxesDue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Estimated 20% of total revenue.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Upcoming Payments</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{upcomingPayments.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Total of all monthly subscriptions.</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Revenue (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of all invoices with status 'PAID' this year.</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Expenses (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalExpensesYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of one-time expenses, annual subs, & monthly subs x12.</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Subscriptions (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalSubscriptionsYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Annual subscriptions plus monthly subscriptions x12.</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Net Income (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{netIncomeYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Revenue minus taxes & all YTD expenses (incl. annualized subs).</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Taxes Due (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalTaxesDue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Calculated as 20% of the Total Revenue (YTD).</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Upcoming Payments</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{upcomingPayments.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of all monthly and annual subscriptions.</p></CardContent></Card>
       </div>
 
       {/* Monthly Breakdown Cards */}
