@@ -12,32 +12,33 @@ datasource db {
 
 // User model for authentication
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  password  String   @default("placeholder") // FIXED: Added default value
-  avatar    String?
-  role      UserRole @default(USER)
-  isActive  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt // FIXED: Added default value
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  password      String   @default("placeholder") // FIXED: Added default value
+  avatar        String?
+  role          UserRole @default(USER)
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt // FIXED: Added default value
 
   // Relations
-  ownedProjects    Project[]         @relation("ProjectOwner")
-  projectMembers   ProjectMember[]
-  tasks            Task[]
-  comments         Comment[]
-  timeEntries      TimeEntry[]
-  createdFiles     File[]
-  notifications    Notification[]
+  ownedProjects        Project[]            @relation("ProjectOwner") // ✅ FIXED: Added missing relation attribute
+  projectMembers       ProjectMember[]
+  tasks                Task[]
+  comments             Comment[]
+  timeEntries          TimeEntry[]
+  createdFiles         File[]
+  notifications        Notification[]
 
   // Financial Relations
-  clients          Client[]
-  invoices         Invoice[]
-  expenses         Expense[]
-  subscriptions    Subscription[]
-  budgets          Budget[]
-  financialDocuments FinancialDocument[]
+  clients              Client[]
+  invoices             Invoice[]
+  expenses             Expense[]
+  subscriptions        Subscription[]
+  budgets              Budget[]
+  financialDocuments   FinancialDocument[]
+  documents            Document[] // ✅ ADDED: Relation to the new Document model
 }
 
 // User roles
@@ -45,6 +46,22 @@ enum UserRole {
   ADMIN
   USER
   VIEWER
+}
+
+// ✅ NEW MODEL: For general-purpose document uploads
+model Document {
+  id        String   @id @default(cuid())
+  title     String // User-provided custom title for the document
+  name      String // Original name of the file, e.g., "Website Proposal.pdf"
+  type      String // MIME type, e.g., "application/pdf"
+  size      Int // Size of the file in bytes
+  path      String // The absolute path where the file is stored in the volume
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Contact model for external contacts (not app users)
@@ -67,26 +84,26 @@ model Contact {
 
 // Project model
 model Project {
-  id          String        @id @default(cuid())
-  name        String
-  description String?       @db.Text
-  projectGoal String?       @db.Text
-  website     String?
-  status      ProjectStatus @default(PLANNING)
-  priority    Priority      @default(MEDIUM)
-  startDate   DateTime?
-  endDate     DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id           String         @id @default(cuid())
+  name         String
+  description  String?        @db.Text
+  projectGoal  String?        @db.Text
+  website      String?
+  status       ProjectStatus  @default(PLANNING)
+  priority     Priority       @default(MEDIUM)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   // Relations
-  owner       User           @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  ownerId     String
-  members     ProjectMember[]
-  contacts    ProjectContact[]
-  tasks       Task[]
-  categories  Category[]
-  files       File[]
+  owner        User           @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId      String
+  members      ProjectMember[]
+  contacts     ProjectContact[]
+  tasks        Task[]
+  categories   Category[]
+  files        File[]
   notifications Notification[]
   timelineEvents TimelineEvent[]
 
@@ -227,7 +244,7 @@ model TimeEntry {
   description String?
   startTime   DateTime
   endTime     DateTime?
-  duration    Int?     // Duration in minutes
+  duration    Int? // Duration in minutes
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -314,7 +331,7 @@ model FeatureRequest {
   title       String
   description String   @db.Text
   status      String   @default("Pending") // e.g., Pending, In Progress, Done
-  priority    String   @default("Medium")  // e.g., Low, Medium, High
+  priority    String   @default("Medium") // e.g., Low, Medium, High
   submittedBy String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -339,7 +356,7 @@ model Client {
   contractTerm      ContractTerm @default(ONE_TIME)
   contractAmount    Float?
   contractStartDate DateTime?
-  frequency         String?      // This is the new field we added
+  frequency         String? // This is the new field we added
 
   // Relations
   userId    String
@@ -403,7 +420,7 @@ model Subscription {
   name         String
   amount       Float
   billingCycle BillingCycle @default(MONTHLY)
-  dueDate      DateTime?    // ✅ ADDED: Optional due date for annual subscriptions
+  dueDate      DateTime? // ✅ ADDED: Optional due date for annual subscriptions
   userId       String
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime     @default(now())

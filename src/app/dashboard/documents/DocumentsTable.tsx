@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Document } from "@prisma/client";
 import {
   Table,
   TableBody,
@@ -10,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, ArrowUpDown, ExternalLink, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,28 +20,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DeleteFileAlert } from "./DeleteFileAlert";
+import { MoreHorizontal, ArrowUpDown, ExternalLink, Trash2 } from "lucide-react";
 
-// Define the shape of the file data including relations
-export type FileWithDetails = {
-  id: string;
-  originalName: string;
-  mimetype: string;
-  size: number;
-  path: string;
-  createdAt: Date;
-  project: { name: string } | null;
-  uploader: { name: string | null } | null;
-};
-
-type SortKey = "mimetype" | "size" | "createdAt";
-type SortDirection = "asc" | "desc";
-
+// Define the shape of the props our component will receive
 interface DocumentsTableProps {
-  files: FileWithDetails[];
+  documents: Document[];
+  onDelete: (documentId: string) => Promise<void>;
 }
 
-// Helper function to format file size
+// Define the possible keys we can sort the table by
+type SortKey = keyof Document;
+
+// Helper function to format file size into a readable format (KB, MB, etc.)
 const formatBytes = (bytes: number, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -50,68 +41,51 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
-export default function DocumentsTable({ files: initialFiles }: DocumentsTableProps) {
-  const [files, setFiles] = React.useState(initialFiles);
-  const [sortKey, setSortKey] = React.useState<SortKey>("createdAt");
-  const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
-  
-  const [isDeleting, setIsDeleting] = React.useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
-  const [selectedFile, setSelectedFile] = React.useState<FileWithDetails | null>(null);
+export default function DocumentsTable({ documents, onDelete }: DocumentsTableProps) {
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [sortConfig, setSortConfig] = React.useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({
+    key: 'createdAt',
+    direction: 'descending',
+  });
 
-  const sortedFiles = React.useMemo(() => {
-    return [...files].sort((a, b) => {
-      const valA = a[sortKey];
-      const valB = b[sortKey];
-      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
-      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+  // Memoized filtering logic
+  const filteredDocuments = React.useMemo(() => {
+    return documents.filter(doc =>
+      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [documents, searchTerm]);
+
+  // Memoized sorting logic
+  const sortedDocuments = React.useMemo(() => {
+    let sortableItems = [...filteredDocuments];
+    sortableItems.sort((a, b) => {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'ascending' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'ascending' ? 1 : -1;
+      }
       return 0;
     });
-  }, [files, sortKey, sortDirection]);
+    return sortableItems;
+  }, [filteredDocuments, sortConfig]);
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
-      setSortDirection("asc");
+  // Function to handle changing the sort column or direction
+  const requestSort = (key: SortKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
     }
+    setSortConfig({ key, direction });
   };
 
-  const handleDeleteClick = (file: FileWithDetails) => {
-    setSelectedFile(file);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!selectedFile) return;
-    setIsDeleting(true);
-
-    try {
-      const response = await fetch(`/api/files`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: selectedFile.id }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete file');
-      }
-      
-      setFiles(files.filter(f => f.id !== selectedFile.id));
-      setIsDeleteDialogOpen(false);
-      setSelectedFile(null);
-    } catch (error) {
-      console.error("Error deleting file:", error);
-      alert((error as Error).message);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const SortableHeader = ({ sortKey: key, children }: { sortKey: SortKey, children: React.ReactNode }) => (
-    <TableHead className="cursor-pointer" onClick={() => handleSort(key)}>
+  // A reusable component for creating sortable table headers
+  const SortableHeader = ({ sortKey, children }: { sortKey: SortKey, children: React.ReactNode }) => (
+    <TableHead className="cursor-pointer" onClick={() => requestSort(sortKey)}>
       <div className="flex items-center">
         {children}
         <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -120,63 +94,76 @@ export default function DocumentsTable({ files: initialFiles }: DocumentsTablePr
   );
 
   return (
-    <>
+    <div className="space-y-4">
+      <Input
+        placeholder="Search documents..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="max-w-sm"
+      />
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>File Name</TableHead>
-              <SortableHeader sortKey="mimetype">File Type</SortableHeader>
+              <SortableHeader sortKey="title">Title</SortableHeader>
+              <SortableHeader sortKey="name">File Name</SortableHeader>
+              <SortableHeader sortKey="type">Type</SortableHeader>
               <SortableHeader sortKey="size">Size</SortableHeader>
               <SortableHeader sortKey="createdAt">Upload Date</SortableHeader>
-              <TableHead>Project</TableHead>
               <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedFiles.map((file) => (
-              <TableRow key={file.id}>
-                <TableCell className="font-medium">{file.originalName}</TableCell>
-                <TableCell>{file.mimetype}</TableCell>
-                <TableCell>{formatBytes(file.size)}</TableCell>
-                <TableCell>{new Date(file.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell>{file.project?.name || 'N/A'}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem asChild>
-                        <a href={file.path} target="_blank" rel="noopener noreferrer" className="flex items-center cursor-pointer">
-                          <ExternalLink className="mr-2 h-4 w-4" /> Open File
-                        </a>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleDeleteClick(file)} className="text-red-600 focus:text-red-500 flex items-center cursor-pointer">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {sortedDocuments.length > 0 ? (
+              sortedDocuments.map((doc) => (
+                <TableRow key={doc.id}>
+                  <TableCell className="font-medium">{doc.title}</TableCell>
+                  <TableCell>{doc.name}</TableCell>
+                  <TableCell>{doc.type}</TableCell>
+                  <TableCell>{formatBytes(doc.size)}</TableCell>
+                  <TableCell>{new Date(doc.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem asChild>
+                          {/* This link will eventually serve the file securely */}
+                          <a href={`/api/documents/view/${doc.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center cursor-pointer">
+                            <ExternalLink className="mr-2 h-4 w-4" /> Open File
+                          </a>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if(window.confirm(`Are you sure you want to delete "${doc.title}"? This cannot be undone.`)) {
+                                onDelete(doc.id);
+                            }
+                          }}
+                          className="text-red-600 focus:text-red-500 flex items-center cursor-pointer"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  No documents found.
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
-        {sortedFiles.length === 0 && (
-          <div className="text-center text-gray-500 py-16">
-            <p className="text-lg">No documents found.</p>
-          </div>
-        )}
       </div>
-      <DeleteFileAlert
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        fileName={selectedFile?.originalName ?? null}
-        isDeleting={isDeleting}
-      />
-    </>
+    </div>
   );
 }
