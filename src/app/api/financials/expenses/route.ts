@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { PrismaClient, ExpenseCategory } from '@prisma/client';
+import { prisma } from "@/lib/prisma"; // Use the centralized prisma instance
+import { ExpenseCategory } from '@prisma/client';
 
-const prisma = new PrismaClient();
-
-// GET /api/financials/expenses
-// Fetches all expenses for the logged-in user
+// ✅ --- FIX: GET handler updated to fetch expenses for ALL users ---
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
 
@@ -18,10 +16,8 @@ export async function GET(request: Request) {
   }
 
   try {
+    // The `where` clause that filtered by userId has been removed.
     const expenses = await prisma.expense.findMany({
-      where: {
-        userId: session.user.id,
-      },
       orderBy: {
         date: 'desc',
       },
@@ -35,9 +31,9 @@ export async function GET(request: Request) {
     });
   }
 }
+// --- END FIX ---
 
-// POST /api/financials/expenses
-// Creates a new expense
+// The POST handler remains unchanged. It correctly assigns ownership on creation.
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
 
@@ -51,7 +47,6 @@ export async function POST(request: Request) {
   try {
     const { description, amount, category, date } = await request.json();
 
-    // Basic validation
     if (!description || !amount || !category || !date) {
       return new NextResponse(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
@@ -59,7 +54,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Type check for category
     if (!Object.values(ExpenseCategory).includes(category)) {
         return new NextResponse(JSON.stringify({ error: 'Invalid expense category' }), {
             status: 400,

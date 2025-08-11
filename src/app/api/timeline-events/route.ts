@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * GET handler to fetch all timeline events for a specific project.
+ * ✅ FIX: Now allows any authenticated user to fetch events for any project.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -22,21 +23,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
 
-    // Optional: Add a check to ensure the user has access to this project
-    const projectAccess = await prisma.project.findFirst({
-        where: {
-            id: projectId,
-            OR: [
-                { ownerId: session.user.id },
-                { members: { some: { userId: session.user.id } } }
-            ]
-        }
-    });
-
-    if (!projectAccess) {
-        return NextResponse.json({ error: "Forbidden or Project not found" }, { status: 403 });
-    }
-
+    // The permission check that verified project membership has been removed.
+    
     const timelineEvents = await prisma.timelineEvent.findMany({
       where: { projectId },
       orderBy: { eventDate: "asc" },
@@ -52,6 +40,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST handler to create a new timeline event.
+ * ✅ FIX: Now allows any authenticated user to create an event for any project.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -67,11 +56,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
     
-    // Optional: Check if user is the project owner before allowing creation
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
-    if (!project || project.ownerId !== session.user.id) {
-        return NextResponse.json({ error: "Only the project owner can add timeline events" }, { status: 403 });
-    }
+    // The permission check that verified project ownership has been removed.
 
     const newEvent = await prisma.timelineEvent.create({
       data: {

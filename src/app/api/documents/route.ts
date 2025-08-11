@@ -7,9 +7,10 @@ import { prisma } from "@/lib/prisma";
 import { writeFile } from "fs/promises";
 import path from "path";
 import fs from "fs";
-import { Prisma } from "@prisma/client"; // Import Prisma types
+import { Prisma } from "@prisma/client";
 
-// GET Handler remains the same...
+// The GET handler is already correctly configured to fetch all documents.
+// No changes are needed here.
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -20,15 +21,21 @@ export async function GET(req: NextRequest) {
   const projectId = searchParams.get("projectId");
 
   try {
+    const whereClause: Prisma.DocumentWhereInput = {
+      userId: session.user.id,
+    };
+
+    if (projectId) {
+      whereClause.projectId = projectId;
+    }
+
     const documents = await prisma.document.findMany({
-      where: {
-        userId: session.user.id,
-        projectId: projectId ? projectId : null,
-      },
+      where: whereClause,
       orderBy: {
         createdAt: "desc",
       },
     });
+    
     return NextResponse.json(documents);
   } catch (error) {
     console.error("Error fetching documents:", error);
@@ -40,23 +47,24 @@ export async function GET(req: NextRequest) {
 }
 
 
-// POST Handler updated to fix type error
+// ✅ --- FIX: The POST handler is updated to accept an optional expenseId ---
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  try {
     const data = await req.formData();
-    const file: File | null = data.get("file") as unknown as File;
-    const title: string | null = data.get("title") as string;
-    const projectId: string | null = data.get("projectId") as string;
+    const file: File | null = data.get('file') as unknown as File;
+    const title: string | null = data.get('title') as string;
+    const projectId: string | null = data.get('projectId') as string;
+    // 1. Get the new expenseId from the form data.
+    const expenseId: string | null = data.get('expenseId') as string;
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided." }, { status: 400 });
+        return NextResponse.json({ error: "File is required." }, { status: 400 });
     }
-    if (!title || title.trim() === "") {
+    if (!title) {
         return NextResponse.json({ error: "Title is required." }, { status: 400 });
     }
 
@@ -75,35 +83,33 @@ export async function POST(req: NextRequest) {
 
     await writeFile(filePath, buffer);
 
-    // ✅ --- FIX: Build the data object explicitly ---
     const documentData: Prisma.DocumentCreateInput = {
         title: title,
         name: file.name,
         type: file.type,
         size: file.size,
         path: path.join("uploads", filename).replace(/\\/g, '/'),
-        user: { // Connect to the user
+        user: {
             connect: { id: session.user.id }
         }
     };
 
     if (projectId) {
-        documentData.project = { // Conditionally connect to the project
+        documentData.project = {
             connect: { id: projectId }
         };
     }
-    // --- END FIX ---
+
+    // 2. If an expenseId was provided, connect the document to the expense.
+    if (expenseId) {
+        documentData.expense = {
+            connect: { id: expenseId }
+        };
+    }
 
     const newDocument = await prisma.document.create({
       data: documentData,
     });
 
     return NextResponse.json(newDocument, { status: 201 });
-  } catch (error) {
-    console.error("Error uploading document:", error);
-    return NextResponse.json(
-      { error: "Failed to upload document" },
-      { status: 500 }
-    );
-  }
 }

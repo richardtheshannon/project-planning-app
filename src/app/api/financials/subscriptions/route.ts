@@ -6,7 +6,6 @@ import * as z from 'zod';
 
 const prisma = new PrismaClient();
 
-// ✅ STEP 1: Update Zod schema to include the optional and nullable dueDate
 const subscriptionCreateSchema = z.object({
   name: z.string().min(1, "Name is required"),
   amount: z.number().positive("Amount must be a positive number"),
@@ -14,8 +13,10 @@ const subscriptionCreateSchema = z.object({
   dueDate: z.date().optional().nullable(),
 });
 
-// GET /api/financials/subscriptions
-// Fetches all subscriptions for the logged-in user
+/**
+ * GET handler for fetching ALL subscriptions for ALL users.
+ * ✅ FIX: The user filter has been removed.
+ */
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
 
@@ -27,10 +28,8 @@ export async function GET(request: Request) {
   }
 
   try {
+    // The `where` clause that filtered by userId has been removed.
     const subscriptions = await prisma.subscription.findMany({
-      where: {
-        userId: session.user.id,
-      },
       orderBy: {
         createdAt: 'asc',
       },
@@ -45,8 +44,10 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/financials/subscriptions
-// Creates a new subscription
+/**
+ * POST handler for CREATING a new subscription.
+ * This remains unchanged as it correctly assigns ownership on creation.
+ */
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
 
@@ -60,7 +61,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // The body's date will be a string, so we need to parse it for Zod
     if (body.dueDate) {
         body.dueDate = new Date(body.dueDate);
     }
@@ -74,16 +74,14 @@ export async function POST(request: Request) {
       });
     }
     
-    // ✅ STEP 2: Destructure the new dueDate from the validated data
     const { name, amount, billingCycle, dueDate } = validation.data;
 
-    // ✅ STEP 3: Add dueDate to the data object for creation
     const newSubscription = await prisma.subscription.create({
       data: {
         name,
         amount,
         billingCycle,
-        dueDate, // Add the due date here
+        dueDate,
         userId: session.user.id,
       },
     });

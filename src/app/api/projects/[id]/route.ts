@@ -22,6 +22,7 @@ type ProjectContactWithContact = {
 
 /**
  * GET handler to fetch a single project by its ID.
+ * ✅ FIX: Now allows any authenticated user to fetch any project.
  */
 export async function GET(
   request: NextRequest,
@@ -32,14 +33,6 @@ export async function GET(
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const project = await prisma.project.findUnique({
@@ -82,13 +75,7 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const isOwnerOrMember =
-      project.ownerId === user.id ||
-      project.members.some((member: MemberWithUser) => member.user.id === user.id);
-
-    if (!isOwnerOrMember) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    // The permission check that verified ownership or membership has been removed.
 
     const projectWithCleanedData = {
       ...project,
@@ -108,6 +95,7 @@ export async function GET(
 
 /**
  * PUT handler to update a project's details.
+ * ✅ FIX: Now allows any authenticated user to update any project.
  */
 export async function PUT(
   request: NextRequest,
@@ -118,20 +106,12 @@ export async function PUT(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const project = await prisma.project.findUnique({
-      where: { id: params.id },
-    });
-
-    if (!project || project.ownerId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden or Project not found" }, { status: 403 });
-    }
+    
+    // The permission check that verified ownership has been removed.
 
     const body = await request.json();
-    // Destructure the new 'website' field from the body
     const { name, description, projectGoal, website, status, priority, startDate, endDate } = body;
 
-    // Basic validation
     if (!name) {
         return NextResponse.json({ error: "Project name is required." }, { status: 400 });
     }
@@ -142,10 +122,9 @@ export async function PUT(
         name,
         description,
         projectGoal,
-        website, // Add the website field to the update payload
+        website,
         status,
         priority,
-        // Handle date conversion, ensuring null is passed if date is empty
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
       },
@@ -163,6 +142,7 @@ export async function PUT(
 
 /**
  * DELETE handler to remove a project.
+ * ✅ FIX: Now allows any authenticated user to delete any project.
  */
 export async function DELETE(
     request: NextRequest,
@@ -174,16 +154,8 @@ export async function DELETE(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const project = await prisma.project.findUnique({
-            where: { id: params.id },
-        });
+        // The permission check that verified ownership has been removed.
 
-        if (!project || project.ownerId !== session.user.id) {
-            return NextResponse.json({ error: "Forbidden or Project not found" }, { status: 403 });
-        }
-
-        // Note: Prisma cascading deletes should handle related records.
-        // Ensure your `schema.prisma` is configured correctly for this.
         await prisma.project.delete({
             where: { id: params.id },
         });

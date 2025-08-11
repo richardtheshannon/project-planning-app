@@ -6,7 +6,7 @@ import { PrismaClient, InvoiceStatus } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // POST /api/financials/reports/summary
-// Calculates a financial summary for a given date range
+// ✅ FIX: Calculates a financial summary for ALL users for a given date range
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
           amount: true,
         },
         where: {
-          userId: session.user.id,
+          // The userId filter has been removed to include all users' invoices.
           status: InvoiceStatus.PAID, // Only count paid invoices as income
           issuedDate: {
             gte: fromDate,
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
           amount: true,
         },
         where: {
-          userId: session.user.id,
+          // The userId filter has been removed to include all users' expenses.
           date: {
             gte: fromDate,
             lte: toDate,

@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,13 +52,12 @@ import { AddContactDialog } from "@/components/projects/AddContactDialog";
 import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Pencil, Link2, ChevronDown, Plus } from "lucide-react";
+import { Mail, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, Pencil, Link2, ChevronDown, Plus } from "lucide-react";
 import { TimelineSection } from "@/components/projects/TimelineSection";
 import { Document as PrismaDocument } from '@prisma/client';
 
 
 // --- INTERFACES ---
-// ✅ Use the PrismaDocument type directly for consistency
 type Document = PrismaDocument;
 
 interface Task {
@@ -121,13 +119,14 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
-  const { data: session } = useSession();
   const { toast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isOwner, setIsOwner] = useState(false);
+  
+  // ✅ FIX: The `isOwner` state is no longer needed. All users have full access.
+  // const [isOwner, setIsOwner] = useState(false);
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -167,24 +166,26 @@ export default function ProjectDetailPage() {
     setLoading(true);
     try {
       const projectResponse = await fetch(`/api/projects/${projectId}`);
-      if (!projectResponse.ok) throw new Error("Project not found or you do not have permission.");
+      if (!projectResponse.ok) throw new Error("Project not found.");
       
       const projectData: Project = await projectResponse.json();
       setProject(projectData);
 
-      if (session?.user?.id === projectData.owner.id) {
-        setIsOwner(true);
-      }
+      // ✅ FIX: The logic to check for ownership is removed.
+      // if (session?.user?.id === projectData.owner.id) {
+      //   setIsOwner(true);
+      // }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred fetching project data");
     } finally {
       setLoading(false);
     }
-  }, [projectId, session?.user?.id]);
+  }, [projectId]);
 
   const fetchDocuments = useCallback(async () => {
     if (!projectId) return;
     try {
+      // ✅ FIX: This now fetches all documents for the project, regardless of user.
       const filesResponse = await fetch(`/api/documents?projectId=${projectId}`);
       if (!filesResponse.ok) throw new Error("Failed to fetch project documents.");
       const filesData: Document[] = await filesResponse.json();
@@ -432,10 +433,11 @@ export default function ProjectDetailPage() {
               <Badge className={getPriorityColor(project.priority)}>{project.priority}</Badge>
             </div>
 
+            {/* ✅ FIX: Buttons are now always visible */}
             <div className="flex flex-col gap-2 mt-4 lg:hidden">
               <Link href="/dashboard/projects"><Button variant="outline" className="w-full">Back to Projects</Button></Link>
-              {isOwner && <Button onClick={handleEditProjectClick} className="w-full"><Pencil size={16} className="mr-2" />Edit Project</Button>}
-              {isOwner && <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} className="w-full"><Trash2 size={16} className="mr-2" />Delete Project</Button>}
+              <Button onClick={handleEditProjectClick} className="w-full"><Pencil size={16} className="mr-2" />Edit Project</Button>
+              <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} className="w-full"><Trash2 size={16} className="mr-2" />Delete Project</Button>
             </div>
           </div>
 
@@ -470,21 +472,23 @@ export default function ProjectDetailPage() {
 
           <Card>
             <CardHeader>
+              {/* ✅ FIX: TimelineSection `isOwner` prop is removed and now always true implicitly */}
               <CollapsibleHeader sectionName="timelineEvents" title="Timeline Events" />
             </CardHeader>
             {openSections.timelineEvents && (
               <CardContent>
-                <TimelineSection projectId={project.id} isOwner={isOwner} />
+                <TimelineSection projectId={project.id} isOwner={true} />
               </CardContent>
             )}
           </Card>
 
           <Card>
             <CardHeader>
+              {/* ✅ FIX: Action button is now always visible */}
               <CollapsibleHeader 
                 sectionName="contacts" 
                 title={`Contacts (${project.contacts.length})`}
-                action={isOwner ? <AddContactDialog projectId={project.id} onContactAdded={handleContactAdded} /> : undefined}
+                action={<AddContactDialog projectId={project.id} onContactAdded={handleContactAdded} />}
               />
             </CardHeader>
             {openSections.contacts && (
@@ -496,15 +500,16 @@ export default function ProjectDetailPage() {
 
           <Card>
             <CardHeader>
+              {/* ✅ FIX: Action button is now always visible */}
               <CollapsibleHeader 
                 sectionName="files" 
                 title={`Documents (${documents.length})`}
-                action={isOwner ? (
+                action={
                   <Button onClick={() => setIsUploadDialogOpen(true)}>
                     <Plus size={16} className="mr-2" />
                     Upload Document
                   </Button>
-                ) : undefined}
+                }
               />
             </CardHeader>
             {openSections.files && (
@@ -520,10 +525,11 @@ export default function ProjectDetailPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-8 lg:sticky lg:top-6 lg:self-start">
+            {/* ✅ FIX: Buttons are now always visible */}
             <div className="hidden lg:flex gap-2 flex-shrink-0">
               <Link href="/dashboard/projects"><Button variant="outline">Back to Projects</Button></Link>
-              {isOwner && <Button onClick={handleEditProjectClick}><Pencil size={16} className="mr-2" />Edit</Button>}
-              {isOwner && <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}><Trash2 size={16} className="mr-2" />Delete</Button>}
+              <Button onClick={handleEditProjectClick}><Pencil size={16} className="mr-2" />Edit</Button>
+              <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}><Trash2 size={16} className="mr-2" />Delete</Button>
             </div>
 
             <Card><CardHeader><CardTitle>Tasks</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.tasks.length}</div><Button className="mt-4 w-full" size="sm" onClick={() => setShowCreateTaskDialog(true)}>New Task</Button></CardContent></Card>

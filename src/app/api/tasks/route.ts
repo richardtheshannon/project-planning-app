@@ -4,12 +4,9 @@ import { authOptions } from "../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
-// Define an API endpoint for creating and listing tasks.
-// This route will handle POST and GET requests for tasks.
-
+// The POST handler remains unchanged. It correctly assigns ownership on creation.
 export async function POST(request: NextRequest) {
   try {
-    // 1. Authenticate the user.
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,12 +20,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // 2. Parse the request body.
-    // Note: We are no longer destructuring 'assigneeId' as it has been removed.
     const body = await request.json();
     const { title, description, projectId, dueDate, priority, status } = body;
 
-    // 3. Validate required fields.
     if (!title || !projectId) {
       return NextResponse.json(
         { error: "Title and Project ID are required" },
@@ -36,24 +30,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Create the new task in the database.
-    // The 'assignee' connect logic has been removed as per the project update.
     const newTask = await prisma.task.create({
       data: {
         title,
         description,
         priority,
-        status, // Added status to the creation data
+        status,
         dueDate: dueDate ? new Date(dueDate) : null,
         project: {
           connect: { id: projectId },
         },
-        // The owner of the task is implicitly the project owner or team,
-        // direct assignment has been removed for simplification.
       },
     });
 
-    // 5. Respond with the created task.
     return NextResponse.json(newTask, { status: 201 });
   } catch (error) {
     console.error("Task creation error:", error);
@@ -64,22 +53,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * GET handler to fetch tasks for a given project.
+ * ✅ FIX: Now allows any authenticated user to fetch tasks for any project.
+ */
 export async function GET(request: NextRequest) {
   try {
-    // 1. Authenticate the user.
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // 2. Extract the projectId from the query parameters.
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
 
@@ -90,28 +74,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 3. Find all tasks associated with the project.
-    // It's important to also ensure the user has access to this project.
-    const project = await prisma.project.findUnique({
+    // The permission check that verified project membership has been removed.
+    // We now fetch tasks based only on the projectId.
+    const tasks = await prisma.task.findMany({
       where: {
-        id: projectId,
-        // Check if the user is a member or the owner of the project.
-        OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }],
+        projectId: projectId,
       },
-      include: {
-        tasks: true, // Use include to fetch related tasks
-      },
+      orderBy: {
+        createdAt: 'desc',
+      }
     });
 
-    if (!project) {
-      return NextResponse.json(
-        { error: "Project not found or unauthorized" },
-        { status: 404 }
-      );
-    }
-
-    // 4. Respond with the tasks.
-    return NextResponse.json(project.tasks);
+    return NextResponse.json(tasks);
   } catch (error) {
     console.error("Task fetching error:", error);
     return NextResponse.json(

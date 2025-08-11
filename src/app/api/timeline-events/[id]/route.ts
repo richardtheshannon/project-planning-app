@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * PUT handler to update a specific timeline event.
- * Can handle partial updates, like just toggling the completion status.
+ * ✅ FIX: Now allows any authenticated user to update any event.
  */
 export async function PUT(
   request: NextRequest,
@@ -23,21 +23,8 @@ export async function PUT(
     const body = await request.json();
     const { title, description, eventDate, isCompleted } = body;
 
-    // First, verify the user owns the project this event belongs to.
-    const eventToUpdate = await prisma.timelineEvent.findUnique({
-      where: { id: eventId },
-      include: { project: true },
-    });
+    // The permission check that verified project ownership has been removed.
 
-    if (!eventToUpdate) {
-        return NextResponse.json({ error: "Event not found" }, { status: 404 });
-    }
-
-    if (eventToUpdate.project.ownerId !== session.user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // Update the event
     const updatedEvent = await prisma.timelineEvent.update({
       where: { id: eventId },
       data: {
@@ -52,12 +39,22 @@ export async function PUT(
 
   } catch (error) {
     console.error(`Failed to update timeline event ${params.id}:`, error);
+    // Handle cases where the event might not be found
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2025"
+    ) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
 /**
  * DELETE handler to remove a specific timeline event.
+ * ✅ FIX: Now allows any authenticated user to delete any event.
  */
 export async function DELETE(
   request: NextRequest,
@@ -71,19 +68,7 @@ export async function DELETE(
 
     const eventId = params.id;
 
-    // Verify ownership before deleting
-    const eventToDelete = await prisma.timelineEvent.findUnique({
-        where: { id: eventId },
-        include: { project: true },
-    });
-
-    if (!eventToDelete) {
-        return NextResponse.json({ error: "Event not found" }, { status: 404 });
-    }
-
-    if (eventToDelete.project.ownerId !== session.user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    // The permission check that verified project ownership has been removed.
 
     await prisma.timelineEvent.delete({
       where: { id: eventId },
@@ -93,6 +78,15 @@ export async function DELETE(
 
   } catch (error) {
     console.error(`Failed to delete timeline event ${params.id}:`, error);
+    // Handle cases where the event might not be found
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2025"
+    ) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -3,29 +3,20 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 
+// ✅ --- FIX: GET handler updated to fetch projects for ALL users ---
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
+    // We still check for a session to ensure only authenticated users can access projects.
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
+    // The logic to find the specific user is no longer needed here, but we keep the session check.
+    
+    // The `where` clause has been removed from this query.
     const projects = await prisma.project.findMany({
-      where: {
-        OR: [
-          { ownerId: user.id },
-          { members: { some: { userId: user.id } } }
-        ]
-      },
       include: {
         owner: {
           select: { id: true, name: true, email: true }
@@ -46,7 +37,10 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+// --- END FIX ---
 
+
+// The POST handler remains unchanged. It correctly assigns ownership on creation.
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -64,14 +58,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    // Destructure the fields, using the correct 'projectGoal' name
     const { name, description, projectGoal, website, status, priority, startDate, endDate } = body
 
     const project = await prisma.project.create({
       data: {
         name,
         description: description || null,
-        projectGoal: projectGoal || null, // Use the correct field name
+        projectGoal: projectGoal || null,
         website: website || null,
         status: status || "PLANNING",
         priority: priority || "MEDIUM",

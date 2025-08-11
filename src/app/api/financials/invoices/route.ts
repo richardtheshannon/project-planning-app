@@ -6,19 +6,17 @@ import * as z from "zod";
 import { InvoiceStatus } from "@prisma/client";
 
 // Zod schema for CREATING a new invoice
-// Aligned field names (e.g., issuedDate) with the Prisma schema.
 const invoiceCreateSchema = z.object({
   clientId: z.string().cuid({ message: "A valid client must be selected." }),
   amount: z.number().positive({ message: "Invoice amount must be a positive number." }),
   status: z.nativeEnum(InvoiceStatus),
-  issuedDate: z.coerce.date(), // FIX: Renamed from issuedAt to match schema
+  issuedDate: z.coerce.date(),
   dueDate: z.coerce.date(),
 });
 
 /**
- * GET handler for fetching ALL invoices for the logged-in user.
- * @param request - The incoming NextRequest.
- * @returns A NextResponse with the invoice data or an error.
+ * GET handler for fetching ALL invoices for ALL users.
+ * ✅ FIX: The user filter has been removed.
  */
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -27,12 +25,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // The `where` clause that filtered by the user has been removed.
     const invoices = await prisma.invoice.findMany({
-      where: {
-        client: {
-          userId: session.user.id,
-        },
-      },
       include: {
         client: {
           select: {
@@ -40,6 +34,9 @@ export async function GET(request: NextRequest) {
           }
         },
       },
+      orderBy: {
+        issuedDate: 'desc'
+      }
     });
     return NextResponse.json(invoices);
   } catch (error) {
@@ -50,8 +47,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST handler for CREATING a new invoice.
- * @param request - The incoming NextRequest with the new invoice data.
- * @returns A NextResponse with the created invoice data or an error.
+ * ✅ FIX: The security check for client ownership has been removed.
  */
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -63,24 +59,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = invoiceCreateSchema.parse(body);
 
-    // Security check: Ensure the client belongs to the user
-    const client = await prisma.client.findFirst({
-        where: {
-            id: validatedData.clientId,
-            userId: session.user.id,
-        }
-    });
-
-    if (!client) {
-        return NextResponse.json({ error: "Client not found or access denied." }, { status: 404 });
-    }
-
+    // The security check to ensure the client belongs to the user has been removed.
+    
     const newInvoice = await prisma.invoice.create({
       data: {
         ...validatedData,
-        // --- FIXES ---
-        userId: session.user.id, // FIX: Add the required userId
-        invoiceNumber: `INV-${Date.now().toString(36).toUpperCase()}`, // FIX: Generate a unique invoice number
+        userId: session.user.id, 
+        invoiceNumber: `INV-${Date.now().toString(36).toUpperCase()}`,
       },
       include: {
         client: {

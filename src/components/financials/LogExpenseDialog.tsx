@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { ExpenseCategory } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Zod schema for form validation, matching the Expense model
+// ✅ 1. Update Zod schema to include an optional file
 const formSchema = z.object({
   description: z.string().min(1, { message: "Description is required." }),
   amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
@@ -42,6 +42,8 @@ const formSchema = z.object({
   }),
   category: z.nativeEnum(ExpenseCategory),
   date: z.string().min(1, { message: "Please select a date." }),
+  // The receipt is optional
+  receipt: z.instanceof(File).optional(),
 });
 
 type ExpenseFormValues = z.infer<typeof formSchema>;
@@ -67,31 +69,58 @@ export function LogExpenseDialog({ onExpenseAdded }: LogExpenseDialogProps) {
     defaultValues: defaultFormValues,
   });
 
+  // ✅ 2. Rewrite the submit handler to manage a two-step process
   async function onSubmit(values: ExpenseFormValues) {
     setIsSubmitting(true);
     setError(null);
 
-    const payload = {
-      ...values,
-      amount: parseFloat(values.amount),
-      date: new Date(values.date),
-    };
-
     try {
-      const response = await fetch('/api/financials/expenses', {
+      // --- Step 1: Create the Expense record ---
+      const expensePayload = {
+        description: values.description,
+        amount: parseFloat(values.amount),
+        category: values.category,
+        date: new Date(values.date),
+      };
+
+      const expenseResponse = await fetch('/api/financials/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(expensePayload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (!expenseResponse.ok) {
+        const errorData = await expenseResponse.json();
         throw new Error(errorData.error || 'Failed to log expense');
       }
+      
+      const newExpense = await expenseResponse.json();
 
+      // --- Step 2: If a receipt exists, upload it and link it to the new expense ---
+      if (values.receipt && values.receipt.size > 0) {
+        const formData = new FormData();
+        formData.append('file', values.receipt);
+        // Use the expense description as the document title for convenience
+        formData.append('title', `Receipt for: ${values.description}`);
+        formData.append('expenseId', newExpense.id); // Link to the new expense
+
+        const documentResponse = await fetch('/api/documents', {
+            method: 'POST',
+            body: formData,
+            // Note: No 'Content-Type' header, the browser sets it for FormData
+        });
+
+        if (!documentResponse.ok) {
+            // Even if the doc fails, the expense was created. We can inform the user.
+            throw new Error('Expense was created, but receipt upload failed.');
+        }
+      }
+
+      // --- Success ---
       form.reset(defaultFormValues);
-      onExpenseAdded();
+      onExpenseAdded(); // Refresh the parent component's data
       setIsOpen(false);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
     } finally {
@@ -110,11 +139,12 @@ export function LogExpenseDialog({ onExpenseAdded }: LogExpenseDialogProps) {
         <DialogHeader>
           <DialogTitle>Log New Expense</DialogTitle>
           <DialogDescription>
-            Fill out the details below to log a new expense.
+            Fill out the details below and optionally upload a receipt.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+          {/* Note: We no longer need the <form> tag here as react-hook-form handles it */}
+          <div className="space-y-4 py-4">
             <FormField
               control={form.control}
               name="description"
@@ -180,13 +210,36 @@ export function LogExpenseDialog({ onExpenseAdded }: LogExpenseDialogProps) {
                 </FormItem>
               )}
             />
+            
+            {/* ✅ 3. Add the new File Upload field */}
+            <FormField
+              control={form.control}
+              name="receipt"
+              render={({ field: { onChange, value, ...rest } }) => (
+                <FormItem>
+                  <FormLabel>Receipt (Optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="file"
+                      {...rest}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        onChange(file);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {error && <p className="text-sm font-medium text-destructive">{error}</p>}
             <DialogFooter>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
                 {isSubmitting ? "Saving..." : "Save Expense"}
               </Button>
             </DialogFooter>
-          </form>
+          </div>
         </Form>
       </DialogContent>
     </Dialog>

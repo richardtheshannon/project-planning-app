@@ -15,21 +15,22 @@ model User {
   id            String   @id @default(cuid())
   email         String   @unique
   name          String?
-  password      String   @default("placeholder") // FIXED: Added default value
+  password      String   @default("placeholder")
   avatar        String?
   role          UserRole @default(USER)
   isActive      Boolean  @default(false)
   createdAt     DateTime @default(now())
-  updatedAt     DateTime @default(now()) @updatedAt // FIXED: Added default value
+  updatedAt     DateTime @default(now()) @updatedAt
 
   // Relations
-  ownedProjects        Project[]            @relation("ProjectOwner") // ✅ FIXED: Added missing relation attribute
+  ownedProjects        Project[]            @relation("ProjectOwner")
   projectMembers       ProjectMember[]
   tasks                Task[]
   comments             Comment[]
   timeEntries          TimeEntry[]
   createdFiles         File[]
   notifications        Notification[]
+  documents            Document[] // ✅ This is our main document model
 
   // Financial Relations
   clients              Client[]
@@ -38,7 +39,6 @@ model User {
   subscriptions        Subscription[]
   budgets              Budget[]
   financialDocuments   FinancialDocument[]
-  documents            Document[]
 }
 
 // User roles
@@ -48,21 +48,25 @@ enum UserRole {
   VIEWER
 }
 
-// ✅ NEW MODEL: For general-purpose document uploads
 model Document {
   id        String   @id @default(cuid())
-  title     String // User-provided custom title for the document
-  name      String // Original name of the file, e.g., "Website Proposal.pdf"
-  type      String // MIME type, e.g., "application/pdf"
-  size      Int // Size of the file in bytes
-  path      String // The absolute path where the file is stored in the volume
+  title     String
+  name      String
+  type      String
+  size      Int
+  path      String
 
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // ✅ ADDED: Relation to Project
+  // Relation to Project
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // ✅ --- NEW: Relation to Expense ---
+  expenseId String?
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  // --- END NEW ---
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,11 +111,10 @@ model Project {
   contacts     ProjectContact[]
   tasks        Task[]
   categories   Category[]
-  files        File[] // This is the old file relation, we are leaving it for now.
+  files        File[]
   notifications Notification[]
   timelineEvents TimelineEvent[]
-
-  documents    Document[] // ✅ ADDED: Relation to the new Document model
+  documents    Document[] // Relation to the new Document model
 
   @@map("projects")
 }
@@ -249,7 +252,7 @@ model TimeEntry {
   description String?
   startTime   DateTime
   endTime     DateTime?
-  duration    Int?     // Duration in minutes
+  duration    Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -335,8 +338,8 @@ model FeatureRequest {
   id          Int      @id @default(autoincrement())
   title       String
   description String   @db.Text
-  status      String   @default("Pending") // e.g., Pending, In Progress, Done
-  priority    String   @default("Medium") // e.g., Low, Medium, High
+  status      String   @default("Pending")
+  priority    String   @default("Medium")
   submittedBy String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -361,7 +364,7 @@ model Client {
   contractTerm      ContractTerm @default(ONE_TIME)
   contractAmount    Float?
   contractStartDate DateTime?
-  frequency         String?      // This is the new field we added
+  frequency         String?
 
   // Relations
   userId    String
@@ -374,7 +377,7 @@ model Client {
 model Invoice {
   id            String        @id @default(cuid())
   invoiceNumber String        @unique
-  status        InvoiceStatus @default(DRAFT) // DRAFT, PENDING, PAID, OVERDUE
+  status        InvoiceStatus @default(DRAFT)
   amount        Float
   issuedDate    DateTime
   dueDate       DateTime
@@ -384,7 +387,7 @@ model Invoice {
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents     FinancialDocument[]
   createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @default(now()) @updatedAt // FIXED: Added default value
+  updatedAt     DateTime      @default(now()) @updatedAt
 }
 
 enum InvoiceStatus {
@@ -402,9 +405,16 @@ model Expense {
   date        DateTime
   userId      String
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documents   FinancialDocument[]
+  
+  // ✅ --- NEW: Relation to Document model ---
+  documents   Document[]
+  // --- END NEW ---
+
+  // This is the old relation, we will eventually remove it.
+  financialDocuments   FinancialDocument[] @relation("ExpenseFinancialDocuments")
+
   createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @default(now()) @updatedAt // FIXED: Added default value
+  updatedAt   DateTime        @default(now()) @updatedAt
 }
 
 enum ExpenseCategory {
@@ -425,7 +435,7 @@ model Subscription {
   name         String
   amount       Float
   billingCycle BillingCycle @default(MONTHLY)
-  dueDate      DateTime?    // ✅ ADDED: Optional due date for annual subscriptions
+  dueDate      DateTime?
   userId       String
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime     @default(now())
@@ -436,8 +446,8 @@ model Budget {
   id        String   @id @default(cuid())
   category  String
   amount    Float
-  month     Int      // e.g., 8 for August
-  year      Int      // e.g., 2025
+  month     Int
+  year      Int
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -457,5 +467,5 @@ model FinancialDocument {
   invoiceId  String?
   invoice    Invoice? @relation(fields: [invoiceId], references: [id])
   expenseId  String?
-  expense    Expense? @relation(fields: [expenseId], references: [id])
+  expense    Expense? @relation("ExpenseFinancialDocuments", fields: [expenseId], references: [id])
 }
