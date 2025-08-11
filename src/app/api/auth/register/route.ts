@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+// MODIFIED: Changed from a path alias to a direct relative path
+import { prisma } from "../../../../lib/prisma"
 import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {

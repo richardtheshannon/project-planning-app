@@ -3,7 +3,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "./src/lib/prisma/client" // MODIFIED: Set a new output path
 }
 
 datasource db {
@@ -31,7 +30,7 @@ model User {
   timeEntries          TimeEntry[]
   createdFiles         File[]
   notifications        Notification[]
-  documents            Document[] 
+  documents            Document[]
 
   // Financial Relations
   clients              Client[]

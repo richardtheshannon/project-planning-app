@@ -11,7 +11,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "prisma db push --accept-data-loss"
+    "db:push": "prisma db push --accept-data-loss",
+    "postinstall": "prisma generate"
   },
   "overrides": {
     "react": "^18.2.0"
@@ -55,6 +56,7 @@
     "zod": "^4.0.15"
   },
   "devDependencies": {
+    "@prisma/engines": "*",
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/formidable": "^3.4.5",

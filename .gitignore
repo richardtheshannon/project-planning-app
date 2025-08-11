@@ -2,8 +2,6 @@
 
 # dependencies
 /node_modules
-# MODIFICATION: Un-ignore the Prisma Client folder so it can be committed.
-!/node_modules/.prisma/client
 
 # local env files
 .env*.local
