@@ -11,6 +11,10 @@ import { toast } from "sonner";
 import { SubscriptionsDataTable } from "@/components/financials/SubscriptionsDataTable";
 import { ExpensesDataTable } from "@/components/financials/ExpensesDataTable";
 
+// ✅ FIX: This line tells Next.js to always render this page dynamically.
+// This will prevent the static export error during the build process on Railway.
+export const dynamic = 'force-dynamic';
+
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -127,4 +131,3 @@ export default function ExpensesPage() {
     </>
   );
 }
-// update
