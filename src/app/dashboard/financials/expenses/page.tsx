@@ -9,8 +9,7 @@ import { toast } from "sonner";
 import { SubscriptionsDataTable } from "@/components/financials/SubscriptionsDataTable";
 import { ExpensesDataTable } from "@/components/financials/ExpensesDataTable";
 
-// ✅ FIX: Define types locally to remove the server-only @prisma/client dependency.
-// This makes the component fully client-side and prevents build errors.
+// Define types locally to remove any server-only dependencies
 type ExpenseCategory = "SOFTWARE" | "MARKETING" | "OFFICE_SUPPLIES" | "TRAVEL" | "OTHER";
 type BillingCycle = "MONTHLY" | "ANNUALLY";
 
@@ -40,7 +39,9 @@ interface Subscription {
 const EditExpenseDialog = dynamic(() => import('@/components/financials/EditExpenseDialog'));
 const EditSubscriptionDialog = dynamic(() => import('@/components/financials/EditSubscriptionDialog'));
 
-export default function ExpensesPage() {
+
+// This component contains the actual UI and logic for the page.
+function ExpensesClientView() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(true);
@@ -103,7 +104,6 @@ export default function ExpensesPage() {
   return (
     <>
       <div className="space-y-8">
-        {/* Section: Expenses */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -121,7 +121,6 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
 
-        {/* Section: Subscriptions */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -135,13 +134,12 @@ export default function ExpensesPage() {
           <CardContent>
               {isLoadingSubscriptions && <p className="text-muted-foreground">Loading subscriptions...</p>}
               {error && <p className="text-destructive">{error}</p>}
-              {/* ✅ FIX: Removed the unnecessary 'onSubscriptionSelect' prop */}
+              {/* ✅ FIX: The incorrect 'onSubscriptionSelect' prop has been removed. */}
               {!isLoadingSubscriptions && !error && <SubscriptionsDataTable data={subscriptions} />}
           </CardContent>
         </Card>
       </div>
 
-      {/* Dialogs for editing items */}
       <EditExpenseDialog
         expense={selectedExpense}
         isOpen={isExpenseEditDialogOpen}
@@ -156,4 +154,14 @@ export default function ExpensesPage() {
       />
     </>
   );
+}
+
+// The main page component now dynamically imports the view component.
+const DynamicExpensesPage = dynamic(() => Promise.resolve(ExpensesClientView), {
+  ssr: false,
+  loading: () => <p className="p-8 text-center text-muted-foreground">Loading Financials...</p>
+});
+
+export default function ExpensesPage() {
+  return <DynamicExpensesPage />;
 }
