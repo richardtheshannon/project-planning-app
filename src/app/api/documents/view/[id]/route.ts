@@ -1,54 +1,65 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { prisma } from '@/lib/prisma';
-import fs from 'fs';
-import mime from 'mime-types'; // We'll need to install this small helper library
+// src/app/api/documents/view/[id]/route.ts
 
-// The GET handler for securely serving a single file.
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  // 1. Authenticate the user
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
+import path from "path";
+import fs from "fs";
+import mime from "mime-types";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return new Response('Unauthorized', { status: 401 });
+    return new NextResponse("Unauthorized", { status: 401 });
   }
-  const userId = session.user.id;
-  const documentId = params.id;
+
+  const { id } = params;
 
   try {
-    // 2. Find the document record to get its path and ensure it belongs to the user
-    const document = await prisma.document.findUnique({
+    const document = await prisma.document.findFirst({
       where: {
-        id: documentId,
-        userId: userId, // CRITICAL: Security check
+        id: id,
+        userId: session.user.id, // Security check: user can only access their own files
       },
     });
 
     if (!document) {
-      return new Response('Document not found or access denied.', { status: 404 });
+      return new NextResponse("File not found or access denied", {
+        status: 404,
+      });
     }
 
-    // 3. Check if the file exists at the stored path
-    if (!fs.existsSync(document.path)) {
-      console.error(`File not found on server at path: ${document.path}`);
-      return new Response('File not found on server.', { status: 404 });
+    // Construct the absolute path to the file
+    // It's crucial that UPLOAD_DIR points to the *root* of your uploads folder
+    const uploadDir =
+      process.env.UPLOAD_DIR || path.join(process.cwd(), "public");
+    const filePath = path.join(uploadDir, document.path);
+
+    if (!fs.existsSync(filePath)) {
+      console.error(`File not found at path: ${filePath}`);
+      return new NextResponse("File not found on server.", { status: 404 });
     }
 
-    // 4. Read the file from the filesystem
-    const fileBuffer = fs.readFileSync(document.path);
+    // Read the file into a buffer
+    const fileBuffer = fs.readFileSync(filePath);
 
-    // 5. Determine the content type
-    const contentType = mime.lookup(document.path) || 'application/octet-stream';
+    // Determine the content type from the stored MIME type or guess from filename
+    const contentType = document.type || mime.lookup(document.name) || 'application/octet-stream';
 
-    // 6. Create and return the response with the correct headers
-    const headers = new Headers();
-    headers.set('Content-Type', contentType);
-    headers.set('Content-Disposition', `inline; filename="${document.name}"`);
-
-    return new Response(fileBuffer, { status: 200, headers });
-
+    // Return the file with the correct headers
+    return new NextResponse(fileBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${document.name}"`,
+      },
+    });
   } catch (error) {
-    console.error('Error serving document:', error);
-    return new Response('An error occurred while serving the document.', { status: 500 });
+    console.error("Error serving file:", error);
+    return new NextResponse("Internal server error", { status: 500 });
   }
 }

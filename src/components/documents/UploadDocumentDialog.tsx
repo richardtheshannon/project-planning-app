@@ -1,6 +1,7 @@
+// src/components/documents/UploadDocumentDialog.tsx
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,23 +15,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
-// Define the props for our component
+// ✅ UPDATED: Added optional projectId to the props
 interface UploadDocumentDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onUploadSuccess: () => void; // A callback to refresh the document list
+  onUploadSuccess: () => void;
+  projectId?: string; // Make projectId optional
 }
 
-export default function UploadDocumentDialog({ isOpen, onOpenChange, onUploadSuccess }: UploadDocumentDialogProps) {
-  // State to hold the user-provided title
+export default function UploadDocumentDialog({ isOpen, onOpenChange, onUploadSuccess, projectId }: UploadDocumentDialogProps) {
   const [title, setTitle] = useState('');
-  // State to hold the selected file
   const [file, setFile] = useState<File | null>(null);
-  // State to manage loading and error messages
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handler for the form submission
+  // Reset the title when the dialog is opened
+  useEffect(() => {
+    if (isOpen) {
+      setTitle('');
+      setFile(null);
+      setError(null);
+    }
+  }, [isOpen]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!file || !title) {
@@ -41,10 +48,14 @@ export default function UploadDocumentDialog({ isOpen, onOpenChange, onUploadSuc
     setIsLoading(true);
     setError(null);
 
-    // Create a FormData object to send the file and title
     const formData = new FormData();
     formData.append('title', title);
     formData.append('file', file);
+
+    // ✅ If a projectId is provided, add it to the form data
+    if (projectId) {
+      formData.append('projectId', projectId);
+    }
 
     try {
       const response = await fetch('/api/documents', {
@@ -57,7 +68,6 @@ export default function UploadDocumentDialog({ isOpen, onOpenChange, onUploadSuc
         throw new Error(errorData.error || 'Failed to upload file.');
       }
 
-      // If successful, call the success callback, close the dialog, and reset state
       onUploadSuccess();
       handleClose();
 
@@ -68,12 +78,7 @@ export default function UploadDocumentDialog({ isOpen, onOpenChange, onUploadSuc
     }
   };
 
-  // Function to reset state and close the dialog
   const handleClose = () => {
-    setTitle('');
-    setFile(null);
-    setError(null);
-    setIsLoading(false);
     onOpenChange(false);
   };
 
@@ -83,7 +88,11 @@ export default function UploadDocumentDialog({ isOpen, onOpenChange, onUploadSuc
         <DialogHeader>
           <DialogTitle>Upload Document</DialogTitle>
           <DialogDescription>
-            Add a new document to your collection. It will be accessible across all projects.
+            {/* ✅ Make description dynamic */}
+            {projectId 
+              ? "Add a new document to this project." 
+              : "Add a new general document."
+            }
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -111,9 +120,6 @@ export default function UploadDocumentDialog({ isOpen, onOpenChange, onUploadSuc
                 onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
                 className="col-span-3"
                 disabled={isLoading}
-                // These attributes fulfill our plan's requirements
-                accept=".pdf,.csv,.md,.doc,.jpg,.png"
-                capture="environment"
               />
             </div>
             {error && (

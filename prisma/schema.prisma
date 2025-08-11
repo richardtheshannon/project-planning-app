@@ -38,7 +38,7 @@ model User {
   subscriptions        Subscription[]
   budgets              Budget[]
   financialDocuments   FinancialDocument[]
-  documents            Document[] // ✅ ADDED: Relation to the new Document model
+  documents            Document[]
 }
 
 // User roles
@@ -59,6 +59,10 @@ model Document {
 
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ✅ ADDED: Relation to Project
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -103,9 +107,11 @@ model Project {
   contacts     ProjectContact[]
   tasks        Task[]
   categories   Category[]
-  files        File[]
+  files        File[] // This is the old file relation, we are leaving it for now.
   notifications Notification[]
   timelineEvents TimelineEvent[]
+
+  documents    Document[] // ✅ ADDED: Relation to the new Document model
 
   @@map("projects")
 }
@@ -171,7 +177,6 @@ model Category {
   name        String
   color       String  @default("#3B82F6")
   description String?
-
   // Relations
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String
@@ -244,7 +249,7 @@ model TimeEntry {
   description String?
   startTime   DateTime
   endTime     DateTime?
-  duration    Int? // Duration in minutes
+  duration    Int?     // Duration in minutes
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -272,7 +277,7 @@ model File {
   uploaderId String
   project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId  String?
-  task       Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId     String?
 
   @@map("files")
@@ -288,7 +293,7 @@ model Notification {
   createdAt DateTime         @default(now())
 
   // Relations
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String?
@@ -356,7 +361,7 @@ model Client {
   contractTerm      ContractTerm @default(ONE_TIME)
   contractAmount    Float?
   contractStartDate DateTime?
-  frequency         String? // This is the new field we added
+  frequency         String?      // This is the new field we added
 
   // Relations
   userId    String
@@ -420,7 +425,7 @@ model Subscription {
   name         String
   amount       Float
   billingCycle BillingCycle @default(MONTHLY)
-  dueDate      DateTime? // ✅ ADDED: Optional due date for annual subscriptions
+  dueDate      DateTime?    // ✅ ADDED: Optional due date for annual subscriptions
   userId       String
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime     @default(now())
@@ -431,8 +436,8 @@ model Budget {
   id        String   @id @default(cuid())
   category  String
   amount    Float
-  month     Int // e.g., 8 for August
-  year      Int // e.g., 2025
+  month     Int      // e.g., 8 for August
+  year      Int      // e.g., 2025
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

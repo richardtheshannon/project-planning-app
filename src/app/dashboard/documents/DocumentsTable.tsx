@@ -1,3 +1,4 @@
+// src/app/dashboard/documents/DocumentsTable.tsx
 "use client";
 
 import * as React from "react";
@@ -21,17 +22,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, ArrowUpDown, ExternalLink, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-// Define the shape of the props our component will receive
+// This component correctly expects the full Document type from Prisma.
 interface DocumentsTableProps {
   documents: Document[];
   onDelete: (documentId: string) => Promise<void>;
 }
 
-// Define the possible keys we can sort the table by
 type SortKey = keyof Document;
 
-// Helper function to format file size into a readable format (KB, MB, etc.)
 const formatBytes = (bytes: number, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -47,8 +56,8 @@ export default function DocumentsTable({ documents, onDelete }: DocumentsTablePr
     key: 'createdAt',
     direction: 'descending',
   });
+  const [fileToDelete, setFileToDelete] = React.useState<Document | null>(null);
 
-  // Memoized filtering logic
   const filteredDocuments = React.useMemo(() => {
     return documents.filter(doc =>
       doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -56,12 +65,16 @@ export default function DocumentsTable({ documents, onDelete }: DocumentsTablePr
     );
   }, [documents, searchTerm]);
 
-  // Memoized sorting logic
+  // ✅ FIXED: Updated sorting logic to handle null values gracefully.
   const sortedDocuments = React.useMemo(() => {
     let sortableItems = [...filteredDocuments];
     sortableItems.sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
+
+      // Handle nulls by pushing them to the end of the sort order.
+      if (aValue === null) return 1;
+      if (bValue === null) return -1;
 
       if (aValue < bValue) {
         return sortConfig.direction === 'ascending' ? -1 : 1;
@@ -74,7 +87,6 @@ export default function DocumentsTable({ documents, onDelete }: DocumentsTablePr
     return sortableItems;
   }, [filteredDocuments, sortConfig]);
 
-  // Function to handle changing the sort column or direction
   const requestSort = (key: SortKey) => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -83,7 +95,13 @@ export default function DocumentsTable({ documents, onDelete }: DocumentsTablePr
     setSortConfig({ key, direction });
   };
 
-  // A reusable component for creating sortable table headers
+  const handleDeleteConfirm = () => {
+    if (fileToDelete) {
+      onDelete(fileToDelete.id);
+      setFileToDelete(null);
+    }
+  };
+
   const SortableHeader = ({ sortKey, children }: { sortKey: SortKey, children: React.ReactNode }) => (
     <TableHead className="cursor-pointer" onClick={() => requestSort(sortKey)}>
       <div className="flex items-center">
@@ -133,18 +151,13 @@ export default function DocumentsTable({ documents, onDelete }: DocumentsTablePr
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem asChild>
-                          {/* This link will eventually serve the file securely */}
                           <a href={`/api/documents/view/${doc.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center cursor-pointer">
                             <ExternalLink className="mr-2 h-4 w-4" /> Open File
                           </a>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => {
-                            if(window.confirm(`Are you sure you want to delete "${doc.title}"? This cannot be undone.`)) {
-                                onDelete(doc.id);
-                            }
-                          }}
+                          onClick={() => setFileToDelete(doc)}
                           className="text-red-600 focus:text-red-500 flex items-center cursor-pointer"
                         >
                           <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -164,6 +177,23 @@ export default function DocumentsTable({ documents, onDelete }: DocumentsTablePr
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog open={!!fileToDelete} onOpenChange={() => setFileToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete the document "{fileToDelete?.title}". This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // src/app/dashboard/projects/[id]/page.tsx
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -47,19 +47,21 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-// Component Imports
+import UploadDocumentDialog from "@/components/documents/UploadDocumentDialog";
+import DocumentsTable from "@/app/dashboard/documents/DocumentsTable";
 import { AddContactDialog } from "@/components/projects/AddContactDialog";
 import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
-import { UploadFileDialog } from "@/components/projects/UploadFileDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Download, Trash, Pencil, Link2, ChevronDown } from "lucide-react";
+import { User, Mail, Calendar, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, File as FileIcon, Pencil, Link2, ChevronDown, Plus } from "lucide-react";
 import { TimelineSection } from "@/components/projects/TimelineSection";
+import { Document as PrismaDocument } from '@prisma/client';
 
-// Import the shared ProjectFile type
-import { ProjectFile } from "@/types";
 
 // --- INTERFACES ---
+// ✅ Use the PrismaDocument type directly for consistency
+type Document = PrismaDocument;
+
 interface Task {
   id: string;
   title: string;
@@ -103,7 +105,6 @@ interface Project {
   }[];
   contacts: Contact[];
   tasks: Task[];
-  files: ProjectFile[];
   _count: {
     tasks: number;
     members: number;
@@ -128,12 +129,15 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
 
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+
   const [openSections, setOpenSections] = useState<Record<CollapsibleSectionName, boolean>>({
     projectDetails: false,
     timelineEvents: false,
     tasks: true,
     contacts: false,
-    files: false,
+    files: true,
   });
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -152,48 +156,53 @@ export default function ProjectDetailPage() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditContactDialogOpen, setIsEditContactDialogOpen] = useState(false);
 
-  const [fileToDelete, setFileToDelete] = useState<ProjectFile | null>(null);
-
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
-    priority: "MEDIUM",
+    priority: "MEDIUM" as Task['priority'],
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-
-  useEffect(() => {
-    if (projectId) {
-      fetchProjectAndFiles();
-    }
-  }, [projectId]);
-
-  const fetchProjectAndFiles = async () => {
+  const fetchProjectData = useCallback(async () => {
+    if (!projectId) return;
     setLoading(true);
     try {
-      const [projectResponse, filesResponse] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/files?projectId=${projectId}`)
-      ]);
-
+      const projectResponse = await fetch(`/api/projects/${projectId}`);
       if (!projectResponse.ok) throw new Error("Project not found or you do not have permission.");
-      if (!filesResponse.ok) throw new Error("Failed to fetch project files.");
-
+      
       const projectData: Project = await projectResponse.json();
-      const filesData: ProjectFile[] = await filesResponse.json();
-
-      projectData.files = filesData;
       setProject(projectData);
 
       if (session?.user?.id === projectData.owner.id) {
         setIsOwner(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError(err instanceof Error ? err.message : "An error occurred fetching project data");
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, session?.user?.id]);
+
+  const fetchDocuments = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const filesResponse = await fetch(`/api/documents?projectId=${projectId}`);
+      if (!filesResponse.ok) throw new Error("Failed to fetch project documents.");
+      const filesData: Document[] = await filesResponse.json();
+      setDocuments(filesData);
+    } catch (err) {
+      console.error("Failed to fetch documents:", err);
+      toast({
+        title: "Error",
+        description: "Could not load project documents.",
+        variant: "destructive",
+      });
+    }
+  }, [projectId, toast]);
+
+  useEffect(() => {
+    fetchProjectData();
+    fetchDocuments();
+  }, [fetchProjectData, fetchDocuments]);
 
   const toggleSection = (sectionName: CollapsibleSectionName) => {
     setOpenSections(prev => ({
@@ -202,7 +211,6 @@ export default function ProjectDetailPage() {
     }));
   };
 
-  // REVISED: The header component is now responsive.
   const CollapsibleHeader = ({ sectionName, title, action }: { sectionName: CollapsibleSectionName, title: string, action?: React.ReactNode }) => (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full gap-4 md:gap-0">
         <div 
@@ -285,7 +293,7 @@ export default function ProjectDetailPage() {
               const errorData = await response.json();
               throw new Error(errorData.error || 'Failed to update project');
           }
-          await fetchProjectAndFiles();
+          await fetchProjectData();
           toast({ title: "Success", description: "Project updated successfully." });
           setShowEditProjectDialog(false);
       } catch (error) {
@@ -338,28 +346,28 @@ export default function ProjectDetailPage() {
     setProject(p => p ? { ...p, contacts: p.contacts.map(c => c.id === updatedContact.id ? updatedContact : c) } : null);
   };
 
-  const handleFileUploaded = (newFile: ProjectFile) => {
-    setProject(p => p ? { ...p, files: [newFile, ...p.files], _count: {...p._count, files: p._count.files + 1} } : null);
+  const handleDocumentUploaded = () => {
+    toast({ title: "Success", description: "File uploaded successfully." });
+    fetchDocuments();
   };
 
-  const handleDeleteFile = async () => {
-    if (!fileToDelete) return;
+  const handleDeleteDocument = async (documentId: string) => {
     try {
-      const response = await fetch(`/api/files`, {
+      const response = await fetch(`/api/documents/${documentId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: fileToDelete.id }),
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete file');
+        throw new Error(errorData.error || 'Failed to delete document');
       }
-      toast({ title: "Success", description: `File "${fileToDelete.originalName}" deleted.` });
-      setProject(p => p ? { ...p, files: p.files.filter(f => f.id !== fileToDelete.id), _count: {...p._count, files: p._count.files - 1} } : null);
+      toast({ title: "Success", description: "Document deleted successfully." });
+      fetchDocuments();
     } catch (error) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "An unknown error occurred.", variant: "destructive" });
-    } finally {
-      setFileToDelete(null);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -402,8 +410,7 @@ export default function ProjectDetailPage() {
   const getStatusColor = (status: string) => ({ PLANNING: "bg-gray-100 text-gray-800", IN_PROGRESS: "bg-blue-100 text-blue-800", ON_HOLD: "bg-yellow-100 text-yellow-800", COMPLETED: "bg-green-100 text-green-800", CANCELLED: "bg-red-100 text-red-800" }[status] || "bg-gray-100 text-gray-800");
   const getPriorityColor = (priority: string) => ({ LOW: "bg-slate-100 text-slate-800", MEDIUM: "bg-indigo-100 text-indigo-800", HIGH: "bg-orange-100 text-orange-800", URGENT: "bg-red-100 text-red-800" }[priority] || "bg-slate-100 text-slate-800");
   const getTaskStatusColor = (status: string) => ({ TODO: "bg-gray-100 text-gray-800", IN_PROGRESS: "bg-blue-100 text-blue-800", IN_REVIEW: "bg-yellow-100 text-yellow-800", COMPLETED: "bg-green-100 text-green-800", CANCELLED: "bg-red-100 text-red-800" }[status] || "bg-gray-100 text-gray-800");
-  const formatFileSize = (bytes: number) => { if (bytes === 0) return '0 Bytes'; const k = 1024; const i = Math.floor(Math.log(bytes) / Math.log(k)); return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${['Bytes', 'KB', 'MB', 'GB'][i]}`; }
-
+  
   if (loading) return <div className="flex items-center justify-center h-64">Loading project...</div>;
   if (error || !project) return <div className="text-red-600 p-4"> {error || "Project not found"} <Link href="/dashboard/projects"><Button>Back</Button></Link></div>;
 
@@ -491,77 +498,25 @@ export default function ProjectDetailPage() {
             <CardHeader>
               <CollapsibleHeader 
                 sectionName="files" 
-                title={`Files (${project.files.length})`}
-                action={isOwner ? <UploadFileDialog projectId={project.id} onFileUploaded={handleFileUploaded} /> : undefined}
+                title={`Documents (${documents.length})`}
+                action={isOwner ? (
+                  <Button onClick={() => setIsUploadDialogOpen(true)}>
+                    <Plus size={16} className="mr-2" />
+                    Upload Document
+                  </Button>
+                ) : undefined}
               />
             </CardHeader>
             {openSections.files && (
               <CardContent>
-                {project.files.length > 0 ? (
-                  <div>
-                    <div className="md:hidden space-y-4">
-                      {project.files.map(file => {
-                        const fileUrl = `${appUrl}/${file.path}`;
-                        return (
-                          <Card key={file.id}>
-                            <CardContent className="p-4 space-y-3">
-                              <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
-                                <FileIcon size={16} />{file.originalName}
-                              </a>
-                              <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Size:</span>
-                                <span>{formatFileSize(file.size)}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Added:</span>
-                                <span>{new Date(file.createdAt).toLocaleDateString()}</span>
-                              </div>
-                              <div className="flex justify-end gap-2 pt-2">
-                                <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
-                                <a href={fileUrl} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                    <div className="hidden md:block">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Size</TableHead>
-                            <TableHead>Date Added</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {project.files.map(file => {
-                            const fileUrl = `${appUrl}/${file.path}`;
-                            return (
-                              <TableRow key={file.id}>
-                                <TableCell>
-                                  <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
-                                    <FileIcon size={16} />{file.originalName}
-                                  </a>
-                                </TableCell>
-                                <TableCell>{formatFileSize(file.size)}</TableCell>
-                                <TableCell>{new Date(file.createdAt).toLocaleDateString()}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon" onClick={() => setFileToDelete(file)}><Trash size={16} className="text-red-500" /></Button>
-                                  <a href={fileUrl} download><Button variant="ghost" size="icon"><Download size={16} /></Button></a>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                ) : <p className="text-center text-muted-foreground py-8">No files uploaded yet.</p>}
+                <DocumentsTable
+                  documents={documents}
+                  onDelete={handleDeleteDocument}
+                />
               </CardContent>
             )}
           </Card>
+
         </div>
 
         <div className="lg:col-span-2 space-y-8 lg:sticky lg:top-6 lg:self-start">
@@ -631,7 +586,14 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      {/* --- DIALOGS & MODALS (No changes needed here) --- */}
+      {/* --- DIALOGS & MODALS --- */}
+      <UploadDocumentDialog
+        isOpen={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+        onUploadSuccess={handleDocumentUploaded}
+        projectId={projectId}
+      />
+
       <AlertDialog open={!!taskToDelete} onOpenChange={() => setTaskToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -658,15 +620,52 @@ export default function ProjectDetailPage() {
       />
       <EditContactDialog contact={selectedContact} isOpen={isEditContactDialogOpen} onOpenChange={setIsEditContactDialogOpen} onContactUpdated={handleContactUpdated} />
 
-      <AlertDialog open={!!fileToDelete} onOpenChange={() => setFileToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{fileToDelete?.originalName}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteFile} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}><DialogContent><DialogHeader><DialogTitle>Delete Project</DialogTitle><DialogDescription>This will permanently delete the project and all its data. This action cannot be undone.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button><Button variant="destructive" onClick={handleDeleteProject}>Delete Project</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={showCreateTaskDialog} onOpenChange={setShowCreateTaskDialog}><DialogContent><DialogHeader><DialogTitle>Create New Task</DialogTitle></DialogHeader><div className="grid gap-4 py-4"><div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="title" className="text-right">Title</Label><Input id="title" value={newTask.title} onChange={e => setNewTask(p => ({...p, title: e.target.value}))} className="col-span-3" /></div><div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={newTask.description} onChange={e => setNewTask(p => ({...p, description: e.target.value}))} className="col-span-3" /></div><div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="priority" className="text-right">Priority</Label><Select value={newTask.priority} onValueChange={value => setNewTask(p => ({...p, priority: value as Task['priority']}))}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LOW">Low</SelectItem><SelectItem value="MEDIUM">Medium</SelectItem><SelectItem value="HIGH">High</SelectItem><SelectItem value="URGENT">Urgent</SelectItem></SelectContent></Select></div ></div><DialogFooter><Button variant="outline" onClick={() => setShowCreateTaskDialog(false)}>Cancel</Button><Button onClick={handleCreateTask}>Create Task</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>This will permanently delete the project and all its data. This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteProject}>Delete Project</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showCreateTaskDialog} onOpenChange={setShowCreateTaskDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Task</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">Title</Label>
+              <Input id="title" value={newTask.title} onChange={e => setNewTask(p => ({...p, title: e.target.value}))} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">Description</Label>
+              <Textarea id="description" value={newTask.description} onChange={e => setNewTask(p => ({...p, description: e.target.value}))} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="priority" className="text-right">Priority</Label>
+              <Select value={newTask.priority} onValueChange={value => setNewTask(p => ({...p, priority: value as Task['priority']}))}>
+                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Low</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="URGENT">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div >
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateTaskDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreateTask}>Create Task</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showEditProjectDialog} onOpenChange={setShowEditProjectDialog}>
         <DialogContent className="sm:max-w-[600px]">

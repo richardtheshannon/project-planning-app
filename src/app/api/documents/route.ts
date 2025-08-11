@@ -1,91 +1,109 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { prisma } from '@/lib/prisma';
-import fs from 'fs';
-import path from 'path';
-import { writeFile } from 'fs/promises';
+// src/app/api/documents/route.ts
 
-// ✅ NEW: The GET handler for fetching all documents for the current user.
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
+import { writeFile } from "fs/promises";
+import path from "path";
+import fs from "fs";
+import { Prisma } from "@prisma/client"; // Import Prisma types
+
+// GET Handler remains the same...
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { searchParams } = new URL(req.url);
+  const projectId = searchParams.get("projectId");
 
   try {
     const documents = await prisma.document.findMany({
       where: {
         userId: session.user.id,
+        projectId: projectId ? projectId : null,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
     return NextResponse.json(documents);
   } catch (error) {
-    console.error('Error fetching documents:', error);
-    return NextResponse.json({ error: 'Failed to fetch documents.' }, { status: 500 });
+    console.error("Error fetching documents:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch documents" },
+      { status: 500 }
+    );
   }
 }
 
-// ✅ FIXED: The POST handler has been refactored to remove 'formidable'
-// and use the built-in req.formData() method, which is compatible with the Next.js App Router.
+
+// POST Handler updated to fix type error
 export async function POST(req: NextRequest) {
-  // 1. Authenticate the user
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const userId = session.user.id;
-
-  // 2. Parse the incoming form data using the built-in method
-  const data = await req.formData();
-  const file: File | null = data.get('file') as unknown as File;
-  const title: string | null = data.get('title') as string;
-
-  // 3. Validate that we received a file and a title
-  if (!file || !title) {
-    return NextResponse.json({ error: 'Missing file or title.' }, { status: 400 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 4. Get the upload directory and ensure it exists
-  const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'public', 'uploads');
   try {
-    await fs.promises.mkdir(uploadDir, { recursive: true });
-  } catch (error) {
-    console.error('Error creating upload directory:', error);
-    return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
-  }
+    const data = await req.formData();
+    const file: File | null = data.get("file") as unknown as File;
+    const title: string | null = data.get("title") as string;
+    const projectId: string | null = data.get("projectId") as string;
 
-  // 5. Create a unique filename and path
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-  const fileExtension = path.extname(file.name);
-  const fileNameWithoutExt = path.basename(file.name, fileExtension);
-  const uniqueFilename = `${fileNameWithoutExt.replace(/\s+/g, '-')}-${Date.now()}${fileExtension}`;
-  const filePath = path.join(uploadDir, uniqueFilename);
+    if (!file) {
+      return NextResponse.json({ error: "No file provided." }, { status: 400 });
+    }
+    if (!title || title.trim() === "") {
+        return NextResponse.json({ error: "Title is required." }, { status: 400 });
+    }
 
-  // 6. Write the file to the filesystem
-  await writeFile(filePath, buffer);
+    const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
 
-  // 7. Create the document record in the database
-  try {
-    const newDocument = await prisma.document.create({
-      data: {
-        userId: userId,
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const filename = `${uniqueSuffix}-${file.name.replace(/\s+/g, '_')}`;
+    const filePath = path.join(uploadDir, filename);
+
+    await writeFile(filePath, buffer);
+
+    // ✅ --- FIX: Build the data object explicitly ---
+    const documentData: Prisma.DocumentCreateInput = {
         title: title,
-        name: file.name, // The original name of the file
-        type: file.type, // The MIME type of the file
-        size: file.size, // The size of the file in bytes
-        path: filePath, // The full path to where the file was saved on the server
-      },
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        path: path.join("uploads", filename).replace(/\\/g, '/'),
+        user: { // Connect to the user
+            connect: { id: session.user.id }
+        }
+    };
+
+    if (projectId) {
+        documentData.project = { // Conditionally connect to the project
+            connect: { id: projectId }
+        };
+    }
+    // --- END FIX ---
+
+    const newDocument = await prisma.document.create({
+      data: documentData,
     });
+
     return NextResponse.json(newDocument, { status: 201 });
   } catch (error) {
-    console.error('Error creating document in database:', error);
-    // If we fail to create the database record, delete the orphaned file.
-    await fs.promises.unlink(filePath);
-    return NextResponse.json({ error: 'Failed to save document record.' }, { status: 500 });
+    console.error("Error uploading document:", error);
+    return NextResponse.json(
+      { error: "Failed to upload document" },
+      { status: 500 }
+    );
   }
 }
