@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * GET handler to fetch all timeline events for a specific project.
- * ✅ FIX: Now allows any authenticated user to fetch events for any project.
+ * Allows any authenticated user to fetch events for any project.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -22,8 +22,6 @@ export async function GET(request: NextRequest) {
     if (!projectId) {
       return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
-
-    // The permission check that verified project membership has been removed.
     
     const timelineEvents = await prisma.timelineEvent.findMany({
       where: { projectId },
@@ -40,7 +38,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST handler to create a new timeline event.
- * ✅ FIX: Now allows any authenticated user to create an event for any project.
+ * Allows any authenticated user to create an event for any project.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -52,18 +50,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, description, eventDate, projectId } = body;
 
-    if (!title || !eventDate || !projectId) {
+    if (!title || !projectId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
     
-    // The permission check that verified project ownership has been removed.
-
     const newEvent = await prisma.timelineEvent.create({
       data: {
         title,
         description,
-        eventDate: new Date(eventDate),
         projectId,
+        // MODIFIED: Use conditional spreading. If eventDate exists, the eventDate
+        // property is added to the object. If not, nothing is added, which
+        // avoids all TypeScript errors with `null` or `undefined`.
+        ...(eventDate && { eventDate: new Date(eventDate) }),
       },
     });
 

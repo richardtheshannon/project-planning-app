@@ -39,24 +39,25 @@ import { useToast } from "@/components/ui/toast";
 import { Pencil, PlusCircle, Trash2, ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+// MODIFIED: eventDate can now be a string or null
 interface TimelineEvent {
   id: string;
   title: string;
   description: string | null;
-  eventDate: string;
+  eventDate: string | null; 
   isCompleted: boolean;
   projectId: string;
 }
 
 interface TimelineSectionProps {
   projectId: string;
-  isOwner: boolean;
+  // MODIFIED: Removed isOwner prop as it's no longer used for conditional rendering
 }
 
 type SortKey = 'eventDate' | 'isCompleted';
 type SortDirection = 'asc' | 'desc';
 
-export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
+export function TimelineSection({ projectId }: TimelineSectionProps) {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,13 +88,16 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
   }, [projectId]);
 
   const handleOpenDialog = (event: Partial<TimelineEvent> | null = null) => {
-    setEventToEdit(event ? { ...event, eventDate: new Date(event.eventDate!).toISOString().split('T')[0] } : { title: "", description: "", eventDate: "" });
+    // MODIFIED: Handle null dates correctly when opening the dialog
+    const dateValue = event?.eventDate ? new Date(event.eventDate).toISOString().split('T')[0] : "";
+    setEventToEdit(event ? { ...event, eventDate: dateValue } : { title: "", description: "", eventDate: "" });
     setIsDialogOpen(true);
   };
 
   const handleSaveEvent = async () => {
-    if (!eventToEdit || !eventToEdit.title || !eventToEdit.eventDate) {
-        toast({ title: "Error", description: "Title and Date are required.", variant: "destructive" });
+    // MODIFIED: Removed eventDate from the required fields check
+    if (!eventToEdit || !eventToEdit.title) {
+        toast({ title: "Error", description: "Title is required.", variant: "destructive" });
         return;
     }
 
@@ -104,10 +108,17 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
     const method = eventToEdit.id ? 'PUT' : 'POST';
 
     try {
+      // MODIFIED: Ensure empty date string is sent as null
+      const body = {
+        ...eventToEdit,
+        projectId,
+        eventDate: eventToEdit.eventDate || null
+      };
+
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...eventToEdit, projectId }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -162,6 +173,9 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => {
         if (sortKey === 'eventDate') {
+            // MODIFIED: Sort events with null dates to the end
+            if (a.eventDate === null) return 1;
+            if (b.eventDate === null) return -1;
             const val = new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
             return sortDirection === 'asc' ? val : -val;
         }
@@ -198,26 +212,24 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
     <div className="my-8">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-semibold">Timeline</h3>
-        {isOwner && (
-            <Button onClick={() => handleOpenDialog()}>
-                <PlusCircle size={16} className="mr-2" />
-                Add Event
-            </Button>
-        )}
+        {/* MODIFIED: Button is now always visible */}
+        <Button onClick={() => handleOpenDialog()}>
+            <PlusCircle size={16} className="mr-2" />
+            Add Event
+        </Button>
       </div>
       
       {sortedEvents.length > 0 ? (
         <div>
-          {/* --- KEY CHANGE: Mobile Card View --- */}
-          {/* This view is only visible on screens smaller than the 'md' breakpoint */}
           <div className="md:hidden space-y-4">
             {sortedEvents.map((event) => (
               <Card key={event.id} className="relative">
-                <CardContent className="p-4 space-y-2" onClick={() => isOwner && handleOpenDialog(event)}>
+                <CardContent className="p-4 space-y-2" onClick={() => handleOpenDialog(event)}>
                   <div className="font-bold">{event.title}</div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Date</span>
-                    <span className="text-sm">{new Date(event.eventDate).toLocaleDateString()}</span>
+                    {/* MODIFIED: Display a fallback if date is null */}
+                    <span className="text-sm">{event.eventDate ? new Date(event.eventDate).toLocaleDateString() : 'No date'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Status</span>
@@ -226,19 +238,15 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
                     </Badge>
                   </div>
                 </CardContent>
-                {isOwner && (
-                  <div className="absolute top-2 right-2 flex gap-1">
+                <div className="absolute top-2 right-2 flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEventToDelete(event); }}>
-                      <Trash2 size={16} className="text-destructive" />
+                        <Trash2 size={16} className="text-destructive" />
                     </Button>
-                  </div>
-                )}
+                </div>
               </Card>
             ))}
           </div>
 
-          {/* --- KEY CHANGE: Desktop Table View --- */}
-          {/* This view is hidden on screens smaller than 'md' and visible on 'md' and larger */}
           <div className="hidden md:block rounded-md border">
             <Table>
               <TableHeader>
@@ -247,7 +255,7 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
                   <SortableHeader sortKey="eventDate">Date</SortableHeader>
                   <TableHead>Event</TableHead>
                   <SortableHeader sortKey="isCompleted">Completed</SortableHeader>
-                  {isOwner && <TableHead className="text-right">Actions</TableHead>}
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -256,25 +264,23 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
                     <TableCell>
                       <Checkbox
                         checked={event.isCompleted}
-                        onCheckedChange={() => isOwner && toggleComplete(event)}
-                        disabled={!isOwner}
+                        onCheckedChange={() => toggleComplete(event)}
                       />
                     </TableCell>
-                    <TableCell>{new Date(event.eventDate).toLocaleDateString()}</TableCell>
+                    {/* MODIFIED: Display a fallback if date is null */}
+                    <TableCell>{event.eventDate ? new Date(event.eventDate).toLocaleDateString() : 'No date'}</TableCell>
                     <TableCell className="font-medium">{event.title}</TableCell>
                     <TableCell>
                       {event.isCompleted ? <Badge variant="secondary">Completed</Badge> : <Badge variant="outline">Pending</Badge>}
                     </TableCell>
-                    {isOwner && (
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(event)}>
-                          <Pencil size={16} />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)}>
-                          <Trash2 size={16} className="text-red-500" />
-                        </Button>
-                      </TableCell>
-                    )}
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(event)}>
+                        <Pencil size={16} />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setEventToDelete(event)}>
+                        <Trash2 size={16} className="text-red-500" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -306,7 +312,8 @@ export function TimelineSection({ projectId, isOwner }: TimelineSectionProps) {
               <Textarea id="description" value={eventToEdit?.description || ""} onChange={(e) => setEventToEdit(p => ({...p, description: e.target.value}))} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="eventDate" className="text-right">Date</Label>
+              {/* MODIFIED: Added "(Optional)" to the label */}
+              <Label htmlFor="eventDate" className="text-right">Date (Optional)</Label>
               <Input id="eventDate" type="date" value={eventToEdit?.eventDate || ""} onChange={(e) => setEventToEdit(p => ({...p, eventDate: e.target.value}))} className="col-span-3" />
             </div>
           </div>
