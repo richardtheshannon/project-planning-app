@@ -1,21 +1,25 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LogExpenseDialog } from "@/components/financials/LogExpenseDialog";
 import { AddSubscriptionDialog } from "@/components/financials/AddSubscriptionDialog";
-import EditExpenseDialog from "@/components/financials/EditExpenseDialog";
-import EditSubscriptionDialog from "@/components/financials/EditSubscriptionDialog";
 import { Expense, Subscription } from "@prisma/client";
 import { toast } from "sonner";
 import { SubscriptionsDataTable } from "@/components/financials/SubscriptionsDataTable";
 import { ExpensesDataTable } from "@/components/financials/ExpensesDataTable";
 
-// ✅ FIX: This line tells Next.js to always render this page dynamically.
-// This will prevent the static export error during the build process on Railway.
-export const dynamic = 'force-dynamic';
+// Dynamically import the dialogs to ensure they are only loaded on the client
+const EditExpenseDialog = dynamic(() => import('@/components/financials/EditExpenseDialog'));
+const EditSubscriptionDialog = dynamic(() => import('@/components/financials/EditSubscriptionDialog'));
 
-export default function ExpensesPage() {
+// ✅ FIX: The conflicting 'export const dynamic' line has been removed.
+// The dynamic import below is the correct way to handle this.
+
+// This component contains the actual UI and logic for the page.
+// It will be loaded dynamically on the client side.
+function ExpensesClientView() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(true);
@@ -130,4 +134,16 @@ export default function ExpensesPage() {
       />
     </>
   );
+}
+
+// The main page component now dynamically imports the view.
+// The `ssr: false` option is a strong hint to Next.js to not render this on the server.
+const DynamicExpensesPage = dynamic(() => Promise.resolve(ExpensesClientView), {
+  ssr: false,
+  loading: () => <p className="p-8 text-center text-muted-foreground">Loading Financials...</p>
+});
+
+
+export default function ExpensesPage() {
+  return <DynamicExpensesPage />;
 }
