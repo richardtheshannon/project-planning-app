@@ -25,7 +25,24 @@ export async function GET(request: NextRequest) {
     
     const timelineEvents = await prisma.timelineEvent.findMany({
       where: { projectId },
-      orderBy: { eventDate: "asc" },
+    });
+
+    // Sort the events in JavaScript to avoid database-specific issues.
+    timelineEvents.sort((a, b) => {
+      // If both have dates, sort by date.
+      if (a.eventDate && b.eventDate) {
+        return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+      }
+      // If only 'a' has a date, it comes first.
+      if (a.eventDate) {
+        return -1;
+      }
+      // If only 'b' has a date, it comes first.
+      if (b.eventDate) {
+        return 1;
+      }
+      // If neither has a date, sort by creation time.
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
 
     return NextResponse.json(timelineEvents);
@@ -59,10 +76,8 @@ export async function POST(request: NextRequest) {
         title,
         description,
         projectId,
-        // MODIFIED: Use conditional spreading. If eventDate exists, the eventDate
-        // property is added to the object. If not, nothing is added, which
-        // avoids all TypeScript errors with `null` or `undefined`.
-        ...(eventDate && { eventDate: new Date(eventDate) }),
+        // Explicitly handle empty/null dates to prevent invalid data.
+        eventDate: eventDate ? new Date(eventDate) : null,
       },
     });
 

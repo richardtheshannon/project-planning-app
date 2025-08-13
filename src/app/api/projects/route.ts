@@ -2,20 +2,16 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
+import { defaultTimelineEvents } from "../../../../timeline-template";
 
-// ✅ --- FIX: GET handler updated to fetch projects for ALL users ---
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    // We still check for a session to ensure only authenticated users can access projects.
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
-    // The logic to find the specific user is no longer needed here, but we keep the session check.
     
-    // The `where` clause has been removed from this query.
     const projects = await prisma.project.findMany({
       include: {
         owner: {
@@ -37,10 +33,7 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-// --- END FIX ---
 
-
-// The POST handler remains unchanged. It correctly assigns ownership on creation.
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -60,29 +53,53 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { name, description, projectGoal, website, status, priority, startDate, endDate } = body
 
-    const project = await prisma.project.create({
-      data: {
-        name,
-        description: description || null,
-        projectGoal: projectGoal || null,
-        website: website || null,
-        status: status || "PLANNING",
-        priority: priority || "MEDIUM",
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        ownerId: user.id
-      },
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true }
-        },
-        _count: {
-          select: { tasks: true, members: true }
+    // CHANGED: Use a Prisma transaction to ensure both operations succeed or fail together.
+    const newProject = await prisma.$transaction(async (tx) => {
+      // 1. Create the project
+      const project = await tx.project.create({
+        data: {
+          name,
+          description: description || null,
+          projectGoal: projectGoal || null,
+          website: website || null,
+          status: status || "PLANNING",
+          priority: priority || "MEDIUM",
+          startDate: startDate ? new Date(startDate) : null,
+          endDate: endDate ? new Date(endDate) : null,
+          ownerId: user.id
         }
-      }
-    })
+      });
 
-    return NextResponse.json(project, { status: 201 })
+      // 2. Prepare the default timeline events
+      const timelineEventsToCreate = defaultTimelineEvents.map(event => ({
+        ...event,
+        projectId: project.id,
+      }));
+
+      // 3. Create the timeline events
+      await tx.timelineEvent.createMany({
+        data: timelineEventsToCreate,
+      });
+
+      // 4. Return the created project
+      return project;
+    });
+    
+    // Fetch the project again to include relations for the response
+    const projectWithRelations = await prisma.project.findUnique({
+        where: { id: newProject.id },
+        include: {
+            owner: {
+              select: { id: true, name: true, email: true }
+            },
+            _count: {
+              select: { tasks: true, members: true }
+            }
+        }
+    });
+
+
+    return NextResponse.json(projectWithRelations, { status: 201 })
   } catch (error) {
     console.error('Project creation error:', error)
     return NextResponse.json(

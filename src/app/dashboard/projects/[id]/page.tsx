@@ -1,7 +1,8 @@
 // src/app/dashboard/projects/[id]/page.tsx
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+// CHANGED: Added useRef to create a reference to the TimelineSection component.
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,8 +53,9 @@ import { AddContactDialog } from "@/components/projects/AddContactDialog";
 import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mail, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, Pencil, Link2, ChevronDown, Plus } from "lucide-react";
-import { TimelineSection } from "@/components/projects/TimelineSection";
+import { Mail, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, Pencil, Link2, ChevronDown, Plus, PlusCircle } from "lucide-react";
+// CHANGED: Imported the component and the handle type.
+import { TimelineSection, TimelineSectionHandle } from "@/components/projects/TimelineSection";
 import { Document as PrismaDocument } from '@prisma/client';
 
 
@@ -125,15 +127,12 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // ✅ FIX: The `isOwner` state is no longer needed. All users have full access.
-  // const [isOwner, setIsOwner] = useState(false);
-
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   const [openSections, setOpenSections] = useState<Record<CollapsibleSectionName, boolean>>({
     projectDetails: false,
-    timelineEvents: false,
+    timelineEvents: true, // Default to open
     tasks: true,
     contacts: false,
     files: true,
@@ -161,6 +160,9 @@ export default function ProjectDetailPage() {
     priority: "MEDIUM" as Task['priority'],
   });
 
+  // CHANGED: Create a ref for the TimelineSection component.
+  const timelineSectionRef = useRef<TimelineSectionHandle>(null);
+
   const fetchProjectData = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
@@ -170,11 +172,6 @@ export default function ProjectDetailPage() {
       
       const projectData: Project = await projectResponse.json();
       setProject(projectData);
-
-      // ✅ FIX: The logic to check for ownership is removed.
-      // if (session?.user?.id === projectData.owner.id) {
-      //   setIsOwner(true);
-      // }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred fetching project data");
     } finally {
@@ -185,7 +182,6 @@ export default function ProjectDetailPage() {
   const fetchDocuments = useCallback(async () => {
     if (!projectId) return;
     try {
-      // ✅ FIX: This now fetches all documents for the project, regardless of user.
       const filesResponse = await fetch(`/api/documents?projectId=${projectId}`);
       if (!filesResponse.ok) throw new Error("Failed to fetch project documents.");
       const filesData: Document[] = await filesResponse.json();
@@ -432,8 +428,7 @@ export default function ProjectDetailPage() {
               <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
               <Badge className={getPriorityColor(project.priority)}>{project.priority}</Badge>
             </div>
-
-            {/* ✅ FIX: Buttons are now always visible */}
+            
             <div className="flex flex-col gap-2 mt-4 lg:hidden">
               <Link href="/dashboard/projects"><Button variant="outline" className="w-full">Back to Projects</Button></Link>
               <Button onClick={handleEditProjectClick} className="w-full"><Pencil size={16} className="mr-2" />Edit Project</Button>
@@ -470,21 +465,29 @@ export default function ProjectDetailPage() {
             )}
           </Card>
 
+          {/* CHANGED: This entire block is updated to control the TimelineSection correctly. */}
           <Card>
             <CardHeader>
-              {/* ✅ FIX: TimelineSection `isOwner` prop is removed and now always true implicitly */}
-              <CollapsibleHeader sectionName="timelineEvents" title="Timeline Events" />
+              <CollapsibleHeader 
+                sectionName="timelineEvents" 
+                title="Timeline Events"
+                action={
+                  <Button onClick={() => timelineSectionRef.current?.handleOpenDialog()}>
+                    <PlusCircle size={16} className="mr-2" />
+                    Add Event
+                  </Button>
+                }
+              />
             </CardHeader>
             {openSections.timelineEvents && (
               <CardContent>
-                <TimelineSection projectId={project.id} isOwner={true} />
+                <TimelineSection ref={timelineSectionRef} projectId={project.id} />
               </CardContent>
             )}
           </Card>
 
           <Card>
             <CardHeader>
-              {/* ✅ FIX: Action button is now always visible */}
               <CollapsibleHeader 
                 sectionName="contacts" 
                 title={`Contacts (${project.contacts.length})`}
@@ -500,7 +503,6 @@ export default function ProjectDetailPage() {
 
           <Card>
             <CardHeader>
-              {/* ✅ FIX: Action button is now always visible */}
               <CollapsibleHeader 
                 sectionName="files" 
                 title={`Documents (${documents.length})`}
@@ -525,7 +527,6 @@ export default function ProjectDetailPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-8 lg:sticky lg:top-6 lg:self-start">
-            {/* ✅ FIX: Buttons are now always visible */}
             <div className="hidden lg:flex gap-2 flex-shrink-0">
               <Link href="/dashboard/projects"><Button variant="outline">Back to Projects</Button></Link>
               <Button onClick={handleEditProjectClick}><Pencil size={16} className="mr-2" />Edit</Button>

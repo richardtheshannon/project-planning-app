@@ -1,7 +1,8 @@
 // src/components/projects/TimelineSection.tsx
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+// CHANGED: Added forwardRef and useImperativeHandle to control the dialog from the parent page.
+import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import {
   Table,
   TableBody,
@@ -39,7 +40,6 @@ import { useToast } from "@/components/ui/toast";
 import { Pencil, PlusCircle, Trash2, ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-// MODIFIED: eventDate can now be a string or null
 interface TimelineEvent {
   id: string;
   title: string;
@@ -51,13 +51,18 @@ interface TimelineEvent {
 
 interface TimelineSectionProps {
   projectId: string;
-  // MODIFIED: Removed isOwner prop as it's no longer used for conditional rendering
+}
+
+// CHANGED: Define the type for the functions we will expose via the ref.
+export interface TimelineSectionHandle {
+  handleOpenDialog: (event?: Partial<TimelineEvent> | null) => void;
 }
 
 type SortKey = 'eventDate' | 'isCompleted';
 type SortDirection = 'asc' | 'desc';
 
-export function TimelineSection({ projectId }: TimelineSectionProps) {
+// CHANGED: The component is wrapped in forwardRef to get access to the ref from the parent.
+export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSectionProps>(({ projectId }, ref) => {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +74,17 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
 
   const [sortKey, setSortKey] = useState<SortKey>('eventDate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleOpenDialog = (event: Partial<TimelineEvent> | null = null) => {
+    const dateValue = event?.eventDate ? new Date(event.eventDate).toISOString().split('T')[0] : "";
+    setEventToEdit(event ? { ...event, eventDate: dateValue } : { title: "", description: "", eventDate: "" });
+    setIsDialogOpen(true);
+  };
+
+  // CHANGED: useImperativeHandle exposes the handleOpenDialog function to the parent component.
+  useImperativeHandle(ref, () => ({
+    handleOpenDialog
+  }));
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -87,15 +103,7 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
     fetchEvents();
   }, [projectId]);
 
-  const handleOpenDialog = (event: Partial<TimelineEvent> | null = null) => {
-    // MODIFIED: Handle null dates correctly when opening the dialog
-    const dateValue = event?.eventDate ? new Date(event.eventDate).toISOString().split('T')[0] : "";
-    setEventToEdit(event ? { ...event, eventDate: dateValue } : { title: "", description: "", eventDate: "" });
-    setIsDialogOpen(true);
-  };
-
   const handleSaveEvent = async () => {
-    // MODIFIED: Removed eventDate from the required fields check
     if (!eventToEdit || !eventToEdit.title) {
         toast({ title: "Error", description: "Title is required.", variant: "destructive" });
         return;
@@ -108,7 +116,6 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
     const method = eventToEdit.id ? 'PUT' : 'POST';
 
     try {
-      // MODIFIED: Ensure empty date string is sent as null
       const body = {
         ...eventToEdit,
         projectId,
@@ -136,7 +143,7 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
 
       toast({ title: "Success", description: `Event ${method === 'POST' ? 'created' : 'updated'} successfully.` });
       setIsDialogOpen(false);
-    } catch (err) {
+    } catch (err)      {
       toast({ title: "Error", description: err instanceof Error ? err.message : "An unknown error occurred.", variant: "destructive" });
     }
   };
@@ -173,7 +180,6 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => {
         if (sortKey === 'eventDate') {
-            // MODIFIED: Sort events with null dates to the end
             if (a.eventDate === null) return 1;
             if (b.eventDate === null) return -1;
             const val = new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
@@ -209,16 +215,8 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
   if (error) return <div className="text-red-500">Error: {error}</div>;
 
   return (
-    <div className="my-8">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-semibold">Timeline</h3>
-        {/* MODIFIED: Button is now always visible */}
-        <Button onClick={() => handleOpenDialog()}>
-            <PlusCircle size={16} className="mr-2" />
-            Add Event
-        </Button>
-      </div>
-      
+    <div>
+      {/* CHANGED: The temporary button has been removed. */}
       {sortedEvents.length > 0 ? (
         <div>
           <div className="md:hidden space-y-4">
@@ -228,7 +226,6 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
                   <div className="font-bold">{event.title}</div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Date</span>
-                    {/* MODIFIED: Display a fallback if date is null */}
                     <span className="text-sm">{event.eventDate ? new Date(event.eventDate).toLocaleDateString() : 'No date'}</span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -267,7 +264,6 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
                         onCheckedChange={() => toggleComplete(event)}
                       />
                     </TableCell>
-                    {/* MODIFIED: Display a fallback if date is null */}
                     <TableCell>{event.eventDate ? new Date(event.eventDate).toLocaleDateString() : 'No date'}</TableCell>
                     <TableCell className="font-medium">{event.title}</TableCell>
                     <TableCell>
@@ -312,7 +308,6 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
               <Textarea id="description" value={eventToEdit?.description || ""} onChange={(e) => setEventToEdit(p => ({...p, description: e.target.value}))} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              {/* MODIFIED: Added "(Optional)" to the label */}
               <Label htmlFor="eventDate" className="text-right">Date (Optional)</Label>
               <Input id="eventDate" type="date" value={eventToEdit?.eventDate || ""} onChange={(e) => setEventToEdit(p => ({...p, eventDate: e.target.value}))} className="col-span-3" />
             </div>
@@ -343,4 +338,7 @@ export function TimelineSection({ projectId }: TimelineSectionProps) {
     </AlertDialog>
     </div>
   );
-}
+});
+
+// CHANGED: Added a display name for better debugging in React DevTools.
+TimelineSection.displayName = "TimelineSection";
