@@ -6,7 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { redirect } from "next/navigation"
 import FeatureRequests from "./FeatureRequests"
+import MonthlyTimeline from "./MonthlyTimeline"
 import { FolderKanban, CheckCircle2 } from 'lucide-react';
+
+// Define a unified activity type to be used by the dashboard and the monthly timeline component.
+// This allows us to handle projects, tasks, and events in a single, consistent way.
+export type MonthlyActivity = {
+  id: string;
+  type: 'Project' | 'Task' | 'TimelineEvent';
+  title: string;
+  date: Date;
+  isCompleted?: boolean;
+  projectId?: string;
+  projectName?: string;
+};
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions)
@@ -17,7 +30,7 @@ export default async function Dashboard() {
 
   const userId = session.user.id;
 
-  // Fetch stats
+  // --- EXISTING STATS FETCHING ---
   const projectCount = await prisma.project.count({ where: { ownerId: userId } });
   const activeTaskCount = await prisma.task.count({ where: { project: { ownerId: userId }, status: { not: 'COMPLETED' } } });
   
@@ -25,7 +38,7 @@ export default async function Dashboard() {
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
   const completedThisWeekCount = await prisma.task.count({ where: { project: { ownerId: userId }, status: 'COMPLETED', updatedAt: { gte: oneWeekAgo } } });
 
-  // Fetch recent activity
+  // --- EXISTING RECENT ACTIVITY FETCHING ---
   const recentProjects = await prisma.project.findMany({
     where: { ownerId: userId },
     orderBy: { createdAt: 'desc' },
@@ -40,11 +53,76 @@ export default async function Dashboard() {
     select: { id: true, title: true, createdAt: true },
   });
 
-  // Combine and sort recent activity
   const recentActivity = [
     ...recentProjects.map(p => ({ ...p, type: 'Project', title: p.name, date: p.createdAt })),
     ...recentTasks.map(t => ({ ...t, type: 'Task', title: t.title, date: t.createdAt })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5);
+
+  // --- NEW: FETCHING ALL ACTIVITY BY MONTH ---
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  // Define date ranges for the last, current, and next month.
+  const thisMonthStart = new Date(year, month, 1);
+  const thisMonthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  const lastMonthStart = new Date(year, month - 1, 1);
+  const lastMonthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+  const nextMonthStart = new Date(year, month + 1, 1);
+  const nextMonthEnd = new Date(year, month + 2, 0, 23, 59, 59, 999);
+
+  // Helper function to fetch all types of activities for a given period.
+  const getActivityForPeriod = async (startDate: Date, endDate: Date): Promise<MonthlyActivity[]> => {
+    const [projects, tasks, timelineEvents] = await Promise.all([
+      // Fetch projects created in the period
+      prisma.project.findMany({
+        where: { ownerId: userId, createdAt: { gte: startDate, lte: endDate } },
+        select: { id: true, name: true, createdAt: true },
+      }),
+      // Fetch tasks due in the period. NOTE: This assumes tasks have a `dueDate` field.
+      prisma.task.findMany({
+        where: {
+          project: { ownerId: userId },
+          dueDate: { gte: startDate, lte: endDate },
+        },
+        include: { project: { select: { id: true, name: true } } },
+      }),
+      // Fetch timeline events scheduled in the period
+      prisma.timelineEvent.findMany({
+        where: {
+          project: { ownerId: userId },
+          eventDate: { gte: startDate, lte: endDate },
+        },
+        include: { project: { select: { id: true, name: true } } },
+      }),
+    ]);
+
+    // Map all fetched items to the unified MonthlyActivity structure.
+    const mappedProjects: MonthlyActivity[] = projects.map(p => ({
+      id: p.id, type: 'Project', title: p.name, date: p.createdAt,
+      projectId: p.id, projectName: p.name
+    }));
+    const mappedTasks: MonthlyActivity[] = tasks.map(t => ({
+      id: t.id, type: 'Task', title: t.title, date: t.dueDate!,
+      isCompleted: t.status === 'COMPLETED', projectId: t.project.id, projectName: t.project.name
+    }));
+    const mappedEvents: MonthlyActivity[] = timelineEvents.map(e => ({
+      id: e.id, type: 'TimelineEvent', title: e.title, date: e.eventDate!,
+      isCompleted: e.isCompleted, projectId: e.project.id, projectName: e.project.name
+    }));
+
+    // Combine and sort all activities by date before returning.
+    return [...mappedProjects, ...mappedTasks, ...mappedEvents]
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  };
+
+  // Fetch all activities in parallel for each month.
+  const [lastMonthActivity, thisMonthActivity, nextMonthActivity] = await Promise.all([
+    getActivityForPeriod(lastMonthStart, lastMonthEnd),
+    getActivityForPeriod(thisMonthStart, thisMonthEnd),
+    getActivityForPeriod(nextMonthStart, nextMonthEnd),
+  ]);
 
   return (
     <>
@@ -53,6 +131,7 @@ export default async function Dashboard() {
         Welcome back! Here's what's happening with your projects.
       </p>
       
+      {/* --- Top Stats Cards --- */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -66,7 +145,6 @@ export default async function Dashboard() {
             </p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
@@ -79,7 +157,6 @@ export default async function Dashboard() {
             </p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
@@ -94,6 +171,14 @@ export default async function Dashboard() {
         </Card>
       </div>
 
+      {/* --- NEW: MONTHLY TIMELINE SECTION --- */}
+      <MonthlyTimeline 
+        lastMonthActivity={lastMonthActivity}
+        thisMonthActivity={thisMonthActivity}
+        nextMonthActivity={nextMonthActivity}
+      />
+
+      {/* --- Quick Actions & Recent Activity --- */}
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -119,7 +204,6 @@ export default async function Dashboard() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
@@ -137,10 +221,10 @@ export default async function Dashboard() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm font-medium text-foreground truncate">
                           {activity.type === 'Project' ? 'New Project:' : 'New Task:'} {activity.title}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {activity.date.toLocaleDateString()}
                         </p>
                       </div>
@@ -148,7 +232,7 @@ export default async function Dashboard() {
                   ))}
                 </ul>
               ) : (
-                <div className="text-center text-gray-500 py-8">
+                <div className="text-center text-muted-foreground py-8">
                   <p>No recent activity</p>
                   <p className="text-sm">Start by creating your first project!</p>
                 </div>
@@ -157,7 +241,7 @@ export default async function Dashboard() {
         </Card>
       </div>
 
-      <div className="px-4 py-6 sm:px-0">
+      <div className="mt-8 px-4 py-6 sm:px-0">
         <FeatureRequests />
       </div>
     </>
