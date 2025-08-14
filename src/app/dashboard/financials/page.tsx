@@ -4,17 +4,84 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { type Invoice, type Expense, type Subscription, type Client, type Prisma, ExpenseCategory } from "@prisma/client";
-import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays } from "date-fns";
+import { type Invoice, type Expense, type Subscription, type Prisma, ExpenseCategory } from "@prisma/client";
+import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfYear, getMonth } from "date-fns";
 
 // UI component imports
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, AlertTriangle, BarChart2, Plus, Upload, ArrowDown, ArrowUp, TrendingUp } from "lucide-react";
 
+// ✅ STEP 1: Import the new chart component and its data type
+import FinancialsLineChart, { FinancialsChartDataPoint } from "./components/FinancialsLineChart";
+
+
 type InvoiceWithClient = Prisma.InvoiceGetPayload<{
   include: { client: { select: { name: true } } }
 }>;
+
+// ✅ STEP 2: Create the data processing function for the new chart
+const processDataForChart = (
+  invoices: Invoice[],
+  expenses: Expense[],
+  subscriptions: Subscription[]
+): FinancialsChartDataPoint[] => {
+  const now = new Date();
+  const currentMonthIndex = getMonth(now);
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const monthlyData = monthNames.map(month => ({
+    month,
+    totalRevenue: 0,
+    expenses: 0,
+    subscriptions: 0,
+    netIncome: 0,
+    taxesDue: 0,
+    upcomingPayments: 0,
+  }));
+
+  invoices.forEach(inv => {
+    if (inv.status === 'PAID') {
+      const monthIndex = getMonth(inv.issuedDate);
+      monthlyData[monthIndex].totalRevenue += inv.amount;
+    }
+  });
+
+  expenses.forEach(exp => {
+    const monthIndex = getMonth(exp.date);
+    monthlyData[monthIndex].expenses += exp.amount;
+  });
+
+  subscriptions.forEach(sub => {
+    if (sub.billingCycle === 'MONTHLY') {
+      for (let i = 0; i <= currentMonthIndex; i++) {
+        monthlyData[i].subscriptions += sub.amount;
+      }
+    } else if (sub.billingCycle === 'ANNUALLY') {
+      const monthIndex = getMonth(sub.createdAt);
+      monthlyData[monthIndex].subscriptions += sub.amount;
+    }
+  });
+  
+  // Calculate cumulative values
+  for (let i = 0; i <= currentMonthIndex; i++) {
+      const totalExpensesForMonth = monthlyData[i].expenses + monthlyData[i].subscriptions;
+      monthlyData[i].taxesDue = monthlyData[i].totalRevenue * 0.20;
+      monthlyData[i].netIncome = monthlyData[i].totalRevenue - totalExpensesForMonth - monthlyData[i].taxesDue;
+
+      // Make values cumulative for a YTD view
+      if (i > 0) {
+          monthlyData[i].totalRevenue += monthlyData[i-1].totalRevenue;
+          monthlyData[i].expenses += monthlyData[i-1].expenses;
+          monthlyData[i].subscriptions += monthlyData[i-1].subscriptions;
+          monthlyData[i].netIncome += monthlyData[i-1].netIncome;
+          monthlyData[i].taxesDue += monthlyData[i-1].taxesDue;
+      }
+  }
+
+  return monthlyData.slice(0, currentMonthIndex + 1);
+};
+
 
 export default async function FinancialsOverviewPage() {
   const session = await getServerSession(authOptions);
@@ -27,17 +94,15 @@ export default async function FinancialsOverviewPage() {
   let lastMonthInvoices: InvoiceWithClient[] = [], lastMonthExpenseItems: Expense[] = [], lastMonthSubscriptionItems: Subscription[] = [];
   let thisMonthInvoices: InvoiceWithClient[] = [], thisMonthExpenseItems: Expense[] = [], thisMonthSubscriptionItems: Subscription[] = [];
   let nextMonthInvoices: InvoiceWithClient[] = [], nextMonthExpenseItems: Expense[] = [], nextMonthSubscriptionItems: Subscription[] = [];
+  let chartData: FinancialsChartDataPoint[] = [];
 
-  // ✅ FIX: Initialize the net expense variables outside the if block
   let totalLastMonthExpensesForNet = 0;
   let totalThisMonthExpensesForNet = 0;
   let totalNextMonthExpensesForNet = 0;
 
   if (session?.user?.id) {
     const today = new Date();
-    const currentYear = today.getFullYear();
-    const startDateYTD = new Date(currentYear, 0, 1);
-    const endDateYTD = new Date(currentYear + 1, 0, 1);
+    const startDateYTD = startOfYear(today);
     
     const lastMonthDate = subMonths(today, 1);
     const nextMonthDate = addMonths(today, 1);
@@ -55,17 +120,21 @@ export default async function FinancialsOverviewPage() {
       allSubscriptions
     ] = await Promise.all([
       prisma.invoice.findMany({ 
+        where: { userId: session.user.id, issuedDate: { gte: startDateYTD } },
         include: { client: { select: { name: true } } }
       }),
-      prisma.expense.findMany({}),
-      prisma.subscription.findMany({})
+      prisma.expense.findMany({ where: { userId: session.user.id, date: { gte: startDateYTD } } }),
+      prisma.subscription.findMany({ where: { userId: session.user.id } })
     ]);
+    
+    // ✅ STEP 3: Process the fetched data for the chart
+    chartData = processDataForChart(allInvoices, allExpenses, allSubscriptions);
 
     // --- YTD Calculations ---
-    const paidInvoicesYTD = allInvoices.filter(inv => inv.status === 'PAID' && isWithinInterval(inv.issuedDate, { start: startDateYTD, end: endDateYTD }));
+    const paidInvoicesYTD = allInvoices.filter(inv => inv.status === 'PAID');
     totalRevenue = paidInvoicesYTD.reduce((sum, invoice) => sum + invoice.amount, 0);
     
-    const oneTimeExpensesYTD = allExpenses.filter(exp => isWithinInterval(exp.date, { start: startDateYTD, end: endDateYTD })).reduce((sum, expense) => sum + expense.amount, 0);
+    const oneTimeExpensesYTD = allExpenses.reduce((sum, expense) => sum + expense.amount, 0);
     
     totalSubscriptionsYTD = allSubscriptions.reduce((sum, sub) => {
       if (sub.billingCycle === 'MONTHLY') return sum + (sub.amount * 12);
@@ -95,12 +164,10 @@ export default async function FinancialsOverviewPage() {
     thisMonthExpenseItems = allExpenses.filter(exp => isWithinInterval(exp.date, { start: thisMonthStart, end: thisMonthEnd }));
     nextMonthExpenseItems = allExpenses.filter(exp => isWithinInterval(exp.date, { start: nextMonthStart, end: nextMonthEnd }));
 
-    // --- Monthly Income Calculations (from Invoices only) ---
     lastMonthIncome = lastMonthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
     thisMonthIncome = thisMonthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
     nextMonthIncome = nextMonthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
 
-    // --- Monthly Subscription & Expense Logic ---
     allSubscriptions.forEach(sub => {
         if (sub.billingCycle === 'MONTHLY') {
             lastMonthSubscriptionItems.push(sub);
@@ -108,14 +175,7 @@ export default async function FinancialsOverviewPage() {
             nextMonthSubscriptionItems.push(sub);
         } else if (sub.billingCycle === 'ANNUALLY' && sub.dueDate) {
             const syntheticExpense: Expense = {
-                id: `sub-${sub.id}`,
-                description: `${sub.name} (Annual)`,
-                amount: sub.amount,
-                date: sub.dueDate,
-                userId: sub.userId,
-                createdAt: sub.createdAt,
-                updatedAt: sub.updatedAt,
-                category: ExpenseCategory.OTHER,
+                id: `sub-${sub.id}`, description: `${sub.name} (Annual)`, amount: sub.amount, date: sub.dueDate, userId: sub.userId, createdAt: sub.createdAt, updatedAt: sub.updatedAt, category: ExpenseCategory.OTHER,
             };
             if (isWithinInterval(sub.dueDate, { start: lastMonthStart, end: lastMonthEnd })) lastMonthExpenseItems.push(syntheticExpense);
             if (isWithinInterval(sub.dueDate, { start: thisMonthStart, end: thisMonthEnd })) thisMonthExpenseItems.push(syntheticExpense);
@@ -123,22 +183,18 @@ export default async function FinancialsOverviewPage() {
         }
     });
     
-    // Calculate one-time expenses (including synthesized annual subscriptions)
     lastMonthExpenses = lastMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
     thisMonthExpenses = thisMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
     nextMonthExpenses = nextMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
 
-    // Calculate monthly subscription totals (only contains monthly subscriptions now)
     lastMonthSubscriptionsTotal = lastMonthSubscriptionItems.reduce((sum, s) => sum + s.amount, 0);
     thisMonthSubscriptionsTotal = thisMonthSubscriptionItems.reduce((sum, s) => sum + s.amount, 0);
     nextMonthSubscriptionsTotal = nextMonthSubscriptionItems.reduce((sum, s) => sum + s.amount, 0);
 
-    // The total monthly expense for the summary card is the sum of one-time expenses and monthly subscriptions.
     totalLastMonthExpensesForNet = lastMonthExpenses + lastMonthSubscriptionsTotal;
     totalThisMonthExpensesForNet = thisMonthExpenses + thisMonthSubscriptionsTotal;
     totalNextMonthExpensesForNet = nextMonthExpenses + nextMonthSubscriptionsTotal;
 
-    // Calculate Net income using the corrected total expense
     lastMonthNet = lastMonthIncome - (lastMonthIncome * 0.20) - totalLastMonthExpensesForNet;
     thisMonthNet = thisMonthIncome - (thisMonthIncome * 0.20) - totalThisMonthExpensesForNet;
     nextMonthNet = nextMonthIncome - (nextMonthIncome * 0.20) - totalNextMonthExpensesForNet;
@@ -152,7 +208,9 @@ export default async function FinancialsOverviewPage() {
         <Button variant="outline"><Upload className="mr-2 h-4 w-4" /> Upload Document</Button>
       </div>
 
+      {/* ✅ STEP 4: Render the chart and the stat cards in the same grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <FinancialsLineChart data={chartData} />
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Revenue (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of all invoices with status 'PAID' this year.</p></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Expenses (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalExpensesYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of one-time expenses, annual subs, & monthly subs x12.</p></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Subscriptions (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalSubscriptionsYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Annual subscriptions plus monthly subscriptions x12.</p></CardContent></Card>
