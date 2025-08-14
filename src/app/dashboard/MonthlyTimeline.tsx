@@ -43,8 +43,10 @@ const ActivityList = ({ activities }: { activities: MonthlyActivity[] }) => {
       <div>
         <ActivityIcon activity={activity} />
       </div>
-      <div className="flex-1 min-w-0">
-        <Link href={`/dashboard/projects/${activity.projectId || activity.id}`} className="text-sm font-medium text-foreground truncate hover:underline">
+      {/* ✅ MODIFIED: Removed min-w-0 to allow the container to wrap content naturally. */}
+      <div className="flex-1">
+        {/* ✅ MODIFIED: Removed 'truncate' and added 'whitespace-normal' and 'break-words' to allow text to wrap. */}
+        <Link href={`/dashboard/projects/${activity.projectId || activity.id}`} className="text-sm font-medium text-foreground hover:underline whitespace-normal break-words">
           {activity.type === 'TimelineEvent' && activity.projectName 
             ? `${activity.projectName}: ${activity.title}` 
             : activity.title}
