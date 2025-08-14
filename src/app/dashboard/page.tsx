@@ -9,11 +9,10 @@ import FeatureRequests from "./FeatureRequests"
 import MonthlyTimeline from "./MonthlyTimeline"
 import { FolderKanban, CheckCircle2 } from 'lucide-react';
 
-// Define a unified activity type to be used by the dashboard and the monthly timeline component.
-// This allows us to handle projects, tasks, and events in a single, consistent way.
+// The unified activity type remains the same, as it can still represent both projects and events.
 export type MonthlyActivity = {
   id: string;
-  type: 'Project' | 'Task' | 'TimelineEvent';
+  type: 'Project' | 'TimelineEvent'; // MODIFIED: Removed 'Task'
   title: string;
   date: Date;
   isCompleted?: boolean;
@@ -30,7 +29,7 @@ export default async function Dashboard() {
 
   const userId = session.user.id;
 
-  // --- EXISTING STATS FETCHING ---
+  // --- EXISTING STATS FETCHING (No changes here) ---
   const projectCount = await prisma.project.count({ where: { ownerId: userId } });
   const activeTaskCount = await prisma.task.count({ where: { project: { ownerId: userId }, status: { not: 'COMPLETED' } } });
   
@@ -38,7 +37,7 @@ export default async function Dashboard() {
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
   const completedThisWeekCount = await prisma.task.count({ where: { project: { ownerId: userId }, status: 'COMPLETED', updatedAt: { gte: oneWeekAgo } } });
 
-  // --- EXISTING RECENT ACTIVITY FETCHING ---
+  // --- EXISTING RECENT ACTIVITY FETCHING (No changes here) ---
   const recentProjects = await prisma.project.findMany({
     where: { ownerId: userId },
     orderBy: { createdAt: 'desc' },
@@ -58,13 +57,12 @@ export default async function Dashboard() {
     ...recentTasks.map(t => ({ ...t, type: 'Task', title: t.title, date: t.createdAt })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5);
 
-  // --- NEW: FETCHING ALL ACTIVITY BY MONTH ---
+  // --- MODIFIED: FETCHING ACTIVITY BY MONTH ---
 
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
 
-  // Define date ranges for the last, current, and next month.
   const thisMonthStart = new Date(year, month, 1);
   const thisMonthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
   const lastMonthStart = new Date(year, month - 1, 1);
@@ -72,23 +70,18 @@ export default async function Dashboard() {
   const nextMonthStart = new Date(year, month + 1, 1);
   const nextMonthEnd = new Date(year, month + 2, 0, 23, 59, 59, 999);
 
-  // Helper function to fetch all types of activities for a given period.
+  // MODIFIED: Helper function now only fetches Projects and TimelineEvents.
   const getActivityForPeriod = async (startDate: Date, endDate: Date): Promise<MonthlyActivity[]> => {
-    const [projects, tasks, timelineEvents] = await Promise.all([
-      // Fetch projects created in the period
+    const [projects, timelineEvents] = await Promise.all([
+      // MODIFIED: Fetch projects with an END DATE in the period
       prisma.project.findMany({
-        where: { ownerId: userId, createdAt: { gte: startDate, lte: endDate } },
-        select: { id: true, name: true, createdAt: true },
-      }),
-      // Fetch tasks due in the period. NOTE: This assumes tasks have a `dueDate` field.
-      prisma.task.findMany({
-        where: {
-          project: { ownerId: userId },
-          dueDate: { gte: startDate, lte: endDate },
+        where: { 
+            ownerId: userId, 
+            endDate: { gte: startDate, lte: endDate } 
         },
-        include: { project: { select: { id: true, name: true } } },
+        select: { id: true, name: true, endDate: true },
       }),
-      // Fetch timeline events scheduled in the period
+      // This query remains the same
       prisma.timelineEvent.findMany({
         where: {
           project: { ownerId: userId },
@@ -98,26 +91,23 @@ export default async function Dashboard() {
       }),
     ]);
 
-    // Map all fetched items to the unified MonthlyActivity structure.
+    // MODIFIED: Map projects to the unified structure, using endDate.
     const mappedProjects: MonthlyActivity[] = projects.map(p => ({
-      id: p.id, type: 'Project', title: p.name, date: p.createdAt,
+      id: p.id, type: 'Project', title: p.name, date: p.endDate!,
       projectId: p.id, projectName: p.name
     }));
-    const mappedTasks: MonthlyActivity[] = tasks.map(t => ({
-      id: t.id, type: 'Task', title: t.title, date: t.dueDate!,
-      isCompleted: t.status === 'COMPLETED', projectId: t.project.id, projectName: t.project.name
-    }));
+
+    // MODIFIED: This mapping is the same, but the type is now more specific.
     const mappedEvents: MonthlyActivity[] = timelineEvents.map(e => ({
       id: e.id, type: 'TimelineEvent', title: e.title, date: e.eventDate!,
       isCompleted: e.isCompleted, projectId: e.project.id, projectName: e.project.name
     }));
 
-    // Combine and sort all activities by date before returning.
-    return [...mappedProjects, ...mappedTasks, ...mappedEvents]
+    // MODIFIED: Combine and sort only projects and events.
+    return [...mappedProjects, ...mappedEvents]
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   };
 
-  // Fetch all activities in parallel for each month.
   const [lastMonthActivity, thisMonthActivity, nextMonthActivity] = await Promise.all([
     getActivityForPeriod(lastMonthStart, lastMonthEnd),
     getActivityForPeriod(thisMonthStart, thisMonthEnd),
@@ -131,7 +121,7 @@ export default async function Dashboard() {
         Welcome back! Here's what's happening with your projects.
       </p>
       
-      {/* --- Top Stats Cards --- */}
+      {/* --- Top Stats Cards (No changes here) --- */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -171,14 +161,14 @@ export default async function Dashboard() {
         </Card>
       </div>
 
-      {/* --- NEW: MONTHLY TIMELINE SECTION --- */}
+      {/* --- MONTHLY TIMELINE SECTION --- */}
       <MonthlyTimeline 
         lastMonthActivity={lastMonthActivity}
         thisMonthActivity={thisMonthActivity}
         nextMonthActivity={nextMonthActivity}
       />
 
-      {/* --- Quick Actions & Recent Activity --- */}
+      {/* --- Quick Actions & Recent Activity (No changes here) --- */}
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>

@@ -15,13 +15,15 @@ export default function NewProjectPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
+  // MODIFIED: Added projectType to the form data state
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    goal: "", // Added goal
-    website: "", // Added website
+    goal: "",
+    website: "",
     status: "PLANNING",
     priority: "MEDIUM",
+    projectType: "PERSONAL_PROJECT", // NEW: Added with a default value
     startDate: "",
     endDate: ""
   })
@@ -87,7 +89,6 @@ export default function NewProjectPage() {
               />
             </div>
             
-            {/* New Goal Field */}
             <div className="space-y-2">
               <Label htmlFor="goal">Project Goal</Label>
               <Input
@@ -97,7 +98,6 @@ export default function NewProjectPage() {
               />
             </div>
 
-            {/* New Website Field */}
             <div className="space-y-2">
               <Label htmlFor="website">Website</Label>
               <Input
@@ -108,7 +108,8 @@ export default function NewProjectPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* MODIFIED: Changed grid layout to accommodate the new field */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
@@ -136,6 +137,24 @@ export default function NewProjectPage() {
                     <SelectItem value="MEDIUM">Medium</SelectItem>
                     <SelectItem value="HIGH">High</SelectItem>
                     <SelectItem value="URGENT">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* NEW: Project Type Dropdown */}
+              <div className="space-y-2">
+                <Label htmlFor="projectType">Project Type</Label>
+                <Select value={formData.projectType} onValueChange={(value) => setFormData({...formData, projectType: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="POTENTIAL_CLIENT">Potential Client</SelectItem>
+                    <SelectItem value="QUALIFIED_CLIENT">Qualified Client</SelectItem>
+                    <SelectItem value="CURRENT_CLIENT">Current Client</SelectItem>
+                    <SelectItem value="PAST_CLIENT">Past Client</SelectItem>
+                    <SelectItem value="PERSONAL_PROJECT">Personal Project</SelectItem>
+                    <SelectItem value="PROFESSIONAL_PROJECT">Professional Project</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

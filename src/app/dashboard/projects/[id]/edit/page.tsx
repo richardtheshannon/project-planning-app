@@ -21,16 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner"; // Assuming sonner is already installed and configured
+import { toast } from "sonner";
 import { ChevronLeft } from "lucide-react";
 
-// Defines the shape of the project data
+// MODIFIED: Added projectType to the interface
 interface Project {
   id: string;
   name: string;
   description: string | null;
   status: string;
   priority: string;
+  projectType: string; // NEW
   startDate: string | null;
   endDate: string | null;
 }
@@ -44,11 +45,13 @@ export default function ProjectEditPage({
   const { data: session, status } = useSession();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  // MODIFIED: Added projectType to the form data state
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     status: "",
     priority: "",
+    projectType: "", // NEW
     startDate: "",
     endDate: "",
   });
@@ -63,12 +66,13 @@ export default function ProjectEditPage({
         }
         const data: Project = await response.json();
         setProject(data);
-        // Pre-fill the form with existing project data
+        // MODIFIED: Pre-fill the form with existing project data, including projectType
         setFormData({
           name: data.name,
           description: data.description || "",
           status: data.status,
           priority: data.priority,
+          projectType: data.projectType || "", // NEW: Set projectType, with a fallback
           startDate: data.startDate
             ? new Date(data.startDate).toISOString().split("T")[0]
             : "",
@@ -99,7 +103,7 @@ export default function ProjectEditPage({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle select changes for status and priority with explicit typing
+  // Handle select changes for status, priority, and projectType
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -123,7 +127,7 @@ export default function ProjectEditPage({
       }
 
       toast.success("Project updated successfully!");
-      router.push(`/dashboard/projects/${params.id}`); // Redirect back to the project details page
+      router.push(`/dashboard/projects/${params.id}`);
     } catch (error) {
       console.error("Error updating project:", error);
       toast.error("Failed to update project.");
@@ -152,7 +156,7 @@ export default function ProjectEditPage({
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={() => router.back()}>
-          <ChevronLeft className="h-4 w-4 mr-2" /> Back to Projects
+          <ChevronLeft className="h-4 w-4 mr-2" /> Back to Project
         </Button>
       </div>
 
@@ -187,7 +191,8 @@ export default function ProjectEditPage({
                 rows={4}
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* MODIFIED: Changed grid layout to accommodate the new field */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
@@ -224,6 +229,29 @@ export default function ProjectEditPage({
                     <SelectItem value="MEDIUM">Medium</SelectItem>
                     <SelectItem value="HIGH">High</SelectItem>
                     <SelectItem value="URGENT">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* NEW: Project Type Dropdown */}
+              <div className="grid gap-2">
+                <Label htmlFor="projectType">Project Type</Label>
+                <Select
+                  name="projectType"
+                  value={formData.projectType}
+                  onValueChange={(value: string) =>
+                    handleSelectChange("projectType", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="POTENTIAL_CLIENT">Potential Client</SelectItem>
+                    <SelectItem value="QUALIFIED_CLIENT">Qualified Client</SelectItem>
+                    <SelectItem value="CURRENT_CLIENT">Current Client</SelectItem>
+                    <SelectItem value="PAST_CLIENT">Past Client</SelectItem>
+                    <SelectItem value="PERSONAL_PROJECT">Personal Project</SelectItem>
+                    <SelectItem value="PROFESSIONAL_PROJECT">Professional Project</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

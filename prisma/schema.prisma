@@ -98,6 +98,7 @@ model Project {
   website      String?
   status       ProjectStatus  @default(PLANNING)
   priority     Priority       @default(MEDIUM)
+  projectType  ProjectType    @default(PERSONAL_PROJECT) // NEW FIELD
   startDate    DateTime?
   endDate      DateTime?
   createdAt    DateTime       @default(now())
@@ -147,6 +148,16 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+// NEW ENUM for Project Type
+enum ProjectType {
+  POTENTIAL_CLIENT
+  QUALIFIED_CLIENT
+  CURRENT_CLIENT
+  PAST_CLIENT
+  PERSONAL_PROJECT
+  PROFESSIONAL_PROJECT
 }
 
 // Project members (many-to-many)

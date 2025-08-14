@@ -1,32 +1,28 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, CheckCircle2, FolderKanban } from 'lucide-react';
+import { Calendar, FolderKanban } from 'lucide-react';
 import Link from "next/link";
-import { MonthlyActivity } from "./page"; // Import the shared type from the main dashboard page
+import { MonthlyActivity } from "./page";
 
-// Define the props structure for our component, now expecting unified activity lists.
+// Props structure remains the same
 interface MonthlyTimelineProps {
   lastMonthActivity: MonthlyActivity[];
   thisMonthActivity: MonthlyActivity[];
   nextMonthActivity: MonthlyActivity[];
 }
 
-// A helper component to render the correct icon based on the activity type.
+// Icon helper remains mostly the same, just removed the 'Task' case
 const ActivityIcon = ({ activity }: { activity: MonthlyActivity }) => {
   switch (activity.type) {
     case 'Project':
       return <FolderKanban className="h-5 w-5 mt-0.5 text-blue-500" />;
-    case 'Task':
-      // Show a green check for completed tasks, otherwise a standard icon.
-      return <CheckCircle2 className={`h-5 w-5 mt-0.5 ${activity.isCompleted ? 'text-green-500' : 'text-muted-foreground'}`} />;
     case 'TimelineEvent':
-       // Show a purple calendar for completed events, otherwise a standard icon.
       return <Calendar className={`h-5 w-5 mt-0.5 ${activity.isCompleted ? 'text-purple-500' : 'text-muted-foreground'}`} />;
     default:
       return null;
   }
 };
 
-// A helper component to render a list of activities or a placeholder message.
+// The ActivityList component now groups items by type
 const ActivityList = ({ activities }: { activities: MonthlyActivity[] }) => {
   if (!activities || activities.length === 0) {
     return (
@@ -37,32 +33,52 @@ const ActivityList = ({ activities }: { activities: MonthlyActivity[] }) => {
     );
   }
 
+  // Filter activities into separate arrays for projects and events
+  const projects = activities.filter(a => a.type === 'Project');
+  const timelineEvents = activities.filter(a => a.type === 'TimelineEvent');
+
+  // MODIFIED: Helper to render a single list item with contextual titles
+  const renderActivityItem = (activity: MonthlyActivity) => (
+    <li key={`${activity.type}-${activity.id}`} className="flex items-start space-x-3">
+      <div>
+        <ActivityIcon activity={activity} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <Link href={`/dashboard/projects/${activity.projectId || activity.id}`} className="text-sm font-medium text-foreground truncate hover:underline">
+          {activity.type === 'TimelineEvent' && activity.projectName 
+            ? `${activity.projectName}: ${activity.title}` 
+            : activity.title}
+        </Link>
+        <p className="text-sm text-muted-foreground">
+          {activity.type === 'Project' ? 'Due: ' : 'Date: '}
+          {activity.date.toLocaleDateString()}
+        </p>
+      </div>
+    </li>
+  );
+
   return (
-    <ul className="space-y-4">
-      {activities.map((activity) => (
-        <li key={`${activity.type}-${activity.id}`} className="flex items-start space-x-3">
-          <div>
-            <ActivityIcon activity={activity} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">
-              {activity.title}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {/* Show a different prefix for project creation vs. other due dates */}
-              {activity.type === 'Project' ? 'Created: ' : 'Date: '}
-              {activity.date.toLocaleDateString()}
-            </p>
-            {/* For tasks and events, provide a convenient link back to their parent project. */}
-            {activity.projectId && activity.projectName && activity.type !== 'Project' && (
-                 <Link href={`/dashboard/projects/${activity.projectId}`} className="text-xs text-blue-500 hover:underline">
-                    Project: {activity.projectName}
-                </Link>
-            )}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-6">
+      {projects.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-foreground">Projects Due</h4>
+          <hr/>
+          <ul className="space-y-4 pt-2">
+            {projects.map(renderActivityItem)}
+          </ul>
+        </div>
+      )}
+
+      {timelineEvents.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-foreground">Timeline Events</h4>
+          <hr/>
+          <ul className="space-y-4 pt-2">
+            {timelineEvents.map(renderActivityItem)}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 };
 

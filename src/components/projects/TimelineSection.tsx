@@ -1,7 +1,6 @@
 // src/components/projects/TimelineSection.tsx
 "use client";
 
-// CHANGED: Added forwardRef and useImperativeHandle to control the dialog from the parent page.
 import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import {
   Table,
@@ -37,7 +36,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
-import { Pencil, PlusCircle, Trash2, ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Pencil, Trash2, ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface TimelineEvent {
@@ -49,11 +48,12 @@ interface TimelineEvent {
   projectId: string;
 }
 
+// MODIFIED: Added onEventsUpdated to the props interface
 interface TimelineSectionProps {
   projectId: string;
+  onEventsUpdated?: () => void;
 }
 
-// CHANGED: Define the type for the functions we will expose via the ref.
 export interface TimelineSectionHandle {
   handleOpenDialog: (event?: Partial<TimelineEvent> | null) => void;
 }
@@ -61,8 +61,7 @@ export interface TimelineSectionHandle {
 type SortKey = 'eventDate' | 'isCompleted';
 type SortDirection = 'asc' | 'desc';
 
-// CHANGED: The component is wrapped in forwardRef to get access to the ref from the parent.
-export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSectionProps>(({ projectId }, ref) => {
+export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSectionProps>(({ projectId, onEventsUpdated }, ref) => {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +80,6 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
     setIsDialogOpen(true);
   };
 
-  // CHANGED: useImperativeHandle exposes the handleOpenDialog function to the parent component.
   useImperativeHandle(ref, () => ({
     handleOpenDialog
   }));
@@ -143,6 +141,7 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
 
       toast({ title: "Success", description: `Event ${method === 'POST' ? 'created' : 'updated'} successfully.` });
       setIsDialogOpen(false);
+      onEventsUpdated?.(); // MODIFIED: Call the callback function
     } catch (err)      {
       toast({ title: "Error", description: err instanceof Error ? err.message : "An unknown error occurred.", variant: "destructive" });
     }
@@ -159,6 +158,7 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
         const updatedEvent = await response.json();
         setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
         toast({ title: "Success", description: "Event status updated." });
+        onEventsUpdated?.(); // MODIFIED: Call the callback function
     } catch (err) {
         toast({ title: "Error", description: err instanceof Error ? err.message : "An unknown error occurred.", variant: "destructive" });
     }
@@ -170,6 +170,7 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
         await fetch(`/api/timeline-events/${eventToDelete.id}`, { method: 'DELETE' });
         setEvents(prev => prev.filter(e => e.id !== eventToDelete.id));
         toast({ title: "Success", description: "Event deleted." });
+        onEventsUpdated?.(); // MODIFIED: Call the callback function
     } catch (err) {
         toast({ title: "Error", description: "Failed to delete event.", variant: "destructive" });
     } finally {
@@ -216,7 +217,6 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
 
   return (
     <div>
-      {/* CHANGED: The temporary button has been removed. */}
       {sortedEvents.length > 0 ? (
         <div>
           <div className="md:hidden space-y-4">
@@ -340,5 +340,4 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
   );
 });
 
-// CHANGED: Added a display name for better debugging in React DevTools.
 TimelineSection.displayName = "TimelineSection";

@@ -51,9 +51,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, projectGoal, website, status, priority, startDate, endDate } = body
+    // MODIFIED: Destructure projectType from the request body
+    const { name, description, projectGoal, website, status, priority, projectType, startDate, endDate } = body
 
-    // CHANGED: Use a Prisma transaction to ensure both operations succeed or fail together.
+    // Use a Prisma transaction to ensure both operations succeed or fail together.
     const newProject = await prisma.$transaction(async (tx) => {
       // 1. Create the project
       const project = await tx.project.create({
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
           website: website || null,
           status: status || "PLANNING",
           priority: priority || "MEDIUM",
+          projectType: projectType || "PERSONAL_PROJECT", // NEW: Add projectType to the data being created
           startDate: startDate ? new Date(startDate) : null,
           endDate: endDate ? new Date(endDate) : null,
           ownerId: user.id

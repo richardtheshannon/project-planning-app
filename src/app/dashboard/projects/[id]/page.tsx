@@ -1,7 +1,6 @@
 // src/app/dashboard/projects/[id]/page.tsx
 "use client";
 
-// CHANGED: Added useRef to create a reference to the TimelineSection component.
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -54,13 +53,21 @@ import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Mail, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, Pencil, Link2, ChevronDown, Plus, PlusCircle } from "lucide-react";
-// CHANGED: Imported the component and the handle type.
 import { TimelineSection, TimelineSectionHandle } from "@/components/projects/TimelineSection";
 import { Document as PrismaDocument } from '@prisma/client';
+// NEW: Import the chart component
+import TimelineProgressChart from "@/app/dashboard/components/TimelineProgressChart";
 
 
 // --- INTERFACES ---
 type Document = PrismaDocument;
+
+// NEW: Define TimelineEvent interface for the chart
+interface TimelineEvent {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+}
 
 interface Task {
   id: string;
@@ -89,6 +96,7 @@ interface Project {
   website: string | null;
   status: string;
   priority: string;
+  projectType: string; // MODIFIED: Added projectType
   startDate: string | null;
   endDate: string | null;
   createdAt: string;
@@ -105,6 +113,7 @@ interface Project {
   }[];
   contacts: Contact[];
   tasks: Task[];
+  timelineEvents: TimelineEvent[]; // MODIFIED: Added timelineEvents
   _count: {
     tasks: number;
     members: number;
@@ -132,7 +141,7 @@ export default function ProjectDetailPage() {
 
   const [openSections, setOpenSections] = useState<Record<CollapsibleSectionName, boolean>>({
     projectDetails: false,
-    timelineEvents: true, // Default to open
+    timelineEvents: true,
     tasks: true,
     contacts: false,
     files: true,
@@ -160,7 +169,6 @@ export default function ProjectDetailPage() {
     priority: "MEDIUM" as Task['priority'],
   });
 
-  // CHANGED: Create a ref for the TimelineSection component.
   const timelineSectionRef = useRef<TimelineSectionHandle>(null);
 
   const fetchProjectData = useCallback(async () => {
@@ -263,6 +271,7 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // MODIFIED: Added projectType to the edit handler
   const handleEditProjectClick = () => {
     if (!project) return;
     setProjectToEdit({
@@ -272,6 +281,7 @@ export default function ProjectDetailPage() {
         website: project.website,
         status: project.status,
         priority: project.priority,
+        projectType: project.projectType,
         startDate: project.startDate ? project.startDate.split('T')[0] : '',
         endDate: project.endDate ? project.endDate.split('T')[0] : '',
     });
@@ -427,6 +437,8 @@ export default function ProjectDetailPage() {
             <div className="flex items-center gap-2 mt-4">
               <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
               <Badge className={getPriorityColor(project.priority)}>{project.priority}</Badge>
+              {/* MODIFIED: Display projectType badge */}
+              <Badge variant="outline">{project.projectType.replace('_', ' ')}</Badge>
             </div>
             
             <div className="flex flex-col gap-2 mt-4 lg:hidden">
@@ -465,7 +477,6 @@ export default function ProjectDetailPage() {
             )}
           </Card>
 
-          {/* CHANGED: This entire block is updated to control the TimelineSection correctly. */}
           <Card>
             <CardHeader>
               <CollapsibleHeader 
@@ -481,7 +492,7 @@ export default function ProjectDetailPage() {
             </CardHeader>
             {openSections.timelineEvents && (
               <CardContent>
-                <TimelineSection ref={timelineSectionRef} projectId={project.id} />
+                <TimelineSection ref={timelineSectionRef} projectId={project.id} onEventsUpdated={fetchProjectData} />
               </CardContent>
             )}
           </Card>
@@ -532,6 +543,9 @@ export default function ProjectDetailPage() {
               <Button onClick={handleEditProjectClick}><Pencil size={16} className="mr-2" />Edit</Button>
               <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}><Trash2 size={16} className="mr-2" />Delete</Button>
             </div>
+
+            {/* NEW: Added Timeline Progress Chart */}
+            <TimelineProgressChart events={project.timelineEvents} />
 
             <Card><CardHeader><CardTitle>Tasks</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.tasks.length}</div><Button className="mt-4 w-full" size="sm" onClick={() => setShowCreateTaskDialog(true)}>New Task</Button></CardContent></Card>
             <Card>
@@ -682,7 +696,7 @@ export default function ProjectDetailPage() {
               Make changes to your project details here. Click save when you're done.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-6 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">Name</Label>
               <Input id="name" value={projectToEdit?.name || ''} onChange={(e) => setProjectToEdit(p => ({...p, name: e.target.value}))} className="col-span-3" />
@@ -699,38 +713,57 @@ export default function ProjectDetailPage() {
               <Label htmlFor="website" className="text-right">Website</Label>
               <Input id="website" value={projectToEdit?.website || ''} onChange={(e) => setProjectToEdit(p => ({...p, website: e.target.value}))} className="col-span-3" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right">Status</Label>
-              <Select value={projectToEdit?.status} onValueChange={(value) => setProjectToEdit(p => ({...p, status: value}))}>
-                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PLANNING">Planning</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="ON_HOLD">On Hold</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={projectToEdit?.status} onValueChange={(value) => setProjectToEdit(p => ({...p, status: value}))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="PLANNING">Planning</SelectItem>
+                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                        <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                        <SelectItem value="COMPLETED">Completed</SelectItem>
+                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select value={projectToEdit?.priority} onValueChange={(value) => setProjectToEdit(p => ({...p, priority: value}))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="LOW">Low</SelectItem>
+                        <SelectItem value="MEDIUM">Medium</SelectItem>
+                        <SelectItem value="HIGH">High</SelectItem>
+                        <SelectItem value="URGENT">Urgent</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="priority" className="text-right">Priority</Label>
-              <Select value={projectToEdit?.priority} onValueChange={(value) => setProjectToEdit(p => ({...p, priority: value}))}>
-                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
-                  <SelectItem value="URGENT">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* NEW: Added Project Type to Edit Dialog */}
+            <div className="grid gap-2">
+                <Label htmlFor="projectType">Project Type</Label>
+                <Select value={projectToEdit?.projectType} onValueChange={(value) => setProjectToEdit(p => ({...p, projectType: value}))}>
+                    <SelectTrigger><SelectValue placeholder="Select a type" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="POTENTIAL_CLIENT">Potential Client</SelectItem>
+                        <SelectItem value="QUALIFIED_CLIENT">Qualified Client</SelectItem>
+                        <SelectItem value="CURRENT_CLIENT">Current Client</SelectItem>
+                        <SelectItem value="PAST_CLIENT">Past Client</SelectItem>
+                        <SelectItem value="PERSONAL_PROJECT">Personal Project</SelectItem>
+                        <SelectItem value="PROFESSIONAL_PROJECT">Professional Project</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="startDate" className="text-right">Start Date</Label>
-              <Input id="startDate" type="date" value={projectToEdit?.startDate || ''} onChange={(e) => setProjectToEdit(p => ({...p, startDate: e.target.value}))} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="endDate" className="text-right">End Date</Label>
-              <Input id="endDate" type="date" value={projectToEdit?.endDate || ''} onChange={(e) => setProjectToEdit(p => ({...p, endDate: e.target.value}))} className="col-span-3" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <Input id="startDate" type="date" value={projectToEdit?.startDate || ''} onChange={(e) => setProjectToEdit(p => ({...p, startDate: e.target.value}))} />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="endDate">End Date</Label>
+                    <Input id="endDate" type="date" value={projectToEdit?.endDate || ''} onChange={(e) => setProjectToEdit(p => ({...p, endDate: e.target.value}))} />
+                </div>
             </div>
           </div>
           <DialogFooter>
