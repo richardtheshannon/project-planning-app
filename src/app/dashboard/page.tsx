@@ -51,7 +51,7 @@ export default async function Dashboard() {
 
   // --- FINANCIAL DATA FETCHING (YTD) ---
   const now = new Date();
-  // ✅ MODIFIED: Set the start date for fetching data to July 1st of the current year.
+  // MODIFIED: Set the start date for fetching data to July 1st of the current year.
   const chartStartDate = new Date(now.getFullYear(), 6, 1); // 6 = July
 
   // CORRECTED: Fetch all necessary data in parallel, aligning with the new schema
@@ -241,7 +241,7 @@ export default async function Dashboard() {
   )
 }
 
-// ✅ UPDATED: This function now processes data starting from July.
+// UPDATED: This function now processes data starting from July.
 function processFinancialData(invoices: Invoice[], expenses: Expense[], subscriptions: Subscription[], forecast: number): ChartDataPoint[] {
   const now = new Date();
   const currentMonth = now.getMonth(); // e.g., 7 for August
@@ -337,7 +337,12 @@ async function getActivityForPeriod(userId: string, startDate: Date, endDate: Da
       select: { id: true, name: true, endDate: true },
     }),
     prisma.timelineEvent.findMany({
-      where: { project: { ownerId: userId }, eventDate: { gte: startDate, lte: endDate } },
+      where: { 
+        project: { ownerId: userId }, 
+        eventDate: { gte: startDate, lte: endDate },
+        // ✅ ADDED: This line filters out completed timeline events.
+        isCompleted: false 
+      },
       include: { project: { select: { id: true, name: true } } },
     }),
   ]);
