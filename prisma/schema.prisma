@@ -95,10 +95,11 @@ model Project {
   name         String
   description  String?        @db.Text
   projectGoal  String?        @db.Text
+  projectValue Float?         // NEW
   website      String?
   status       ProjectStatus  @default(PLANNING)
   priority     Priority       @default(MEDIUM)
-  projectType  ProjectType    @default(PERSONAL_PROJECT) // NEW FIELD
+  projectType  ProjectType    @default(PERSONAL_PROJECT)
   startDate    DateTime?
   endDate      DateTime?
   createdAt    DateTime       @default(now())
@@ -150,7 +151,7 @@ enum Priority {
   URGENT
 }
 
-// NEW ENUM for Project Type
+// ENUM for Project Type
 enum ProjectType {
   POTENTIAL_CLIENT
   QUALIFIED_CLIENT

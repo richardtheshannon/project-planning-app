@@ -52,17 +52,15 @@ import { AddContactDialog } from "@/components/projects/AddContactDialog";
 import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mail, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, Pencil, Link2, ChevronDown, Plus, PlusCircle } from "lucide-react";
+import { Mail, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, Pencil, Link2, ChevronDown, Plus, PlusCircle, DollarSign } from "lucide-react";
 import { TimelineSection, TimelineSectionHandle } from "@/components/projects/TimelineSection";
 import { Document as PrismaDocument } from '@prisma/client';
-// NEW: Import the chart component
 import TimelineProgressChart from "@/app/dashboard/components/TimelineProgressChart";
 
 
 // --- INTERFACES ---
 type Document = PrismaDocument;
 
-// NEW: Define TimelineEvent interface for the chart
 interface TimelineEvent {
   id: string;
   title: string;
@@ -88,15 +86,17 @@ interface Contact {
   notes: string | null;
 }
 
+// MODIFIED: Added projectValue to the Project interface
 interface Project {
   id: string;
   name: string;
   description: string | null;
   projectGoal: string | null;
+  projectValue: number | null; // NEW
   website: string | null;
   status: string;
   priority: string;
-  projectType: string; // MODIFIED: Added projectType
+  projectType: string;
   startDate: string | null;
   endDate: string | null;
   createdAt: string;
@@ -113,7 +113,7 @@ interface Project {
   }[];
   contacts: Contact[];
   tasks: Task[];
-  timelineEvents: TimelineEvent[]; // MODIFIED: Added timelineEvents
+  timelineEvents: TimelineEvent[];
   _count: {
     tasks: number;
     members: number;
@@ -271,13 +271,14 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // MODIFIED: Added projectType to the edit handler
+  // MODIFIED: Added projectValue to the edit handler state
   const handleEditProjectClick = () => {
     if (!project) return;
     setProjectToEdit({
         name: project.name,
         description: project.description,
         projectGoal: project.projectGoal,
+        projectValue: project.projectValue, // NEW
         website: project.website,
         status: project.status,
         priority: project.priority,
@@ -294,7 +295,11 @@ export default function ProjectDetailPage() {
           const response = await fetch(`/api/projects/${project.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(projectToEdit),
+              body: JSON.stringify({
+                ...projectToEdit,
+                // MODIFIED: Convert projectValue to a number before sending
+                projectValue: projectToEdit.projectValue ? parseFloat(projectToEdit.projectValue.toString()) : null,
+              }),
           });
           if (!response.ok) {
               const errorData = await response.json();
@@ -434,11 +439,21 @@ export default function ProjectDetailPage() {
             <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Goal</h2>
             <p className="text-muted-foreground mt-1">{project.projectGoal || "No goal defined."}</p>
 
+            {/* NEW: Display Project Value if it exists */}
+            {project.projectValue && (
+                <div>
+                    <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Value</h2>
+                    <p className="text-muted-foreground mt-1 flex items-center">
+                        <DollarSign size={16} className="mr-2" />
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(project.projectValue)}
+                    </p>
+                </div>
+            )}
+
             <div className="flex items-center gap-2 mt-4">
               <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
               <Badge className={getPriorityColor(project.priority)}>{project.priority}</Badge>
-              {/* MODIFIED: Display projectType badge */}
-              <Badge variant="outline">{project.projectType.replace('_', ' ')}</Badge>
+              <Badge variant="outline">{project.projectType.replace(/_/g, ' ')}</Badge>
             </div>
             
             <div className="flex flex-col gap-2 mt-4 lg:hidden">
@@ -544,7 +559,6 @@ export default function ProjectDetailPage() {
               <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}><Trash2 size={16} className="mr-2" />Delete</Button>
             </div>
 
-            {/* NEW: Added Timeline Progress Chart */}
             <TimelineProgressChart events={project.timelineEvents} />
 
             <Card><CardHeader><CardTitle>Tasks</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{project.tasks.length}</div><Button className="mt-4 w-full" size="sm" onClick={() => setShowCreateTaskDialog(true)}>New Task</Button></CardContent></Card>
@@ -563,7 +577,7 @@ export default function ProjectDetailPage() {
                                 <div className="font-bold">{task.title}</div>
                                 <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Status</span>
-                                <Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge>
+                                <Badge className={getTaskStatusColor(task.status)}>{task.status.replace(/_/g, ' ')}</Badge>
                                 </div>
                                 <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Priority</span>
@@ -591,7 +605,7 @@ export default function ProjectDetailPage() {
                             {sortedTasks.map(task => (
                                 <TableRow key={task.id} onClick={() => handleEditTaskClick(task)} className="cursor-pointer">
                                 <TableCell>{task.title}</TableCell>
-                                <TableCell><Badge className={getTaskStatusColor(task.status)}>{task.status.replace('_', ' ')}</Badge></TableCell>
+                                <TableCell><Badge className={getTaskStatusColor(task.status)}>{task.status.replace(/_/g, ' ')}</Badge></TableCell>
                                 <TableCell><Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge></TableCell>
                                 <TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</TableCell>
                                 </TableRow>
@@ -709,6 +723,18 @@ export default function ProjectDetailPage() {
               <Label htmlFor="projectGoal" className="text-right pt-2">Goal</Label>
               <Textarea id="projectGoal" value={projectToEdit?.projectGoal || ''} onChange={(e) => setProjectToEdit(p => ({...p, projectGoal: e.target.value}))} className="col-span-3" />
             </div>
+            {/* NEW: Project Value field */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="projectValue" className="text-right">Project Value ($)</Label>
+              <Input 
+                id="projectValue" 
+                type="number"
+                value={projectToEdit?.projectValue?.toString() || ''} 
+                onChange={(e) => setProjectToEdit(p => ({...p, projectValue: e.target.value ? parseFloat(e.target.value) : null}))} 
+                className="col-span-3" 
+                placeholder="e.g., 5000"
+              />
+            </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="website" className="text-right">Website</Label>
               <Input id="website" value={projectToEdit?.website || ''} onChange={(e) => setProjectToEdit(p => ({...p, website: e.target.value}))} className="col-span-3" />
@@ -740,7 +766,6 @@ export default function ProjectDetailPage() {
                     </Select>
                 </div>
             </div>
-            {/* NEW: Added Project Type to Edit Dialog */}
             <div className="grid gap-2">
                 <Label htmlFor="projectType">Project Type</Label>
                 <Select value={projectToEdit?.projectType} onValueChange={(value) => setProjectToEdit(p => ({...p, projectType: value}))}>

@@ -29,7 +29,7 @@ export async function GET(
         members: { include: { user: { select: { id: true, name: true, email: true } } } },
         contacts: { include: { contact: true } },
         tasks: { orderBy: { createdAt: 'desc' }, include: { assignee: { select: { id: true, name: true, email: true } } } },
-        timelineEvents: { orderBy: { eventDate: 'asc' } }, // MODIFIED: Include timeline events
+        timelineEvents: { orderBy: { eventDate: 'asc' } },
         _count: { select: { tasks: true, members: true, files: true } },
       },
     });
@@ -62,7 +62,8 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, projectGoal, website, status, priority, projectType, startDate, endDate } = body;
+    // MODIFIED: Destructure projectValue from the request body
+    const { name, description, projectGoal, projectValue, website, status, priority, projectType, startDate, endDate } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Project name is required." }, { status: 400 });
@@ -70,14 +71,16 @@ export async function PUT(
 
     const updatedProject = await prisma.project.update({
       where: { id: params.id },
+      // MODIFIED: Add projectValue to the data being updated
       data: {
         name,
         description,
         projectGoal,
+        projectValue, // NEW
         website,
         status,
         priority,
-        projectType, // Ensures projectType is updated
+        projectType,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
       },

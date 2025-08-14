@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { LayoutGrid, List, PlusCircle, ArrowUpDown } from 'lucide-react'
-import { Project } from '@prisma/client'
+import { Project as PrismaProject } from '@prisma/client'
 
 // Custom hook to manage state with sessionStorage, corrected for Next.js hydration
 function useSessionStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
@@ -40,7 +40,16 @@ function useSessionStorage<T>(key: string, initialValue: T): [T, (value: T) => v
   return [storedValue, setValue];
 }
 
-type SortKey = keyof Project | '';
+// MODIFIED: Extended Prisma's Project type to include the _count relation
+type Project = PrismaProject & {
+  _count: {
+    tasks: number;
+    members: number;
+  };
+};
+
+// MODIFIED: Added projectType and projectValue to the sortable keys
+type SortKey = 'name' | 'status' | 'priority' | 'endDate' | 'projectType' | 'projectValue';
 type SortDirection = 'ascending' | 'descending';
 
 export default function ProjectsPage() {
@@ -50,7 +59,7 @@ export default function ProjectsPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useSessionStorage<'card' | 'table'>('projectsViewMode', 'table');
-  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'name', direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey | ''; direction: SortDirection }>({ key: 'name', direction: 'ascending' });
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -83,35 +92,28 @@ export default function ProjectsPage() {
   const sortedProjects = useMemo(() => {
     let sortableItems = [...filteredProjects];
     if (sortConfig.key) {
-      // Define the custom order for priorities
       const priorityOrder: { [key: string]: number } = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'URGENT': 4 };
 
       sortableItems.sort((a, b) => {
-        if (sortConfig.key === 'priority') {
+        const key = sortConfig.key as keyof PrismaProject;
+
+        if (key === 'priority') {
           const aPriority = priorityOrder[a.priority] || 0;
           const bPriority = priorityOrder[b.priority] || 0;
-          if (aPriority < bPriority) {
-            return sortConfig.direction === 'ascending' ? -1 : 1;
-          }
-          if (aPriority > bPriority) {
-            return sortConfig.direction === 'ascending' ? 1 : -1;
-          }
+          if (aPriority < bPriority) return sortConfig.direction === 'ascending' ? -1 : 1;
+          if (aPriority > bPriority) return sortConfig.direction === 'ascending' ? 1 : -1;
           return 0;
         }
 
-        // Fallback to default sorting for other columns
-        const aValue = a[sortConfig.key as keyof Project];
-        const bValue = b[sortConfig.key as keyof Project];
+        const aValue = a[key];
+        const bValue = b[key];
 
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
 
-        if (aValue < bValue) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        
         return 0;
       });
     }
@@ -147,6 +149,12 @@ export default function ProjectsPage() {
     }
   }
 
+  // NEW: Helper function to create a badge for the project type
+  const getProjectTypeBadge = (projectType: string) => {
+    const formattedType = projectType.replace(/_/g, ' ');
+    return <Badge variant="secondary">{formattedType}</Badge>
+  }
+
   const SortableHeader = ({ sortKey, children }: { sortKey: SortKey, children: React.ReactNode }) => (
     <TableHead>
         <Button variant="ghost" onClick={() => requestSort(sortKey)} className="px-2 py-1">
@@ -174,7 +182,6 @@ export default function ProjectsPage() {
             className="w-full md:w-64"
           />
           <div className="flex items-center justify-between md:justify-end gap-2">
-            {/* REVISED: This container for the toggle buttons is now hidden on mobile */}
             <div className="hidden md:flex items-center gap-2">
               <Button variant={viewMode === 'table' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('table')}>
                 <List className="h-4 w-4" />
@@ -193,34 +200,40 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* REVISED: Conditionally rendering table for desktop and cards for mobile */}
-      {/* Table View: Shown only on medium screens and up when viewMode is 'table' */}
       <div className={viewMode === 'table' ? 'hidden md:block' : 'hidden'}>
         <Card>
             <Table className="w-full">
                 <TableHeader>
-                <TableRow>
-                    <SortableHeader sortKey="name">Project Name</SortableHeader>
-                    <SortableHeader sortKey="status">Status</SortableHeader>
-                    <SortableHeader sortKey="priority">Priority</SortableHeader>
-                    <SortableHeader sortKey="endDate">Due Date</SortableHeader>
-                    <TableHead>Tasks</TableHead>
-                    <TableHead>Members</TableHead>
-                </TableRow>
+                  {/* MODIFIED: Updated table headers */}
+                  <TableRow>
+                      <SortableHeader sortKey="name">Project Name</SortableHeader>
+                      <SortableHeader sortKey="status">Status</SortableHeader>
+                      <SortableHeader sortKey="priority">Priority</SortableHeader>
+                      <SortableHeader sortKey="projectType">Project Type</SortableHeader>
+                      <SortableHeader sortKey="endDate">Due Date</SortableHeader>
+                      <TableHead>Tasks</TableHead>
+                      <SortableHeader sortKey="projectValue">Project Value</SortableHeader>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
                 {sortedProjects.map((project) => (
+                    // MODIFIED: Updated table cells to match new headers
                     <TableRow key={project.id}>
-                    <TableCell className="font-medium break-all">
-                        <Link href={`/dashboard/projects/${project.id}`} className="hover:underline">
-                        {project.name}
-                        </Link>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(project.status)}</TableCell>
-                    <TableCell>{getPriorityBadge(project.priority)}</TableCell>
-                    <TableCell>{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</TableCell>
-                    <TableCell>0</TableCell>
-                    <TableCell>0</TableCell>
+                      <TableCell className="font-medium break-all">
+                          <Link href={`/dashboard/projects/${project.id}`} className="hover:underline">
+                          {project.name}
+                          </Link>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(project.status)}</TableCell>
+                      <TableCell>{getPriorityBadge(project.priority)}</TableCell>
+                      <TableCell>{getProjectTypeBadge(project.projectType)}</TableCell>
+                      <TableCell>{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</TableCell>
+                      <TableCell>{project._count.tasks}</TableCell>
+                      <TableCell>
+                        {project.projectValue != null 
+                          ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(project.projectValue) 
+                          : 'N/A'}
+                      </TableCell>
                     </TableRow>
                 ))}
                 </TableBody>
@@ -228,7 +241,6 @@ export default function ProjectsPage() {
         </Card>
       </div>
 
-      {/* Card View: Shown on mobile always, or on desktop when viewMode is 'card' */}
       <div className={viewMode === 'card' ? 'grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid md:hidden gap-6'}>
         {sortedProjects.map((project) => (
         <Card key={project.id}>

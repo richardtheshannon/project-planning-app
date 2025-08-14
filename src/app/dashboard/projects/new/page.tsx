@@ -15,15 +15,16 @@ export default function NewProjectPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  // MODIFIED: Added projectType to the form data state
+  // MODIFIED: Added projectValue to the form data state
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     goal: "",
+    projectValue: "", // NEW
     website: "",
     status: "PLANNING",
     priority: "MEDIUM",
-    projectType: "PERSONAL_PROJECT", // NEW: Added with a default value
+    projectType: "PERSONAL_PROJECT",
     startDate: "",
     endDate: ""
   })
@@ -41,6 +42,8 @@ export default function NewProjectPage() {
         },
         body: JSON.stringify({
           ...formData,
+          // MODIFIED: Convert projectValue to a number, or null if empty
+          projectValue: formData.projectValue ? parseFloat(formData.projectValue) : null,
           startDate: formData.startDate || null,
           endDate: formData.endDate || null,
         }),
@@ -91,10 +94,22 @@ export default function NewProjectPage() {
             
             <div className="space-y-2">
               <Label htmlFor="goal">Project Goal</Label>
-              <Input
+              <Textarea
                 id="goal"
                 value={formData.goal}
                 onChange={(e) => setFormData({...formData, goal: e.target.value})}
+              />
+            </div>
+
+            {/* NEW: Project Value field */}
+            <div className="space-y-2">
+              <Label htmlFor="projectValue">Project Value ($)</Label>
+              <Input
+                id="projectValue"
+                type="number"
+                value={formData.projectValue}
+                onChange={(e) => setFormData({...formData, projectValue: e.target.value})}
+                placeholder="e.g., 5000"
               />
             </div>
 
@@ -105,10 +120,10 @@ export default function NewProjectPage() {
                 type="url"
                 value={formData.website}
                 onChange={(e) => setFormData({...formData, website: e.target.value})}
+                placeholder="https://example.com"
               />
             </div>
 
-            {/* MODIFIED: Changed grid layout to accommodate the new field */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
@@ -141,7 +156,6 @@ export default function NewProjectPage() {
                 </Select>
               </div>
 
-              {/* NEW: Project Type Dropdown */}
               <div className="space-y-2">
                 <Label htmlFor="projectType">Project Type</Label>
                 <Select value={formData.projectType} onValueChange={(value) => setFormData({...formData, projectType: value})}>
