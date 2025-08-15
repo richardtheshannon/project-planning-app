@@ -271,14 +271,13 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // MODIFIED: Added projectValue to the edit handler state
   const handleEditProjectClick = () => {
     if (!project) return;
     setProjectToEdit({
         name: project.name,
         description: project.description,
         projectGoal: project.projectGoal,
-        projectValue: project.projectValue, // NEW
+        projectValue: project.projectValue,
         website: project.website,
         status: project.status,
         priority: project.priority,
@@ -297,7 +296,6 @@ export default function ProjectDetailPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ...projectToEdit,
-                // MODIFIED: Convert projectValue to a number before sending
                 projectValue: projectToEdit.projectValue ? parseFloat(projectToEdit.projectValue.toString()) : null,
               }),
           });
@@ -439,7 +437,6 @@ export default function ProjectDetailPage() {
             <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Goal</h2>
             <p className="text-muted-foreground mt-1">{project.projectGoal || "No goal defined."}</p>
 
-            {/* NEW: Display Project Value if it exists */}
             {project.projectValue && (
                 <div>
                     <h2 className="text-lg font-semibold text-muted-foreground mt-4">Project Value</h2>
@@ -702,96 +699,98 @@ export default function ProjectDetailPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ✅ MODIFIED: This is the Edit Project Dialog. The structure has been updated to support scrolling. */}
       <Dialog open={showEditProjectDialog} onOpenChange={setShowEditProjectDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] grid grid-rows-[auto_1fr_auto] max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-4">
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
               Make changes to your project details here. Click save when you're done.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-6 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Name</Label>
-              <Input id="name" value={projectToEdit?.name || ''} onChange={(e) => setProjectToEdit(p => ({...p, name: e.target.value}))} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="description" className="text-right pt-2">Description</Label>
-              <Textarea id="description" value={projectToEdit?.description || ''} onChange={(e) => setProjectToEdit(p => ({...p, description: e.target.value}))} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="projectGoal" className="text-right pt-2">Goal</Label>
-              <Textarea id="projectGoal" value={projectToEdit?.projectGoal || ''} onChange={(e) => setProjectToEdit(p => ({...p, projectGoal: e.target.value}))} className="col-span-3" />
-            </div>
-            {/* NEW: Project Value field */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="projectValue" className="text-right">Project Value ($)</Label>
-              <Input 
-                id="projectValue" 
-                type="number"
-                value={projectToEdit?.projectValue?.toString() || ''} 
-                onChange={(e) => setProjectToEdit(p => ({...p, projectValue: e.target.value ? parseFloat(e.target.value) : null}))} 
-                className="col-span-3" 
-                placeholder="e.g., 5000"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="website" className="text-right">Website</Label>
-              <Input id="website" value={projectToEdit?.website || ''} onChange={(e) => setProjectToEdit(p => ({...p, website: e.target.value}))} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="overflow-y-auto px-6">
+            <div className="grid gap-6 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Name</Label>
+                <Input id="name" value={projectToEdit?.name || ''} onChange={(e) => setProjectToEdit(p => ({...p, name: e.target.value}))} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="description" className="text-right pt-2">Description</Label>
+                <Textarea id="description" value={projectToEdit?.description || ''} onChange={(e) => setProjectToEdit(p => ({...p, description: e.target.value}))} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="projectGoal" className="text-right pt-2">Goal</Label>
+                <Textarea id="projectGoal" value={projectToEdit?.projectGoal || ''} onChange={(e) => setProjectToEdit(p => ({...p, projectGoal: e.target.value}))} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="projectValue" className="text-right">Project Value ($)</Label>
+                <Input 
+                    id="projectValue" 
+                    type="number"
+                    value={projectToEdit?.projectValue?.toString() || ''} 
+                    onChange={(e) => setProjectToEdit(p => ({...p, projectValue: e.target.value ? parseFloat(e.target.value) : null}))} 
+                    className="col-span-3" 
+                    placeholder="e.g., 5000"
+                />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="website" className="text-right">Website</Label>
+                <Input id="website" value={projectToEdit?.website || ''} onChange={(e) => setProjectToEdit(p => ({...p, website: e.target.value}))} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="status">Status</Label>
+                        <Select value={projectToEdit?.status} onValueChange={(value) => setProjectToEdit(p => ({...p, status: value}))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="PLANNING">Planning</SelectItem>
+                            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                            <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                            <SelectItem value="COMPLETED">Completed</SelectItem>
+                            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="priority">Priority</Label>
+                        <Select value={projectToEdit?.priority} onValueChange={(value) => setProjectToEdit(p => ({...p, priority: value}))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="LOW">Low</SelectItem>
+                            <SelectItem value="MEDIUM">Medium</SelectItem>
+                            <SelectItem value="HIGH">High</SelectItem>
+                            <SelectItem value="URGENT">Urgent</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select value={projectToEdit?.status} onValueChange={(value) => setProjectToEdit(p => ({...p, status: value}))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Label htmlFor="projectType">Project Type</Label>
+                    <Select value={projectToEdit?.projectType} onValueChange={(value) => setProjectToEdit(p => ({...p, projectType: value}))}>
+                        <SelectTrigger><SelectValue placeholder="Select a type" /></SelectTrigger>
                         <SelectContent>
-                        <SelectItem value="PLANNING">Planning</SelectItem>
-                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="ON_HOLD">On Hold</SelectItem>
-                        <SelectItem value="COMPLETED">Completed</SelectItem>
-                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                            <SelectItem value="POTENTIAL_CLIENT">Potential Client</SelectItem>
+                            <SelectItem value="QUALIFIED_CLIENT">Qualified Client</SelectItem>
+                            <SelectItem value="CURRENT_CLIENT">Current Client</SelectItem>
+                            <SelectItem value="PAST_CLIENT">Past Client</SelectItem>
+                            <SelectItem value="PERSONAL_PROJECT">Personal Project</SelectItem>
+                            <SelectItem value="PROFESSIONAL_PROJECT">Professional Project</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select value={projectToEdit?.priority} onValueChange={(value) => setProjectToEdit(p => ({...p, priority: value}))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="LOW">Low</SelectItem>
-                        <SelectItem value="MEDIUM">Medium</SelectItem>
-                        <SelectItem value="HIGH">High</SelectItem>
-                        <SelectItem value="URGENT">Urgent</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-            <div className="grid gap-2">
-                <Label htmlFor="projectType">Project Type</Label>
-                <Select value={projectToEdit?.projectType} onValueChange={(value) => setProjectToEdit(p => ({...p, projectType: value}))}>
-                    <SelectTrigger><SelectValue placeholder="Select a type" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="POTENTIAL_CLIENT">Potential Client</SelectItem>
-                        <SelectItem value="QUALIFIED_CLIENT">Qualified Client</SelectItem>
-                        <SelectItem value="CURRENT_CLIENT">Current Client</SelectItem>
-                        <SelectItem value="PAST_CLIENT">Past Client</SelectItem>
-                        <SelectItem value="PERSONAL_PROJECT">Personal Project</SelectItem>
-                        <SelectItem value="PROFESSIONAL_PROJECT">Professional Project</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="startDate">Start Date</Label>
-                    <Input id="startDate" type="date" value={projectToEdit?.startDate || ''} onChange={(e) => setProjectToEdit(p => ({...p, startDate: e.target.value}))} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="endDate">End Date</Label>
-                    <Input id="endDate" type="date" value={projectToEdit?.endDate || ''} onChange={(e) => setProjectToEdit(p => ({...p, endDate: e.target.value}))} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="startDate">Start Date</Label>
+                        <Input id="startDate" type="date" value={projectToEdit?.startDate || ''} onChange={(e) => setProjectToEdit(p => ({...p, startDate: e.target.value}))} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="endDate">End Date</Label>
+                        <Input id="endDate" type="date" value={projectToEdit?.endDate || ''} onChange={(e) => setProjectToEdit(p => ({...p, endDate: e.target.value}))} />
+                    </div>
                 </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="p-6 pt-4">
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>

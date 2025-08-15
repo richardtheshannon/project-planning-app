@@ -38,11 +38,10 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body
-        // STEP 4: Apply both font variables to the body tag.
-        // The 'cn' utility merges our base classes with both new font variables.
-        // 'font-sans' is the default, so Nunito will be the paragraph font.
+        // ✅ MODIFIED: Removed 'h-full', 'flex', and 'flex-col'.
+        // This allows the body to grow and the browser to handle scrolling naturally.
         className={cn(
-          "h-full flex flex-col bg-background font-sans antialiased",
+          "bg-background font-sans antialiased",
           roboto.variable,
           nunito.variable
         )}

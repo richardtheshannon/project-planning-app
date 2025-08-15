@@ -4,15 +4,16 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { type Invoice, type Expense, type Subscription, type Prisma, ExpenseCategory } from "@prisma/client";
-import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfYear, getMonth } from "date-fns";
+// ✅ MODIFIED: Imported the ContractTerm enum object, not just the type.
+import { type Invoice, type Expense, type Subscription, type Prisma, ExpenseCategory, type Client, ContractTerm } from "@prisma/client";
+import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfYear, getMonth, getYear, parseISO, isBefore, isAfter, isEqual } from "date-fns";
+
 
 // UI component imports
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, AlertTriangle, BarChart2, Plus, Upload, ArrowDown, ArrowUp, TrendingUp } from "lucide-react";
 
-// ✅ STEP 1: Import the new chart component and its data type
 import FinancialsLineChart, { FinancialsChartDataPoint } from "./components/FinancialsLineChart";
 
 
@@ -20,18 +21,38 @@ type InvoiceWithClient = Prisma.InvoiceGetPayload<{
   include: { client: { select: { name: true } } }
 }>;
 
-// ✅ STEP 2: Create the data processing function for the new chart
+type ClientWithContracts = Client;
+
+interface ForecastedItem {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+// ✅ MODIFIED: Helper function to convert ContractTerm enum to a number of months
+const getMonthsFromTerm = (term: ContractTerm): number => {
+    switch (term) {
+        // ✅ FIXED: Used the correct snake_case enum members from schema.prisma
+        case ContractTerm.ONE_MONTH: return 1;
+        case ContractTerm.THREE_MONTH: return 3;
+        case ContractTerm.SIX_MONTH: return 6;
+        case ContractTerm.ONE_YEAR: return 12;
+        default: return 0;
+    }
+};
+
 const processDataForChart = (
   invoices: Invoice[],
   expenses: Expense[],
-  subscriptions: Subscription[]
+  subscriptions: Subscription[],
+  clients: ClientWithContracts[]
 ): FinancialsChartDataPoint[] => {
   const now = new Date();
   const currentMonthIndex = getMonth(now);
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  const monthlyData = monthNames.map(month => ({
-    month,
+  const monthlyData = Array.from({ length: 12 }, (_, i) => ({
+    month: monthNames[i],
     totalRevenue: 0,
     expenses: 0,
     subscriptions: 0,
@@ -41,59 +62,80 @@ const processDataForChart = (
   }));
 
   invoices.forEach(inv => {
-    if (inv.status === 'PAID') {
+    if (inv.status === 'PAID' && getYear(inv.issuedDate) === getYear(now)) {
       const monthIndex = getMonth(inv.issuedDate);
       monthlyData[monthIndex].totalRevenue += inv.amount;
     }
   });
 
   expenses.forEach(exp => {
-    const monthIndex = getMonth(exp.date);
-    monthlyData[monthIndex].expenses += exp.amount;
+    if (getYear(exp.date) === getYear(now)) {
+      const monthIndex = getMonth(exp.date);
+      monthlyData[monthIndex].expenses += exp.amount;
+    }
   });
 
+  const monthlySubscriptionTotal = subscriptions
+    .filter(s => s.billingCycle === 'MONTHLY')
+    .reduce((sum, s) => sum + s.amount, 0);
+
   subscriptions.forEach(sub => {
-    if (sub.billingCycle === 'MONTHLY') {
-      for (let i = 0; i <= currentMonthIndex; i++) {
-        monthlyData[i].subscriptions += sub.amount;
-      }
-    } else if (sub.billingCycle === 'ANNUALLY') {
+    if (sub.billingCycle === 'ANNUALLY' && getYear(sub.createdAt) === getYear(now)) {
       const monthIndex = getMonth(sub.createdAt);
       monthlyData[monthIndex].subscriptions += sub.amount;
     }
   });
-  
-  // Calculate cumulative values
-  for (let i = 0; i <= currentMonthIndex; i++) {
-      const totalExpensesForMonth = monthlyData[i].expenses + monthlyData[i].subscriptions;
-      monthlyData[i].taxesDue = monthlyData[i].totalRevenue * 0.20;
-      monthlyData[i].netIncome = monthlyData[i].totalRevenue - totalExpensesForMonth - monthlyData[i].taxesDue;
 
-      // Make values cumulative for a YTD view
-      if (i > 0) {
-          monthlyData[i].totalRevenue += monthlyData[i-1].totalRevenue;
-          monthlyData[i].expenses += monthlyData[i-1].expenses;
-          monthlyData[i].subscriptions += monthlyData[i-1].subscriptions;
-          monthlyData[i].netIncome += monthlyData[i-1].netIncome;
-          monthlyData[i].taxesDue += monthlyData[i-1].taxesDue;
+  for (let i = 0; i < 12; i++) {
+    monthlyData[i].subscriptions += monthlySubscriptionTotal;
+
+    let forecastedClientIncome = 0;
+    const forecastMonthStart = new Date(getYear(now), i, 1);
+    const forecastMonthEnd = endOfMonth(forecastMonthStart);
+
+    clients.forEach(client => {
+      if (client.contractStartDate && client.contractAmount && client.contractTerm && client.frequency === '1 Month') {
+        const startDate = parseISO(client.contractStartDate.toString());
+        const termsInMonths = getMonthsFromTerm(client.contractTerm);
+        const endDate = addMonths(startDate, termsInMonths);
+
+        if (!isAfter(forecastMonthStart, endDate) && !isBefore(forecastMonthEnd, startDate)) {
+          forecastedClientIncome += client.contractAmount;
+        }
       }
+    });
+    
+    if (i >= currentMonthIndex) {
+      monthlyData[i].totalRevenue += forecastedClientIncome;
+    }
+
+    const totalExpensesForMonth = monthlyData[i].expenses + monthlyData[i].subscriptions;
+    monthlyData[i].taxesDue = monthlyData[i].totalRevenue * 0.20;
+    monthlyData[i].netIncome = monthlyData[i].totalRevenue - totalExpensesForMonth - monthlyData[i].taxesDue;
   }
 
-  return monthlyData.slice(0, currentMonthIndex + 1);
+  for (let i = 1; i < 12; i++) {
+    monthlyData[i].totalRevenue += monthlyData[i - 1].totalRevenue;
+    monthlyData[i].expenses += monthlyData[i - 1].expenses;
+    monthlyData[i].subscriptions += monthlyData[i - 1].subscriptions;
+    monthlyData[i].netIncome += monthlyData[i - 1].netIncome;
+    monthlyData[i].taxesDue += monthlyData[i - 1].taxesDue;
+  }
+
+  return monthlyData.slice(0, currentMonthIndex + 4);
 };
 
 
 export default async function FinancialsOverviewPage() {
   const session = await getServerSession(authOptions);
 
-  // Initialize all variables
   let totalRevenue = 0, totalExpensesYTD = 0, totalSubscriptionsYTD = 0, netIncomeYTD = 0, totalTaxesDue = 0, upcomingPayments = 0;
   let lastMonthIncome = 0, lastMonthExpenses = 0, lastMonthSubscriptionsTotal = 0, lastMonthNet = 0;
   let thisMonthIncome = 0, thisMonthExpenses = 0, thisMonthSubscriptionsTotal = 0, thisMonthNet = 0;
   let nextMonthIncome = 0, nextMonthExpenses = 0, nextMonthSubscriptionsTotal = 0, nextMonthNet = 0;
   let lastMonthInvoices: InvoiceWithClient[] = [], lastMonthExpenseItems: Expense[] = [], lastMonthSubscriptionItems: Subscription[] = [];
   let thisMonthInvoices: InvoiceWithClient[] = [], thisMonthExpenseItems: Expense[] = [], thisMonthSubscriptionItems: Subscription[] = [];
-  let nextMonthInvoices: InvoiceWithClient[] = [], nextMonthExpenseItems: Expense[] = [], nextMonthSubscriptionItems: Subscription[] = [];
+  let nextMonthInvoices: InvoiceWithClient[] = [], nextMonthExpenseItems: Expense[] = [], nextMonthSubscriptionItems: Subscription[] = [], nextMonthForecastedItems: ForecastedItem[] = [];
   let chartData: FinancialsChartDataPoint[] = [];
 
   let totalLastMonthExpensesForNet = 0;
@@ -117,20 +159,20 @@ export default async function FinancialsOverviewPage() {
     const [
       allInvoices, 
       allExpenses, 
-      allSubscriptions
+      allSubscriptions,
+      allClients
     ] = await Promise.all([
       prisma.invoice.findMany({ 
         where: { userId: session.user.id, issuedDate: { gte: startDateYTD } },
         include: { client: { select: { name: true } } }
       }),
       prisma.expense.findMany({ where: { userId: session.user.id, date: { gte: startDateYTD } } }),
-      prisma.subscription.findMany({ where: { userId: session.user.id } })
+      prisma.subscription.findMany({ where: { userId: session.user.id } }),
+      prisma.client.findMany({ where: { userId: session.user.id } })
     ]);
     
-    // ✅ STEP 3: Process the fetched data for the chart
-    chartData = processDataForChart(allInvoices, allExpenses, allSubscriptions);
+    chartData = processDataForChart(allInvoices, allExpenses, allSubscriptions, allClients);
 
-    // --- YTD Calculations ---
     const paidInvoicesYTD = allInvoices.filter(inv => inv.status === 'PAID');
     totalRevenue = paidInvoicesYTD.reduce((sum, invoice) => sum + invoice.amount, 0);
     
@@ -155,18 +197,31 @@ export default async function FinancialsOverviewPage() {
       .reduce((sum, s) => sum + s.amount, 0);
     upcomingPayments = monthlySubscriptionsTotalUpcoming + annualSubscriptionsUpcoming;
 
-    // --- Monthly Item Filtering ---
     lastMonthInvoices = allInvoices.filter(inv => isWithinInterval(inv.issuedDate, { start: lastMonthStart, end: lastMonthEnd }));
     thisMonthInvoices = allInvoices.filter(inv => isWithinInterval(inv.issuedDate, { start: thisMonthStart, end: thisMonthEnd }));
-    nextMonthInvoices = allInvoices.filter(inv => isWithinInterval(inv.issuedDate, { start: nextMonthStart, end: nextMonthEnd }));
     
     lastMonthExpenseItems = allExpenses.filter(exp => isWithinInterval(exp.date, { start: lastMonthStart, end: lastMonthEnd }));
     thisMonthExpenseItems = allExpenses.filter(exp => isWithinInterval(exp.date, { start: thisMonthStart, end: thisMonthEnd }));
-    nextMonthExpenseItems = allExpenses.filter(exp => isWithinInterval(exp.date, { start: nextMonthStart, end: nextMonthEnd }));
-
+    
     lastMonthIncome = lastMonthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
     thisMonthIncome = thisMonthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-    nextMonthIncome = nextMonthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+    
+    let forecastedIncomeNextMonth = 0;
+    allClients.forEach(client => {
+        if (client.contractStartDate && client.contractAmount && client.contractTerm && client.frequency === '1 Month') {
+            const startDate = parseISO(client.contractStartDate.toString());
+            const termsInMonths = getMonthsFromTerm(client.contractTerm);
+            const endDate = addMonths(startDate, termsInMonths);
+            
+            if (!isAfter(nextMonthStart, endDate) && !isBefore(nextMonthEnd, startDate)) {
+                forecastedIncomeNextMonth += client.contractAmount;
+                nextMonthForecastedItems.push({ id: client.id, name: `${client.name} (Contract)`, amount: client.contractAmount });
+            }
+        }
+    });
+    const oneOffInvoicesNextMonth = allInvoices.filter(inv => isWithinInterval(inv.issuedDate, { start: nextMonthStart, end: nextMonthEnd }));
+    nextMonthIncome = forecastedIncomeNextMonth + oneOffInvoicesNextMonth.reduce((sum, inv) => sum + inv.amount, 0);
+    nextMonthInvoices = oneOffInvoicesNextMonth;
 
     allSubscriptions.forEach(sub => {
         if (sub.billingCycle === 'MONTHLY') {
@@ -179,10 +234,12 @@ export default async function FinancialsOverviewPage() {
             };
             if (isWithinInterval(sub.dueDate, { start: lastMonthStart, end: lastMonthEnd })) lastMonthExpenseItems.push(syntheticExpense);
             if (isWithinInterval(sub.dueDate, { start: thisMonthStart, end: thisMonthEnd })) thisMonthExpenseItems.push(syntheticExpense);
-            if (isWithinInterval(sub.dueDate, { start: nextMonthStart, end: nextMonthEnd })) nextMonthExpenseItems.push(syntheticExpense);
         }
     });
     
+    const nextMonthOneTimeExpenses = allExpenses.filter(exp => isWithinInterval(exp.date, { start: nextMonthStart, end: nextMonthEnd }));
+    nextMonthExpenseItems = nextMonthOneTimeExpenses;
+
     lastMonthExpenses = lastMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
     thisMonthExpenses = thisMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
     nextMonthExpenses = nextMonthExpenseItems.reduce((sum, exp) => sum + exp.amount, 0);
@@ -208,7 +265,6 @@ export default async function FinancialsOverviewPage() {
         <Button variant="outline"><Upload className="mr-2 h-4 w-4" /> Upload Document</Button>
       </div>
 
-      {/* ✅ STEP 4: Render the chart and the stat cards in the same grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <FinancialsLineChart data={chartData} />
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Revenue (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of all invoices with status 'PAID' this year.</p></CardContent></Card>
@@ -262,12 +318,14 @@ export default async function FinancialsOverviewPage() {
             <div className="flex justify-between items-center pt-2 border-t"><span className="flex items-center text-sm font-bold"><TrendingUp className="h-4 w-4 mr-2" />Net</span><span className="font-bold">{nextMonthNet.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
             <div className="my-4 border-t"></div>
             <div className="space-y-2 text-xs">
-              <h4 className="font-semibold">Subscriptions</h4>
+              <h4 className="font-semibold">Forecasted Income</h4>
+              {nextMonthForecastedItems.length > 0 ? nextMonthForecastedItems.map(item => (<div key={item.id} className="flex justify-between"><span>{item.name}</span><span>{item.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No forecasted income.</p>}
+              <h4 className="font-semibold mt-2">Subscriptions</h4>
               {nextMonthSubscriptionItems.length > 0 ? nextMonthSubscriptionItems.map(sub => (<div key={sub.id} className="flex justify-between"><span>{sub.name}</span><span>{sub.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No subscriptions.</p>}
               <h4 className="font-semibold mt-2">Expenses</h4>
               {nextMonthExpenseItems.length > 0 ? nextMonthExpenseItems.map(exp => (<div key={exp.id} className="flex justify-between"><span>{exp.description}</span><span>{exp.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No expenses.</p>}
               <h4 className="font-semibold mt-2">Invoices</h4>
-              {nextMonthInvoices.length > 0 ? nextMonthInvoices.map(inv => (<div key={inv.id} className="flex justify-between"><span>{inv.client.name}</span><span>{inv.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No invoices.</p>}
+              {nextMonthInvoices.length > 0 ? nextMonthInvoices.map(inv => (<div key={inv.id} className="flex justify-between"><span>{inv.client.name}</span><span>{inv.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No one-off invoices.</p>}
             </div>
           </CardContent>
         </Card>

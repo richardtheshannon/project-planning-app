@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { redirect, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { SidebarProvider, useSidebar } from "@/components/ui/sidebar-provider"; // UPDATED IMPORT
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar-provider";
 import {
   Sidebar,
   SidebarContent,
@@ -16,7 +16,7 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarTrigger,
-} from "@/components/ui/sidebar"; // UPDATED IMPORT
+} from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
@@ -30,7 +30,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   const [isMobileSheetOpen, setIsMobileSheetOpen] = React.useState(false);
 
   return (
-    <div className={cn("flex h-screen w-full", { "flex-row-reverse": isRightHanded })}>
+    <div className={cn("flex min-h-screen w-full", { "flex-row-reverse": isRightHanded })}>
       <Sidebar className="hidden md:flex">
         <SidebarItems onLinkClick={() => {}} />
       </Sidebar>
@@ -63,10 +63,9 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
             {session?.user?.name || session?.user?.email}
           </h1>
         </header>
-        <main className="flex-1 overflow-auto">
-          <div className="p-6">
-            {children}
-          </div>
+        {/* ✅ MODIFIED: Removed the 'flex-1' class to allow the main content to grow freely. */}
+        <main className="p-4 md:p-6">
+          {children}
         </main>
       </div>
     </div>
