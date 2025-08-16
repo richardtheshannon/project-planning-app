@@ -18,7 +18,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-// ✅ NEW: Imported the ClipboardList icon for the Operations link
 import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark, ClipboardList } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
@@ -32,9 +31,12 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={cn("flex min-h-screen w-full", { "flex-row-reverse": isRightHanded })}>
-      <Sidebar className="hidden md:flex">
-        <SidebarItems onLinkClick={() => {}} />
-      </Sidebar>
+      {/* Sidebar with sticky positioning */}
+      <div className="hidden md:sticky md:top-0 md:h-screen md:flex">
+        <Sidebar>
+          <SidebarItems onLinkClick={() => {}} />
+        </Sidebar>
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className={cn("border-b px-4 py-3 flex items-center gap-4", { "flex-row-reverse": isRightHanded })}>
@@ -83,7 +85,6 @@ function SidebarItems({
   const { open } = useSidebar();
   const { isRightHanded } = useLayoutPreference();
 
-  // ✅ MODIFIED: Added the "Operations" link to the menuItems array
   const menuItems = [
     { icon: Home, label: "Dashboard", href: "/dashboard" },
     { icon: Briefcase, label: "Projects", href: "/dashboard/projects" },

@@ -6,11 +6,12 @@ import { useTheme } from "next-themes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button"; // Import the Button component
+import { Button } from "@/components/ui/button";
 import { Moon, Sun, Loader2 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useLayoutPreference } from '@/lib/hooks/use-layout-preference';
 import { useToast } from '@/components/ui/use-toast';
+import FeatureRequests from '../FeatureRequests'; // Import the FeatureRequests component
 
 // Interface for the notification settings we'll fetch
 interface UserSettings {
@@ -25,7 +26,7 @@ export default function SettingsPage() {
   // --- State for Notification Settings ---
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false); // New state for manual send button
+  const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
 
   // Fetch all settings when the component mounts
@@ -88,11 +89,10 @@ export default function SettingsPage() {
     }
   };
 
-  // --- NEW: Handler for Manual Manifest Send ---
+  // --- Handler for Manual Manifest Send ---
   const handleSendManualManifest = async () => {
     setIsSending(true);
     try {
-      // We use POST to trigger the action of sending an email
       const response = await fetch('/api/cron/send-manifest', {
         method: 'POST',
       });
@@ -155,7 +155,6 @@ export default function SettingsPage() {
                   Receive an email every morning with a summary of items due for the day.
                 </p>
               </div>
-              {/* Container for Button and Switch */}
               <div className="flex items-center space-x-4">
                 <Button 
                   onClick={handleSendManualManifest}
@@ -176,7 +175,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* --- Existing Appearance Card --- */}
+        {/* --- Appearance Card --- */}
         <Card>
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
@@ -232,7 +231,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* --- Existing About Card --- */}
+        {/* --- About Card --- */}
         <Card>
           <CardHeader>
             <CardTitle>About</CardTitle>
@@ -257,6 +256,11 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        
+        {/* --- NEW: Feature Requests Section --- */}
+        <div className="mt-8">
+          <FeatureRequests />
+        </div>
       </div>
     </div>
   );
