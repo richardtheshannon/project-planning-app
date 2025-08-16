@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-// MODIFIED: Changed from a path alias to a direct relative path
-import { prisma } from "../../../../lib/prisma"
+// ✅ MODIFIED: Changed the import to use the standard path alias for consistency.
+import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { UserRole } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   try {
     const { name, email, password } = await request.json()
 
-    // Input validation
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "All fields are required" },
@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email }
     })
@@ -34,16 +33,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create new user with hashed password and explicit role
     const newUser = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role: 'USER' // Explicitly set the role for new users
+        role: UserRole.USER,
+        isActive: true,
       }
     })
 

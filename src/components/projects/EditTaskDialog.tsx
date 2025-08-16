@@ -38,8 +38,16 @@ interface EditTaskDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onTaskUpdated: (updatedTask: Task) => void;
-  onTaskDeleted: (task: Task) => void; // Add this prop
+  onTaskDeleted: (task: Task) => void;
 }
+
+// ✅ NEW: Helper function to correct for timezone offset from date inputs
+const adjustDateForTimezone = (dateString: string): Date => {
+  if (!dateString) return new Date(NaN); // Return invalid date if string is empty or null
+  const date = new Date(dateString);
+  const timezoneOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+  return new Date(date.getTime() + timezoneOffset);
+};
 
 export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated, onTaskDeleted }: EditTaskDialogProps) {
   const [editedTask, setEditedTask] = useState(task);
@@ -64,10 +72,16 @@ export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated, onTa
 
     setIsLoading(true);
     try {
+      // ✅ MODIFIED: Use the timezone adjustment helper for the dueDate
+      const bodyPayload = {
+        ...editedTask,
+        dueDate: editedTask.dueDate ? adjustDateForTimezone(editedTask.dueDate) : null,
+      };
+
       const response = await fetch(`/api/tasks/${editedTask.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editedTask),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (!response.ok) {
@@ -99,7 +113,7 @@ export function EditTaskDialog({ task, isOpen, onOpenChange, onTaskUpdated, onTa
   const handleDeleteClick = () => {
     if (!task) return;
     onTaskDeleted(task);
-    onOpenChange(false); // Close the edit dialog
+    onOpenChange(false);
   };
 
   if (!editedTask) {

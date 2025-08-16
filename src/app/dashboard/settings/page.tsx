@@ -1,37 +1,98 @@
 // src/app/dashboard/settings/page.tsx
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useTheme } from "next-themes"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Moon, Sun } from "lucide-react"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { useState, useEffect } from 'react';
+import { useTheme } from "next-themes";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Moon, Sun, Loader2 } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useLayoutPreference } from '@/lib/hooks/use-layout-preference';
-import { cn } from "@/lib/utils";
+import { useToast } from '@/components/ui/use-toast';
 
+// Interface for the notification settings we'll fetch
+interface UserSettings {
+  sendDailyManifest: boolean;
+}
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  // --- Existing State for Appearance ---
+  const { theme, setTheme } = useTheme();
   const { preference, setPreference } = useLayoutPreference();
+  
+  // --- New State for Notification Settings ---
+  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
-  // We wait until the component is mounted to render it
+  // Fetch all settings when the component mounts
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/users/settings');
+        if (!response.ok) throw new Error('Failed to fetch settings.');
+        const data = await response.json();
+        setSettings(data);
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Could not load your notification settings.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSettings();
+  }, [toast]);
 
+  // --- Handlers for Appearance ---
   const handleThemeToggle = (checked: boolean) => {
-    setTheme(checked ? "dark" : "light")
-  }
+    setTheme(checked ? "dark" : "light");
+  };
   
   const handleLayoutChange = (value: 'left-handed' | 'right-handed') => {
     setPreference(value);
-  }
+  };
 
-  if (!mounted) {
-    return null
+  // --- Handler for Notification Settings ---
+  const handleSettingChange = async (key: keyof UserSettings, value: boolean) => {
+    if (!settings) return;
+
+    const originalSettings = { ...settings };
+    setSettings(prev => prev ? { ...prev, [key]: value } : null);
+
+    try {
+      const response = await fetch('/api/users/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save setting.');
+
+      toast({
+        title: 'Success',
+        description: 'Your settings have been updated.',
+      });
+    } catch (error) {
+      setSettings(originalSettings);
+      toast({
+        title: 'Error',
+        description: 'Could not save your setting. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="ml-4">Loading settings...</p>
+      </div>
+    );
   }
 
   return (
@@ -44,6 +105,35 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* --- NEW: Notifications Card --- */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Notifications</CardTitle>
+            <CardDescription>
+              Choose how you want to be notified.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="daily-manifest" className="text-base">
+                  Daily Morning Manifest
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Receive an email every morning with a summary of items due for the day.
+                </p>
+              </div>
+              <Switch
+                id="daily-manifest"
+                checked={settings?.sendDailyManifest || false}
+                onCheckedChange={(value) => handleSettingChange('sendDailyManifest', value)}
+                disabled={!settings}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* --- Existing Appearance Card --- */}
         <Card>
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
@@ -58,7 +148,7 @@ export default function SettingsPage() {
                   Dark Mode
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Switch between light and dark themes. Your preference will be saved for this session.
+                  Switch between light and dark themes.
                 </p>
               </div>
               <div className="flex items-center space-x-2">
@@ -72,7 +162,6 @@ export default function SettingsPage() {
               </div>
             </div>
             
-            {/* New section for layout preference */}
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="layout-preference" className="text-base font-medium">
@@ -100,6 +189,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* --- Existing About Card --- */}
         <Card>
           <CardHeader>
             <CardTitle>About</CardTitle>
@@ -126,5 +216,5 @@ export default function SettingsPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

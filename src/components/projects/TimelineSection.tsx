@@ -48,7 +48,6 @@ interface TimelineEvent {
   projectId: string;
 }
 
-// MODIFIED: Added onEventsUpdated to the props interface
 interface TimelineSectionProps {
   projectId: string;
   onEventsUpdated?: () => void;
@@ -60,6 +59,14 @@ export interface TimelineSectionHandle {
 
 type SortKey = 'eventDate' | 'isCompleted';
 type SortDirection = 'asc' | 'desc';
+
+// ✅ NEW: Helper function to correct for timezone offset from date inputs
+const adjustDateForTimezone = (dateString: string): Date => {
+  const date = new Date(dateString);
+  const timezoneOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+  return new Date(date.getTime() + timezoneOffset);
+};
+
 
 export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSectionProps>(({ projectId, onEventsUpdated }, ref) => {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
@@ -76,7 +83,7 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
 
   const handleOpenDialog = (event: Partial<TimelineEvent> | null = null) => {
     const dateValue = event?.eventDate ? new Date(event.eventDate).toISOString().split('T')[0] : "";
-    setEventToEdit(event ? { ...event, eventDate: dateValue } : { title: "", description: "", eventDate: "" });
+    setEventToEdit(event ? { ...event, eventDate: dateValue } : { title: "", description: "", eventDate: "", isCompleted: false });
     setIsDialogOpen(true);
   };
 
@@ -114,10 +121,11 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
     const method = eventToEdit.id ? 'PUT' : 'POST';
 
     try {
+      // ✅ MODIFIED: Use the timezone adjustment helper for the eventDate
       const body = {
         ...eventToEdit,
         projectId,
-        eventDate: eventToEdit.eventDate || null
+        eventDate: eventToEdit.eventDate ? adjustDateForTimezone(eventToEdit.eventDate) : null
       };
 
       const response = await fetch(url, {
@@ -141,7 +149,7 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
 
       toast({ title: "Success", description: `Event ${method === 'POST' ? 'created' : 'updated'} successfully.` });
       setIsDialogOpen(false);
-      onEventsUpdated?.(); // MODIFIED: Call the callback function
+      onEventsUpdated?.();
     } catch (err)      {
       toast({ title: "Error", description: err instanceof Error ? err.message : "An unknown error occurred.", variant: "destructive" });
     }
@@ -158,7 +166,7 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
         const updatedEvent = await response.json();
         setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
         toast({ title: "Success", description: "Event status updated." });
-        onEventsUpdated?.(); // MODIFIED: Call the callback function
+        onEventsUpdated?.();
     } catch (err) {
         toast({ title: "Error", description: err instanceof Error ? err.message : "An unknown error occurred.", variant: "destructive" });
     }
@@ -170,7 +178,7 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
         await fetch(`/api/timeline-events/${eventToDelete.id}`, { method: 'DELETE' });
         setEvents(prev => prev.filter(e => e.id !== eventToDelete.id));
         toast({ title: "Success", description: "Event deleted." });
-        onEventsUpdated?.(); // MODIFIED: Call the callback function
+        onEventsUpdated?.();
     } catch (err) {
         toast({ title: "Error", description: "Failed to delete event.", variant: "destructive" });
     } finally {
@@ -226,7 +234,8 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
                   <div className="font-bold">{event.title}</div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Date</span>
-                    <span className="text-sm">{event.eventDate ? new Date(event.eventDate).toLocaleDateString() : 'No date'}</span>
+                    {/* ✅ MODIFIED: Use UTC methods to display the correct local date */}
+                    <span className="text-sm">{event.eventDate ? new Date(event.eventDate).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'No date'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Status</span>
@@ -264,7 +273,8 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
                         onCheckedChange={() => toggleComplete(event)}
                       />
                     </TableCell>
-                    <TableCell>{event.eventDate ? new Date(event.eventDate).toLocaleDateString() : 'No date'}</TableCell>
+                    {/* ✅ MODIFIED: Use UTC methods to display the correct local date */}
+                    <TableCell>{event.eventDate ? new Date(event.eventDate).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'No date'}</TableCell>
                     <TableCell className="font-medium">{event.title}</TableCell>
                     <TableCell>
                       {event.isCompleted ? <Badge variant="secondary">Completed</Badge> : <Badge variant="outline">Pending</Badge>}
@@ -310,6 +320,24 @@ export const TimelineSection = forwardRef<TimelineSectionHandle, TimelineSection
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="eventDate" className="text-right">Date (Optional)</Label>
               <Input id="eventDate" type="date" value={eventToEdit?.eventDate || ""} onChange={(e) => setEventToEdit(p => ({...p, eventDate: e.target.value}))} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="isCompleted" className="text-right">Status</Label>
+                <div className="col-span-3 flex items-center space-x-2">
+                    <Checkbox
+                        id="isCompleted"
+                        checked={!!eventToEdit?.isCompleted}
+                        onCheckedChange={(checked) => {
+                            setEventToEdit(p => ({ ...p, isCompleted: !!checked }));
+                        }}
+                    />
+                    <label
+                        htmlFor="isCompleted"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                        Mark as completed
+                    </label>
+                </div>
             </div>
           </div>
           <DialogFooter>

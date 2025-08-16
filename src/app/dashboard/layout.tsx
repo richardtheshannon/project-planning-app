@@ -18,7 +18,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark } from "lucide-react";
+// ✅ NEW: Imported the ClipboardList icon for the Operations link
+import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark, ClipboardList } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
 
@@ -63,7 +64,6 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
             {session?.user?.name || session?.user?.email}
           </h1>
         </header>
-        {/* ✅ MODIFIED: Removed the 'flex-1' class to allow the main content to grow freely. */}
         <main className="p-4 md:p-6">
           {children}
         </main>
@@ -83,9 +83,11 @@ function SidebarItems({
   const { open } = useSidebar();
   const { isRightHanded } = useLayoutPreference();
 
+  // ✅ MODIFIED: Added the "Operations" link to the menuItems array
   const menuItems = [
     { icon: Home, label: "Dashboard", href: "/dashboard" },
     { icon: Briefcase, label: "Projects", href: "/dashboard/projects" },
+    { icon: ClipboardList, label: "Operations", href: "/dashboard/operations" },
     { icon: Landmark, label: "Financials", href: "/dashboard/financials" },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: FileText, label: "Documents", href: "/dashboard/documents" },

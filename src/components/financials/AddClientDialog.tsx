@@ -43,6 +43,12 @@ import {
 } from "@/components/ui/popover";
 import { Plus, Loader2, CalendarIcon } from "lucide-react";
 
+// ✅ NEW: Helper function to correct for timezone offset from date inputs
+const adjustDateForTimezone = (date: Date): Date => {
+  const timezoneOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+  return new Date(date.getTime() + timezoneOffset);
+};
+
 // Define the form schema with the new frequency field
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -51,14 +57,12 @@ const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   contractStartDate: z.date().optional().nullable(),
-  // FIXED: Changed from nativeEnum to a simple string
   contractTerm: z.string(),
   frequency: z.string().optional(),
   contractAmount: z.number().positive("Amount must be a positive number.").optional().nullable(),
   notes: z.string().optional(),
 });
 
-// Explicitly define the form type
 type FormData = z.infer<typeof formSchema>;
 
 interface AddClientDialogProps {
@@ -75,7 +79,6 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
       email: "",
       website: "",
       notes: "",
-      // FIXED: Use a string for the default value
       contractTerm: "ONE_TIME",
       frequency: "One-Time",
       contractAmount: null,
@@ -85,12 +88,18 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
 
   async function onSubmit(values: FormData) {
     try {
+      // ✅ MODIFIED: Use the timezone adjustment helper for the contractStartDate
+      const bodyPayload = {
+        ...values,
+        contractStartDate: values.contractStartDate ? adjustDateForTimezone(values.contractStartDate) : null,
+      };
+
       const response = await fetch('/api/financials/clients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (!response.ok) {
@@ -233,7 +242,6 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    {/* FIXED: Use strings for the values */}
                                     <SelectItem value="ONE_MONTH">1 Month</SelectItem>
                                     <SelectItem value="THREE_MONTH">3 Month</SelectItem>
                                     <SelectItem value="SIX_MONTH">6 Month</SelectItem>

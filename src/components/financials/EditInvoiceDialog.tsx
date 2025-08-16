@@ -51,8 +51,15 @@ const formSchema = z.object({
   dueDate: z.string().min(1, "Due date is required."),
 });
 
-// Explicitly define the type for our form values from the schema
 type InvoiceFormValues = z.infer<typeof formSchema>;
+
+// ✅ NEW: Helper function to correct for timezone offset from date inputs
+const adjustDateForTimezone = (dateString: string): Date => {
+  const date = new Date(dateString);
+  const timezoneOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+  // Add the offset to counteract the browser's automatic conversion to UTC
+  return new Date(date.getTime() + timezoneOffset);
+};
 
 export default function EditInvoiceDialog({
   invoice,
@@ -62,7 +69,6 @@ export default function EditInvoiceDialog({
 }: EditInvoiceDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Initialize the form with react-hook-form, explicitly providing the type
   const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -73,19 +79,15 @@ export default function EditInvoiceDialog({
     },
   });
 
-  // This effect runs when the 'invoice' prop changes.
-  // It resets the form with the new invoice's data.
   useEffect(() => {
     if (invoice) {
       form.reset({
         amount: invoice.amount,
         status: invoice.status,
-        // Dates need to be formatted as YYYY-MM-DD for the input[type="date"]
         issuedDate: new Date(invoice.issuedDate).toISOString().split("T")[0],
         dueDate: new Date(invoice.dueDate).toISOString().split("T")[0],
       });
     } else {
-      // If no invoice is selected (e.g., dialog is closed), reset to defaults
       form.reset({
         amount: 0,
         status: InvoiceStatus.PENDING,
@@ -95,17 +97,16 @@ export default function EditInvoiceDialog({
     }
   }, [invoice, form]);
 
-  // Handler for form submission to update an invoice
   const onSubmit = async (values: FieldValues) => {
     if (!invoice) return;
 
     try {
-      // CORRECTED: Construct the body payload directly to avoid type inference issues.
+      // ✅ MODIFIED: Use the timezone adjustment helper for both dates
       const bodyPayload = {
         amount: parseFloat(values.amount),
         status: values.status,
-        issuedDate: new Date(values.issuedDate).toISOString(),
-        dueDate: new Date(values.dueDate).toISOString(),
+        issuedDate: adjustDateForTimezone(values.issuedDate),
+        dueDate: adjustDateForTimezone(values.dueDate),
       };
 
       const response = await fetch(`/api/financials/invoices/${invoice.id}`, {
@@ -119,19 +120,17 @@ export default function EditInvoiceDialog({
       }
 
       toast.success("Invoice updated successfully!");
-      onInvoiceUpdated(); // Refresh the data on the parent page
-      onOpenChange(false); // Close the dialog
+      onInvoiceUpdated();
+      onOpenChange(false);
     } catch (error) {
       console.error(error);
       toast.error("An error occurred while updating the invoice.");
     }
   };
 
-  // Handler for deleting an invoice
   const handleDelete = async () => {
     if (!invoice) return;
 
-    // A simple confirmation dialog
     if (!confirm("Are you sure you want to delete this invoice? This action cannot be undone.")) {
         return;
     }
@@ -157,7 +156,6 @@ export default function EditInvoiceDialog({
     }
   };
   
-  // We don't render anything if the dialog isn't open
   if (!isOpen) {
     return null;
   }

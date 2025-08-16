@@ -86,13 +86,12 @@ interface Contact {
   notes: string | null;
 }
 
-// MODIFIED: Added projectValue to the Project interface
 interface Project {
   id: string;
   name: string;
   description: string | null;
   projectGoal: string | null;
-  projectValue: number | null; // NEW
+  projectValue: number | null;
   website: string | null;
   status: string;
   priority: string;
@@ -125,6 +124,14 @@ type SortKey = 'status' | 'priority' | 'dueDate';
 type SortDirection = 'asc' | 'desc';
 
 type CollapsibleSectionName = 'projectDetails' | 'timelineEvents' | 'tasks' | 'contacts' | 'files';
+
+// ✅ NEW: Helper function to correct for timezone offset from date inputs
+const adjustDateForTimezone = (dateString: string): Date => {
+  if (!dateString) return new Date(NaN); // Return invalid date if string is empty
+  const date = new Date(dateString);
+  const timezoneOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+  return new Date(date.getTime() + timezoneOffset);
+};
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -282,8 +289,8 @@ export default function ProjectDetailPage() {
         status: project.status,
         priority: project.priority,
         projectType: project.projectType,
-        startDate: project.startDate ? project.startDate.split('T')[0] : '',
-        endDate: project.endDate ? project.endDate.split('T')[0] : '',
+        startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : '',
+        endDate: project.endDate ? new Date(project.endDate).toISOString().split('T')[0] : '',
     });
     setShowEditProjectDialog(true);
   };
@@ -291,13 +298,18 @@ export default function ProjectDetailPage() {
   const handleUpdateProject = async () => {
       if (!projectToEdit || !project) return;
       try {
+          // ✅ MODIFIED: Use the timezone adjustment helper for dates
+          const bodyPayload = {
+            ...projectToEdit,
+            projectValue: projectToEdit.projectValue ? parseFloat(projectToEdit.projectValue.toString()) : null,
+            startDate: projectToEdit.startDate ? adjustDateForTimezone(projectToEdit.startDate) : null,
+            endDate: projectToEdit.endDate ? adjustDateForTimezone(projectToEdit.endDate) : null,
+          };
+
           const response = await fetch(`/api/projects/${project.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...projectToEdit,
-                projectValue: projectToEdit.projectValue ? parseFloat(projectToEdit.projectValue.toString()) : null,
-              }),
+              body: JSON.stringify(bodyPayload),
           });
           if (!response.ok) {
               const errorData = await response.json();
@@ -478,12 +490,13 @@ export default function ProjectDetailPage() {
                     </div>
                   )}
                   <div><Label>Contacts</Label><p className="text-sm text-muted-foreground">{project.contacts.length} contact(s)</p></div>
-                  <div><Label>Created</Label><p className="text-sm text-muted-foreground">{new Date(project.createdAt).toLocaleDateString()}</p></div>
+                  <div><Label>Created</Label><p className="text-sm text-muted-foreground">{new Date(project.createdAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p></div>
                 </div>
                 <div className="space-y-4">
-                  <div><Label>Start Date</Label><p className="text-sm text-muted-foreground">{project.startDate ? new Date(project.startDate).toLocaleDateString() : "Not set"}</p></div>
-                  <div><Label>End Date</Label><p className="text-sm text-muted-foreground">{project.endDate ? new Date(project.endDate).toLocaleDateString() : "Not set"}</p></div>
-                  <div><Label>Last Updated</Label><p className="text-sm text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString()}</p></div>
+                  {/* ✅ MODIFIED: Use UTC methods to display the correct local date */}
+                  <div><Label>Start Date</Label><p className="text-sm text-muted-foreground">{project.startDate ? new Date(project.startDate).toLocaleDateString('en-US', { timeZone: 'UTC' }) : "Not set"}</p></div>
+                  <div><Label>End Date</Label><p className="text-sm text-muted-foreground">{project.endDate ? new Date(project.endDate).toLocaleDateString('en-US', { timeZone: 'UTC' }) : "Not set"}</p></div>
+                  <div><Label>Last Updated</Label><p className="text-sm text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p></div>
                 </div>
               </CardContent>
             )}
@@ -582,7 +595,8 @@ export default function ProjectDetailPage() {
                                 </div>
                                 <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Due Date</span>
-                                <span className="text-sm">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</span>
+                                {/* ✅ MODIFIED: Use UTC methods to display the correct local date */}
+                                <span className="text-sm">{task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' }) : "No due date"}</span>
                                 </div>
                             </CardContent>
                             </Card>
@@ -604,7 +618,8 @@ export default function ProjectDetailPage() {
                                 <TableCell>{task.title}</TableCell>
                                 <TableCell><Badge className={getTaskStatusColor(task.status)}>{task.status.replace(/_/g, ' ')}</Badge></TableCell>
                                 <TableCell><Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge></TableCell>
-                                <TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</TableCell>
+                                {/* ✅ MODIFIED: Use UTC methods to display the correct local date */}
+                                <TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' }) : "No due date"}</TableCell>
                                 </TableRow>
                             ))}
                             </TableBody>
@@ -699,7 +714,6 @@ export default function ProjectDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ✅ MODIFIED: This is the Edit Project Dialog. The structure has been updated to support scrolling. */}
       <Dialog open={showEditProjectDialog} onOpenChange={setShowEditProjectDialog}>
         <DialogContent className="sm:max-w-[600px] grid grid-rows-[auto_1fr_auto] max-h-[90vh] p-0">
           <DialogHeader className="p-6 pb-4">
