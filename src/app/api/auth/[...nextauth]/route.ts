@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import type { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@next-auth/prisma-adapter"; // ✅ ADDED: Import the Prisma Adapter
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { UserRole } from "@prisma/client";
@@ -29,6 +30,9 @@ declare module "next-auth" {
 }
 
 export const authOptions: NextAuthOptions = {
+  // ✅ ADDED: The PrismaAdapter connects NextAuth to your database for session management.
+  adapter: PrismaAdapter(prisma),
+
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -48,9 +52,7 @@ export const authOptions: NextAuthOptions = {
         if (!user || !user.password) {
           return null;
         }
-
-        // ✅ MODIFIED: Wrapped password comparison in a try...catch block
-        // This prevents server errors if the hash is invalid and ensures a graceful failure.
+        
         try {
           const passwordMatch = await bcrypt.compare(credentials.password, user.password);
 
@@ -58,7 +60,6 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
         } catch (error) {
-          // If bcrypt fails for any reason (e.g., invalid hash), log the error and fail login.
           console.error("Bcrypt compare error:", error);
           return null;
         }
@@ -67,6 +68,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Your account has not been activated.");
         }
 
+        // This return is still essential for the CredentialsProvider flow
         return {
           id: user.id,
           email: user.email,
@@ -82,6 +84,7 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
+      // The user object is available on the first sign-in
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -90,6 +93,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      // The token object contains the data from the jwt callback
       if (token && session.user) {
         session.user.id = token.id;
         session.user.role = token.role;
