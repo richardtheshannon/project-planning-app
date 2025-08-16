@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button"; // Import the Button component
 import { Moon, Sun, Loader2 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useLayoutPreference } from '@/lib/hooks/use-layout-preference';
@@ -21,9 +22,10 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { preference, setPreference } = useLayoutPreference();
   
-  // --- New State for Notification Settings ---
+  // --- State for Notification Settings ---
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false); // New state for manual send button
   const { toast } = useToast();
 
   // Fetch all settings when the component mounts
@@ -56,7 +58,7 @@ export default function SettingsPage() {
     setPreference(value);
   };
 
-  // --- Handler for Notification Settings ---
+  // --- Handler for Notification Settings Toggle ---
   const handleSettingChange = async (key: keyof UserSettings, value: boolean) => {
     if (!settings) return;
 
@@ -86,6 +88,36 @@ export default function SettingsPage() {
     }
   };
 
+  // --- NEW: Handler for Manual Manifest Send ---
+  const handleSendManualManifest = async () => {
+    setIsSending(true);
+    try {
+      // We use POST to trigger the action of sending an email
+      const response = await fetch('/api/cron/send-manifest', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send manifest.');
+      }
+
+      toast({
+        title: 'Success!',
+        description: 'The morning manifest has been sent to your email.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Could not send the manifest. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -105,7 +137,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
-        {/* --- NEW: Notifications Card --- */}
+        {/* --- Notifications Card --- */}
         <Card>
           <CardHeader>
             <CardTitle>Notifications</CardTitle>
@@ -123,12 +155,23 @@ export default function SettingsPage() {
                   Receive an email every morning with a summary of items due for the day.
                 </p>
               </div>
-              <Switch
-                id="daily-manifest"
-                checked={settings?.sendDailyManifest || false}
-                onCheckedChange={(value) => handleSettingChange('sendDailyManifest', value)}
-                disabled={!settings}
-              />
+              {/* Container for Button and Switch */}
+              <div className="flex items-center space-x-4">
+                <Button 
+                  onClick={handleSendManualManifest}
+                  disabled={isSending}
+                  size="sm"
+                >
+                  {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send Now
+                </Button>
+                <Switch
+                  id="daily-manifest"
+                  checked={settings?.sendDailyManifest || false}
+                  onCheckedChange={(value) => handleSettingChange('sendDailyManifest', value)}
+                  disabled={!settings}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

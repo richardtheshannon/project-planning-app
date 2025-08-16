@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import nodemailer from 'nodemailer';
 import { ContractTerm } from "@prisma/client";
 import { addMonths, isWithinInterval } from "date-fns";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 // --- Types for our operational data ---
 interface OperationalItem {
@@ -35,7 +37,7 @@ const getMonthsFromTerm = (term: ContractTerm): number => {
     }
 };
 
-// --- Data Fetching Logic (adapted from Operations page) ---
+// --- Data Fetching Logic ---
 async function getTodaysOperationalData(userId: string) {
   const todayBounds = getDayBounds(new Date());
 
@@ -126,17 +128,16 @@ function createManifestEmailHtml(userName: string, items: OperationalItem[], app
           </a>
         </p>
         <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
-          You are receiving this email because you opted in for the Daily Morning Manifest in your settings.
+          This is a manually requested email from your settings page.
         </p>
       </div>
     </div>
   `;
 }
 
-
-// --- Main API Route Handler ---
+// --- Cron Job Handler (GET) ---
 export async function GET(request: Request) {
-  // Security: Protect this route with a secret key
+  // Security for scheduled cron jobs
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response('Unauthorized', { status: 401 });
@@ -164,18 +165,21 @@ export async function GET(request: Request) {
     let emailsSent = 0;
 
     for (const user of usersToSend) {
-      const items = await getTodaysOperationalData(user.id);
-      
-      // Only send an email if there are items due
-      if (items.length > 0) {
-        const emailHtml = createManifestEmailHtml(user.name || 'User', items, appUrl);
-        await transporter.sendMail({
-          from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
-          to: user.email!,
-          subject: `Your Daily Manifest for ${new Date().toLocaleDateString()}`,
-          html: emailHtml,
-        });
-        emailsSent++;
+      // This explicit check creates a new scope where TypeScript is 100% certain
+      // that user.email is a string, which resolves the type error.
+      if (user.email) {
+        const items = await getTodaysOperationalData(user.id);
+        
+        if (items.length > 0) {
+          const emailHtml = createManifestEmailHtml(user.name || 'User', items, appUrl);
+          await transporter.sendMail({
+            from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
+            to: user.email, // Now safely typed as a string within this block
+            subject: `Your Daily Manifest for ${new Date().toLocaleDateString()}`,
+            html: emailHtml,
+          });
+          emailsSent++;
+        }
       }
     }
 
@@ -183,6 +187,49 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error("Failed to send manifest emails:", error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// --- Manual Send Handler (POST) ---
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Extract email to a const variable for type safety
+    const userEmail = session.user.email;
+    const userId = session.user.id;
+    const userName = session.user.name || 'User';
+
+    const items = await getTodaysOperationalData(userId);
+
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com', 
+      port: 465, 
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_SERVER_USER,
+        pass: process.env.EMAIL_SERVER_PASSWORD,
+      },
+    });
+
+    const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const emailHtml = createManifestEmailHtml(userName, items, appUrl);
+
+    await transporter.sendMail({
+      from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
+      to: userEmail,
+      subject: `Your Manually Requested Manifest for ${new Date().toLocaleDateString()}`,
+      html: emailHtml,
+    });
+
+    return NextResponse.json({ success: true, message: `Manifest sent to ${userEmail}.` });
+
+  } catch (error) {
+    console.error("Failed to send manual manifest:", error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
