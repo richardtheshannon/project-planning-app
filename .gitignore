@@ -30,5 +30,4 @@ pnpm-debug.log*
 .turbo
 
 # Local scripts and environment files
-*.ts
 .env*
