@@ -8,37 +8,64 @@ import { Switch } from "@/components/ui/switch";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
+// Define a type for the settings to ensure type safety
+type AppearanceSettings = {
+  lightModeLogoUrl?: string | null;
+  darkModeLogoUrl?: string | null;
+};
+
 export default function LandingPage() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [settings, setSettings] = useState<AppearanceSettings>({});
 
+  // Fetch appearance settings when the component mounts
   useEffect(() => {
     setMounted(true);
+    
+    const fetchAppearanceSettings = async () => {
+      try {
+        const response = await fetch('/api/appearance');
+        if (response.ok) {
+          const data = await response.json();
+          setSettings(data);
+        } else {
+          console.error("Failed to fetch appearance settings for landing page.");
+        }
+      } catch (error) {
+        console.error("Error fetching appearance settings:", error);
+      }
+    };
+
+    fetchAppearanceSettings();
   }, []);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="flex w-full max-w-md flex-col items-center text-center lg:max-w-none">
         
-        <div className="mb-8">
-          {/* Light Mode Logo */}
-          <Image
-            className="block dark:hidden"
-            src="/media/hoiz-logo-title-subtitle-01.png"
-            alt="Salesfield Network Logo"
-            width={400}
-            height={115}
-            priority
-          />
-          {/* Dark Mode Logo */}
-          <Image
-            className="hidden dark:block"
-            src="/media/hoiz-logo-title-subtitle-02.png"
-            alt="Salesfield Network Logo"
-            width={400}
-            height={115}
-            priority
-          />
+        <div className="mb-8 h-[115px] flex items-center justify-center">
+          {/* Conditionally render logos based on settings and theme */}
+          {settings.lightModeLogoUrl && (
+            <Image
+              className="block dark:hidden"
+              src={settings.lightModeLogoUrl}
+              alt="Company Logo"
+              width={400}
+              height={115}
+              priority
+            />
+          )}
+          {settings.darkModeLogoUrl && (
+            <Image
+              className="hidden dark:block"
+              src={settings.darkModeLogoUrl}
+              alt="Company Logo"
+              width={400}
+              height={115}
+              priority
+            />
+          )}
         </div>
 
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">

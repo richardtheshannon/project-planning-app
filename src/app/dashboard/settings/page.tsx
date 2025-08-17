@@ -7,11 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, Loader2 } from "lucide-react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useLayoutPreference } from '@/lib/hooks/use-layout-preference';
+import { Loader2 } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
 import FeatureRequests from '../FeatureRequests';
+import AppearanceSettingsForm from './AppearanceSettingsForm'; // <-- IMPORT ADDED
 
 interface UserSettings {
   sendDailyManifest: boolean;
@@ -20,7 +19,6 @@ interface UserSettings {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const { preference, setPreference } = useLayoutPreference();
   
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,14 +45,6 @@ export default function SettingsPage() {
     };
     fetchSettings();
   }, [toast]);
-
-  const handleThemeToggle = (checked: boolean) => {
-    setTheme(checked ? "dark" : "light");
-  };
-  
-  const handleLayoutChange = (value: 'left-handed' | 'right-handed') => {
-    setPreference(value);
-  };
 
   const handleSettingChange = async (key: keyof UserSettings, value: boolean) => {
     if (!settings) return;
@@ -167,7 +157,6 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* --- FIX APPLIED HERE --- */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 rounded-lg border p-4">
               <div className="space-y-0.5 flex-grow">
                 <Label htmlFor="daily-manifest" className="text-base">
@@ -195,7 +184,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* --- FIX APPLIED HERE --- */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 rounded-lg border p-4">
               <div className="space-y-0.5 flex-grow">
                 <Label htmlFor="afternoon-manifest" className="text-base">
@@ -225,60 +213,8 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Appearance</CardTitle>
-            <CardDescription>
-              Customize how the application looks and feels.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-              <div className="space-y-0.5">
-                <Label htmlFor="dark-mode" className="text-base font-medium">
-                  Dark Mode
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Switch between light and dark themes.
-                </p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Sun className="h-4 w-4 text-muted-foreground" />
-                <Switch
-                  id="dark-mode"
-                  checked={theme === "dark"}
-                  onCheckedChange={handleThemeToggle}
-                />
-                <Moon className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-              <div className="space-y-0.5">
-                <Label htmlFor="layout-preference" className="text-base font-medium">
-                  Handedness
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Choose your preferred navigation sidebar position.
-                </p>
-              </div>
-              <RadioGroup
-                value={preference}
-                onValueChange={handleLayoutChange}
-                className="flex items-center space-x-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="left-handed" id="left-handed" />
-                  <Label htmlFor="left-handed">Left-handed</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="right-handed" id="right-handed" />
-                  <Label htmlFor="right-handed">Right-handed</Label>
-                </div>
-              </RadioGroup>
-            </div>
-          </CardContent>
-        </Card>
+        {/* --- OLD APPEARANCE CARD REMOVED AND REPLACED WITH THE NEW COMPONENT --- */}
+        <AppearanceSettingsForm />
 
         <Card>
           <CardHeader>

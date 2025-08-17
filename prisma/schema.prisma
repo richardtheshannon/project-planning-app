@@ -22,7 +22,7 @@ model User {
   role                  UserRole  @default(USER)
   isActive              Boolean   @default(false)
   sendDailyManifest     Boolean   @default(false)
-  sendAfternoonManifest Boolean   @default(false) // <-- THIS LINE IS ADDED
+  sendAfternoonManifest Boolean   @default(false)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -310,7 +310,6 @@ model File {
   projectId  String?
   task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId     String?
-
   @@map("files")
 }
 
@@ -387,7 +386,6 @@ model Client {
   contractAmount    Float?
   contractStartDate DateTime?
   frequency         String?
-
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   invoices  Invoice[]
@@ -486,4 +484,59 @@ model FinancialDocument {
   invoice    Invoice? @relation(fields: [invoiceId], references: [id])
   expenseId  String?
   expense    Expense? @relation("ExpenseFinancialDocuments", fields: [expenseId], references: [id])
+}
+
+// --- APPLICATION SETTINGS ---
+
+model AppearanceSettings {
+  id                 String   @id @default("global_settings")
+  businessName       String?
+  missionStatement   String?  @db.Text
+  lightModeLogoUrl   String?
+  lightModeIconUrl   String?
+  darkModeLogoUrl    String?
+  darkModeIconUrl    String?
+  updatedAt          DateTime @updatedAt
+
+  // Light Theme Colors
+  lightBackground         String? @default("#ffffff") // white
+  lightForeground         String? @default("#020817") // slate-950
+  lightCard               String? @default("#ffffff") // white
+  lightCardForeground     String? @default("#020817") // slate-950
+  lightPopover            String? @default("#ffffff") // white
+  lightPopoverForeground  String? @default("#020817") // slate-950
+  lightPrimary            String? @default("#18181b") // zinc-900
+  lightPrimaryForeground  String? @default("#fafafa") // zinc-50
+  lightSecondary          String? @default("#f4f4f5") // zinc-100
+  lightSecondaryForeground String? @default("#18181b") // zinc-900
+  lightMuted              String? @default("#f4f4f5") // zinc-100
+  lightMutedForeground    String? @default("#71717a") // zinc-500
+  lightAccent             String? @default("#f4f4f5") // zinc-100
+  lightAccentForeground   String? @default("#18181b") // zinc-900
+  lightDestructive        String? @default("#ef4444") // red-500
+  lightDestructiveForeground String? @default("#fafafa") // zinc-50
+  lightBorder             String? @default("#e4e4e7") // zinc-200
+  lightInput              String? @default("#e4e4e7") // zinc-200
+  lightRing               String? @default("#18181b") // zinc-900
+
+  // Dark Theme Colors
+  darkBackground          String? @default("#09090b") // zinc-950
+  darkForeground          String? @default("#fafafa") // zinc-50
+  darkCard                String? @default("#09090b") // zinc-950
+  darkCardForeground      String? @default("#fafafa") // zinc-50
+  darkPopover             String? @default("#09090b") // zinc-950
+  darkPopoverForeground   String? @default("#fafafa") // zinc-50
+  darkPrimary             String? @default("#fafafa") // zinc-50
+  darkPrimaryForeground   String? @default("#18181b") // zinc-900
+  darkSecondary           String? @default("#27272a") // zinc-800
+  darkSecondaryForeground String? @default("#fafafa") // zinc-50
+  darkMuted               String? @default("#27272a") // zinc-800
+  darkMutedForeground     String? @default("#a1a1aa") // zinc-400
+  darkAccent              String? @default("#27272a") // zinc-800
+  darkAccentForeground    String? @default("#fafafa") // zinc-50
+  darkDestructive         String? @default("#7f1d1d") // red-900
+  darkDestructiveForeground String? @default("#fafafa") // zinc-50
+  darkBorder              String? @default("#27272a") // zinc-800
+  darkInput               String? @default("#27272a") // zinc-800
+  darkRing                String? @default("#d4d4d8") // zinc-300
 }
