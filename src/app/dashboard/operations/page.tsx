@@ -2,8 +2,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import DailyItemsCard, { OperationalItem } from "./components/DailyItemsCard";
+import InteractiveCalendar from "./components/InteractiveCalendar"; // Import the new calendar component
 import { ContractTerm } from "@prisma/client";
-import { addMonths, isWithinInterval } from "date-fns";
+import { addMonths, isWithinInterval, startOfMonth, endOfMonth } from "date-fns";
 
 const getDayBounds = (date: Date) => {
   const year = date.getFullYear();
@@ -14,7 +15,6 @@ const getDayBounds = (date: Date) => {
   return { start, end };
 };
 
-// Helper to convert contract term enum to a number of months
 const getMonthsFromTerm = (term: ContractTerm): number => {
     switch (term) {
         case ContractTerm.ONE_MONTH: return 1;
@@ -25,20 +25,18 @@ const getMonthsFromTerm = (term: ContractTerm): number => {
     }
 };
 
-// MODIFIED: The userId parameter is no longer needed as we are fetching all data.
 async function getOperationalData() {
   const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
 
-  const yesterdayBounds = getDayBounds(yesterday);
   const todayBounds = getDayBounds(today);
   const tomorrowBounds = getDayBounds(tomorrow);
-  
-  const relevantInterval = { start: yesterdayBounds.start, end: tomorrowBounds.end };
 
+  // --- MODIFICATION: Fetch data for the entire current month for the calendar ---
+  const monthStart = startOfMonth(today);
+  const monthEnd = endOfMonth(today);
+  
   const [
     projects,
     tasks,
@@ -46,45 +44,38 @@ async function getOperationalData() {
     invoices,
     recurringClients
   ] = await Promise.all([
-    // MODIFIED: Removed 'ownerId: userId' to fetch all projects
     prisma.project.findMany({
-      where: { endDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
+      where: { endDate: { gte: monthStart, lte: monthEnd } },
       select: { id: true, name: true, endDate: true }
     }),
-    // MODIFIED: Removed 'project: { ownerId: userId }' to fetch all tasks
     prisma.task.findMany({
-      where: { dueDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
+      where: { dueDate: { gte: monthStart, lte: monthEnd } },
       select: { id: true, title: true, dueDate: true, projectId: true, project: { select: { name: true } } }
     }),
-    // MODIFIED: Removed 'project: { ownerId: userId }' to fetch all timeline events
     prisma.timelineEvent.findMany({
-      where: { eventDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end }, isCompleted: false },
+      where: { eventDate: { gte: monthStart, lte: monthEnd }, isCompleted: false },
       select: { id: true, title: true, eventDate: true, projectId: true, project: { select: { name: true } } }
     }),
-    // MODIFIED: Removed 'userId: userId' to fetch all invoices
     prisma.invoice.findMany({
-      where: { dueDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
+      where: { dueDate: { gte: monthStart, lte: monthEnd } },
       select: { id: true, invoiceNumber: true, dueDate: true, client: { select: { name: true } } }
     }),
-    // MODIFIED: Removed 'userId' to fetch all recurring clients
     prisma.client.findMany({
         where: { contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' },
         select: { id: true, name: true, contractStartDate: true, contractTerm: true }
     })
   ]);
 
-  const clientContractItems: OperationalItem[] = [];
+  const allItems: OperationalItem[] = [];
+
   recurringClients.forEach(client => {
       if (!client.contractStartDate) return;
-      
       const startDate = new Date(client.contractStartDate);
       const termInMonths = getMonthsFromTerm(client.contractTerm);
-
-      for (let i = 0; i < termInMonths; i++) {
+      for (let i = 0; i < termInMonths * 4; i++) { // Extend recurring items for visibility in calendar
           const paymentDate = addMonths(startDate, i);
-          
-          if (isWithinInterval(paymentDate, relevantInterval)) {
-              clientContractItems.push({
+          if (isWithinInterval(paymentDate, { start: monthStart, end: addMonths(monthEnd, 12) })) { // Look ahead 12 months
+              allItems.push({
                   id: `${client.id}-month-${i}`,
                   title: `Recurring Payment`,
                   type: 'Client Contract' as const,
@@ -96,25 +87,22 @@ async function getOperationalData() {
       }
   });
 
-
-  const allItems: OperationalItem[] = [
+  allItems.push(
     ...projects.filter(p => p.endDate).map(p => ({ id: p.id, title: p.name, type: 'Project' as const, dueDate: p.endDate!, link: `/dashboard/projects/${p.id}` })),
     ...tasks.filter(t => t.dueDate).map(t => ({ id: t.id, title: t.title, type: 'Task' as const, dueDate: t.dueDate!, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
     ...timelineEvents.filter(te => te.eventDate).map(te => ({ id: te.id, title: te.title, type: 'Timeline Event' as const, dueDate: te.eventDate!, link: `/dashboard/projects/${te.projectId}`, projectName: te.project.name })),
-    ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials`, clientName: i.client.name })),
-    ...clientContractItems
-  ];
+    ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials`, clientName: i.client.name }))
+  );
 
-  const yesterdayItems = allItems.filter(item => isWithinInterval(item.dueDate, { start: yesterdayBounds.start, end: yesterdayBounds.end }));
   const todayItems = allItems.filter(item => isWithinInterval(item.dueDate, { start: todayBounds.start, end: todayBounds.end }));
   const tomorrowItems = allItems.filter(item => isWithinInterval(item.dueDate, { start: tomorrowBounds.start, end: tomorrowBounds.end }));
   
   const sortFn = (a: OperationalItem, b: OperationalItem) => a.dueDate.getTime() - b.dueDate.getTime();
-  yesterdayItems.sort(sortFn);
   todayItems.sort(sortFn);
   tomorrowItems.sort(sortFn);
 
-  return { yesterdayItems, todayItems, tomorrowItems };
+  // Return all items for the calendar, plus specific items for the cards
+  return { allItems, todayItems, tomorrowItems };
 }
 
 
@@ -124,8 +112,7 @@ export default async function OperationsPage() {
     return <div>Please sign in to view this page.</div>;
   }
 
-  // MODIFIED: The function no longer requires a userId to be passed.
-  const { yesterdayItems, todayItems, tomorrowItems } = await getOperationalData();
+  const { allItems, todayItems, tomorrowItems } = await getOperationalData();
 
   return (
     <div className="space-y-8 p-4 md:p-6">
@@ -136,10 +123,15 @@ export default async function OperationsPage() {
         </p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <DailyItemsCard title="Yesterday" items={yesterdayItems} />
+      <div className="grid gap-8 lg:grid-cols-2">
         <DailyItemsCard title="Today" items={todayItems} />
         <DailyItemsCard title="Tomorrow" items={tomorrowItems} />
+      </div>
+
+      {/* --- NEW: Interactive Calendar Section --- */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4">Activity Calendar</h2>
+        <InteractiveCalendar allItems={allItems} />
       </div>
     </div>
   );

@@ -38,7 +38,6 @@ import { Toaster, toast } from 'sonner';
 import { Label } from "@/components/ui/label";
 import { ArrowUpDown } from 'lucide-react';
 
-// Define the interface for our data models
 interface FeatureRequest {
     id: number;
     title: string;
@@ -50,32 +49,22 @@ interface FeatureRequest {
     updatedAt: string;
 }
 
-// Define a type for our sortable keys
 type SortKey = keyof FeatureRequest;
 
 export default function FeatureRequests() {
-    // State to manage the list of feature requests
     const [requests, setRequests] = useState<FeatureRequest[]>([]);
-    // State to manage the form inputs for new requests
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState<"Low" | "Medium" | "High">("Medium");
-    // State to manage the currently selected request for the detail view
     const [selectedRequest, setSelectedRequest] = useState<FeatureRequest | null>(null);
-    // State to manage the edit mode
     const [isEditing, setIsEditing] = useState(false);
-    // State to manage edit form inputs
     const [editTitle, setEditTitle] = useState('');
     const [editDescription, setEditDescription] = useState('');
     const [editPriority, setEditPriority] = useState<"Low" | "Medium" | "High">("Medium");
     const [editStatus, setEditStatus] = useState<"Pending" | "In Progress" | "Done" | "Canceled">("Pending");
-
-    // Add state for sorting
     const [sortKey, setSortKey] = useState<SortKey>('createdAt');
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
-
-    // Function to fetch all feature requests from the API
     const fetchRequests = async () => {
         try {
             const response = await fetch('/api/feature-requests');
@@ -90,7 +79,6 @@ export default function FeatureRequests() {
         }
     };
 
-    // Form submission and other handlers remain the same...
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         try {
@@ -184,7 +172,6 @@ export default function FeatureRequests() {
         fetchRequests();
     }, []);
 
-    // Add sorting logic
     const sortedRequests = useMemo(() => {
         const sorted = [...requests].sort((a, b) => {
             const valA = a[sortKey];
@@ -202,8 +189,6 @@ export default function FeatureRequests() {
         return sorted;
     }, [requests, sortKey, sortOrder]);
 
-
-    // Create a reusable sortable header component
     const SortableHeader = ({ tkey, label, className }: { tkey: SortKey, label: string, className?: string }) => {
         const handleSort = (key: SortKey) => {
             if (sortKey === key) {
@@ -274,16 +259,17 @@ export default function FeatureRequests() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {/* The overflow wrapper is kept as a fallback, but hiding columns is the primary fix */}
                     <div className="overflow-x-auto">
-                        <Table>
+                        {/* --- FIX APPLIED HERE: Added table-fixed for better column control --- */}
+                        <Table className="table-fixed w-full">
                             <TableHeader>
                                 <TableRow>
-                                    <SortableHeader tkey="title" label="Title" />
-                                    <SortableHeader tkey="status" label="Status" />
-                                    <SortableHeader tkey="priority" label="Priority" />
-                                    <SortableHeader tkey="submittedBy" label="Submitted By" className="hidden md:table-cell" />
-                                    <SortableHeader tkey="createdAt" label="Date" className="hidden md:table-cell" />
+                                    {/* --- FIX APPLIED HERE: Defined column widths --- */}
+                                    <SortableHeader tkey="title" label="Title" className="w-[40%]" />
+                                    <SortableHeader tkey="status" label="Status" className="w-[20%]" />
+                                    <SortableHeader tkey="priority" label="Priority" className="w-[20%]" />
+                                    <SortableHeader tkey="submittedBy" label="Submitted By" className="hidden md:table-cell w-[20%]" />
+                                    <SortableHeader tkey="createdAt" label="Date" className="hidden md:table-cell w-[20%]" />
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -293,7 +279,8 @@ export default function FeatureRequests() {
                                         onClick={() => handleViewDetails(request)}
                                         className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                     >
-                                        <TableCell>{request.title}</TableCell>
+                                        {/* --- FIX APPLIED HERE: Added break-words to allow long text to wrap --- */}
+                                        <TableCell className="break-words">{request.title}</TableCell>
                                         <TableCell>{request.status}</TableCell>
                                         <TableCell>{request.priority}</TableCell>
                                         <TableCell className="hidden md:table-cell">{request.submittedBy}</TableCell>
@@ -306,10 +293,10 @@ export default function FeatureRequests() {
                 </CardContent>
             </Card>
 
-            {/* The Dialog for viewing/editing details remains the same */}
             <Dialog open={!!selectedRequest} onOpenChange={handleCloseDetails}>
                 {selectedRequest && !isEditing && (
-                    <DialogContent className="sm:max-w-[425px]">
+                    // --- FIX APPLIED HERE: Made dialog width responsive ---
+                    <DialogContent className="w-[90vw] max-w-md">
                         <DialogHeader>
                             <DialogTitle>{selectedRequest.title}</DialogTitle>
                             <DialogDescription>
@@ -319,7 +306,7 @@ export default function FeatureRequests() {
                         <div className="grid gap-4 py-4">
                             <div className="flex flex-col space-y-1">
                                 <span className="text-sm font-semibold">Description:</span>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">{selectedRequest.description}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 break-words">{selectedRequest.description}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col">
@@ -340,11 +327,11 @@ export default function FeatureRequests() {
                                 </div>
                             </div>
                         </div>
-                        <DialogFooter className="flex justify-between mt-4">
+                        <DialogFooter className="flex flex-col sm:flex-row sm:justify-between mt-4 gap-2">
                             <Button variant="destructive" onClick={handleDelete}>
                                 Delete
                             </Button>
-                            <div className="flex space-x-2">
+                            <div className="flex justify-end space-x-2">
                                 <Button variant="secondary" onClick={handleCloseDetails}>
                                     Cancel
                                 </Button>
@@ -357,7 +344,7 @@ export default function FeatureRequests() {
                 )}
 
                 {selectedRequest && isEditing && (
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="w-[90vw] max-w-md">
                         <DialogHeader>
                             <DialogTitle>Edit Request</DialogTitle>
                             <DialogDescription>

@@ -11,27 +11,23 @@ import { Moon, Sun, Loader2 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useLayoutPreference } from '@/lib/hooks/use-layout-preference';
 import { useToast } from '@/components/ui/use-toast';
-import FeatureRequests from '../FeatureRequests'; // Import the FeatureRequests component
+import FeatureRequests from '../FeatureRequests';
 
-// Interface for the notification settings we'll fetch
 interface UserSettings {
   sendDailyManifest: boolean;
-  sendAfternoonManifest: boolean; // <-- ADD THIS
+  sendAfternoonManifest: boolean;
 }
 
 export default function SettingsPage() {
-  // --- Existing State for Appearance ---
   const { theme, setTheme } = useTheme();
   const { preference, setPreference } = useLayoutPreference();
   
-  // --- State for Notification Settings ---
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSendingMorning, setIsSendingMorning] = useState(false);
-  const [isSendingAfternoon, setIsSendingAfternoon] = useState(false); // <-- ADD THIS
+  const [isSendingAfternoon, setIsSendingAfternoon] = useState(false);
   const { toast } = useToast();
 
-  // Fetch all settings when the component mounts
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -52,7 +48,6 @@ export default function SettingsPage() {
     fetchSettings();
   }, [toast]);
 
-  // --- Handlers for Appearance ---
   const handleThemeToggle = (checked: boolean) => {
     setTheme(checked ? "dark" : "light");
   };
@@ -61,7 +56,6 @@ export default function SettingsPage() {
     setPreference(value);
   };
 
-  // --- Handler for Notification Settings Toggle ---
   const handleSettingChange = async (key: keyof UserSettings, value: boolean) => {
     if (!settings) return;
 
@@ -91,7 +85,6 @@ export default function SettingsPage() {
     }
   };
 
-  // --- Handler for Manual Morning Manifest Send ---
   const handleSendMorningManifest = async () => {
     setIsSendingMorning(true);
     try {
@@ -119,7 +112,6 @@ export default function SettingsPage() {
     }
   };
 
-  // --- Handler for Manual Afternoon Manifest Send ---
   const handleSendAfternoonManifest = async () => {
     setIsSendingAfternoon(true);
     try {
@@ -167,7 +159,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
-        {/* --- Notifications Card --- */}
         <Card>
           <CardHeader>
             <CardTitle>Notifications</CardTitle>
@@ -176,9 +167,9 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Morning Manifest Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4 rounded-lg border p-4">
-              <div className="space-y-0.5">
+            {/* --- FIX APPLIED HERE --- */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 rounded-lg border p-4">
+              <div className="space-y-0.5 flex-grow">
                 <Label htmlFor="daily-manifest" className="text-base">
                   Daily Morning Manifest
                 </Label>
@@ -186,12 +177,11 @@ export default function SettingsPage() {
                   Receive an email every morning with a summary of items due for the day.
                 </p>
               </div>
-              <div className="flex items-center justify-between sm:justify-end space-x-4">
+              <div className="flex items-center space-x-4 flex-shrink-0">
                 <Button 
                   onClick={handleSendMorningManifest}
                   disabled={isSendingMorning}
                   size="sm"
-                  className="flex-shrink-0"
                 >
                   {isSendingMorning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Send Now
@@ -205,9 +195,9 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Afternoon Manifest Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4 rounded-lg border p-4">
-              <div className="space-y-0.5">
+            {/* --- FIX APPLIED HERE --- */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 rounded-lg border p-4">
+              <div className="space-y-0.5 flex-grow">
                 <Label htmlFor="afternoon-manifest" className="text-base">
                   Daily Afternoon Manifest
                 </Label>
@@ -215,12 +205,11 @@ export default function SettingsPage() {
                   Receive an email every afternoon with a summary of items due for tomorrow.
                 </p>
               </div>
-              <div className="flex items-center justify-between sm:justify-end space-x-4">
+              <div className="flex items-center space-x-4 flex-shrink-0">
                 <Button 
                   onClick={handleSendAfternoonManifest}
                   disabled={isSendingAfternoon}
                   size="sm"
-                  className="flex-shrink-0"
                 >
                   {isSendingAfternoon && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Send Now
@@ -236,7 +225,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* --- Appearance Card --- */}
         <Card>
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
@@ -292,7 +280,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* --- About Card --- */}
         <Card>
           <CardHeader>
             <CardTitle>About</CardTitle>
@@ -318,7 +305,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
         
-        {/* --- Feature Requests Section --- */}
         <div className="mt-8">
           <FeatureRequests />
         </div>
