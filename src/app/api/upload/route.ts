@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
-import formidable, { File } from 'formidable';
+// The explicit 'File' import is removed to prevent reference errors during build.
+import formidable from 'formidable';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// This line tells Next.js to always run this route dynamically, which is required for file uploads.
 export const dynamic = 'force-dynamic';
 
 /**
@@ -44,7 +44,8 @@ export async function POST(request: Request) {
 
     const [fields, files] = await form.parse(request as any);
 
-    const file = (Array.isArray(files.file) ? files.file[0] : files.file) as File | undefined;
+    // The explicit type cast `as File` is removed. Type will be inferred.
+    const file = Array.isArray(files.file) ? files.file[0] : files.file;
 
     if (!file) {
       return NextResponse.json({ error: 'No file was uploaded.' }, { status: 400 });
