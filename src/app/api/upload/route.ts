@@ -1,83 +1,79 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
+import formidable, { File } from 'formidable';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-export async function POST(request: Request) {
-  console.log('Upload API endpoint hit.'); // Log to confirm the route is reached
+// Disable the default Next.js body parser to allow formidable to handle the stream.
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
-  // Ensure the user is authenticated before allowing uploads
+/**
+ * @description Handles file uploads for logos and icons.
+ * It uses the 'formidable' library to parse multipart/form-data.
+ * Files are saved to a persistent volume specified by an environment variable.
+ */
+export async function POST(request: Request) {
+  // 1. Authenticate the user
   const session = await getServerSession(authOptions);
   if (!session) {
-    console.error('Upload rejected: User not authenticated.');
     return new NextResponse('Not authenticated', { status: 401 });
   }
 
-  let data;
   try {
-    data = await request.formData();
-    console.log('Successfully parsed formData.');
-  } catch (parseError) {
-    console.error('Error parsing formData:', parseError);
-    return NextResponse.json({ success: false, error: 'Error parsing form data.' }, { status: 400 });
-  }
+    // 2. Define the upload directory from environment variables
+    // This path should point to your mounted persistent volume on Railway.
+    const uploadDir = process.env.LOGO_UPLOAD_DIR;
+    if (!uploadDir) {
+        console.error('CRITICAL: LOGO_UPLOAD_DIR environment variable is not set.');
+        return new NextResponse('Server configuration error.', { status: 500 });
+    }
 
-  try {
-    const file: File | null = data.get('file') as unknown as File;
+    // Ensure the upload directory exists.
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    // 3. Parse the incoming form data using formidable
+    const form = formidable({
+      uploadDir,
+      keepExtensions: true,
+      maxFileSize: 5 * 1024 * 1024, // 5MB limit
+      filter: function ({ mimetype }) {
+        // Ensure we only accept image files
+        return mimetype?.includes('image') || false;
+      },
+    });
+
+    // formidable's parse method needs a Node.js-style request object.
+    // We cast the Next.js request to 'any' to make it compatible.
+    const [fields, files] = await form.parse(request as any);
+
+    const file = (Array.isArray(files.file) ? files.file[0] : files.file) as File | undefined;
 
     if (!file) {
-      console.error('Upload failed: No file found in formData.');
-      return NextResponse.json({ success: false, error: 'No file provided.' }, { status: 400 });
-    }
-    console.log(`File received: ${file.name}, Size: ${file.size}, Type: ${file.type}`);
-
-
-    // Basic validation for file type and size
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
-    if (!allowedTypes.includes(file.type)) {
-        console.error(`Upload rejected: Invalid file type - ${file.type}`);
-        return NextResponse.json({ success: false, error: 'Invalid file type. Only JPG, PNG, GIF, SVG are allowed.' }, { status: 400 });
+      return NextResponse.json({ error: 'No file was uploaded.' }, { status: 400 });
     }
 
-    const maxFileSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxFileSize) {
-        console.error(`Upload rejected: File size (${file.size}) exceeds limit of ${maxFileSize}`);
-        return NextResponse.json({ success: false, error: 'File is too large. Maximum size is 5MB.' }, { status: 400 });
-    }
+    // 4. Create a unique filename and move the file to its final destination
+    // Formidable saves the file with a temporary name, so we rename it.
+    const uniqueFilename = `${Date.now()}-${file.originalFilename?.replace(/\s+/g, '_')}`;
+    const finalFilePath = path.join(uploadDir, uniqueFilename);
+    await fs.rename(file.filepath, finalFilePath);
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    console.log(`File uploaded successfully to: ${finalFilePath}`);
 
-    // --- ALIGNED LOGIC FOR DETERMINING UPLOAD PATH ---
-    const logoUploadDir = process.env.LOGO_UPLOAD_DIR;
-    if (!logoUploadDir) {
-        console.warn('LOGO_UPLOAD_DIR environment variable not set. Falling back to local path. This will not work in production.');
-    }
-    const uploadDir = logoUploadDir 
-      ? logoUploadDir
-      : path.join(process.cwd(), 'public/uploads');
+    // 5. Return the URL that the client can use to access the file.
+    // This URL points to our dedicated file-serving route.
+    const fileUrl = `/logos/${uniqueFilename}`;
     
-    console.log(`Determined upload directory: ${uploadDir}`);
-
-    // Ensure the directory exists before writing the file
-    await mkdir(uploadDir, { recursive: true });
-
-    // Create a unique filename to prevent overwrites
-    const filename = `${Date.now()}-${file.name.replace(/\s/g, '_')}`;
-    const filePath = path.join(uploadDir, filename);
-
-    // Write the file to the server's filesystem
-    await writeFile(filePath, buffer);
-    console.log(`File successfully uploaded to ${filePath}`);
-
-    // The public path for the <img> src attribute is always /uploads/filename
-    const publicPath = `/uploads/${filename}`;
-    return NextResponse.json({ success: true, path: publicPath });
+    // IMPORTANT: The client-side form expects a JSON response with a 'url' property.
+    return NextResponse.json({ url: fileUrl });
 
   } catch (error) {
-    // Log the full error object for detailed debugging
-    console.error('An unexpected error occurred during upload:', error);
-    return NextResponse.json({ success: false, error: 'Something went wrong during the upload.' }, { status: 500 });
+    console.error('File upload failed:', error);
+    return new NextResponse('An error occurred during file upload.', { status: 500 });
   }
 }
