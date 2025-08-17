@@ -20,18 +20,22 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark, ClipboardList } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark, ClipboardList, ChevronDown } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
 
-// --- 1. UPDATED CONTEXT FOR APPEARANCE SETTINGS ---
+// --- APPEARANCE SETTINGS CONTEXT (No changes) ---
 type AppearanceSettings = {
   lightModeLogoUrl?: string | null;
   lightModeIconUrl?: string | null;
   darkModeLogoUrl?: string | null;
   darkModeIconUrl?: string | null;
-  
-  // Light Theme Colors
   lightBackground?: string;
   lightForeground?: string;
   lightCard?: string;
@@ -51,8 +55,6 @@ type AppearanceSettings = {
   lightBorder?: string;
   lightInput?: string;
   lightRing?: string;
-
-  // Dark Theme Colors
   darkBackground?: string;
   darkForeground?: string;
   darkCard?: string;
@@ -81,7 +83,7 @@ interface AppearanceContextType {
 
 const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined);
 
-// --- 2. PROVIDER COMPONENT (Unchanged) ---
+// --- PROVIDER COMPONENT (No changes) ---
 function AppearanceProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppearanceSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -112,7 +114,7 @@ function AppearanceProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- 3. CUSTOM HOOK FOR EASY ACCESS (Unchanged) ---
+// --- CUSTOM HOOK (No changes) ---
 export const useAppearance = () => {
   const context = useContext(AppearanceContext);
   if (context === undefined) {
@@ -121,9 +123,9 @@ export const useAppearance = () => {
   return context;
 };
 
-// --- Helper function to convert HEX to HSL string for CSS variables ---
+// --- Helper function to convert HEX to HSL (No changes) ---
 function hexToHslString(hex: string | null | undefined): string {
-    if (!hex) return '0 0% 0%'; // Default to black if color is missing
+    if (!hex) return '0 0% 0%';
     hex = hex.replace(/^#/, '');
     const r = parseInt(hex.substring(0, 2), 16) / 255;
     const g = parseInt(hex.substring(2, 4), 16) / 255;
@@ -150,8 +152,7 @@ function hexToHslString(hex: string | null | undefined): string {
     return `${h} ${s}% ${l}%`;
 }
 
-
-// --- 4. OVERHAULED DYNAMIC STYLES COMPONENT ---
+// --- DYNAMIC STYLES COMPONENT (No changes) ---
 function DynamicGlobalStyles() {
     const { settings, isLoading } = useAppearance();
 
@@ -209,7 +210,7 @@ function DynamicGlobalStyles() {
     return <style dangerouslySetInnerHTML={{ __html: styles }} />;
 }
 
-
+// --- LAYOUT RENDERER (No changes) ---
 function LayoutRenderer({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const { isRightHanded } = useLayoutPreference();
@@ -263,6 +264,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
+// --- SIDEBAR ITEMS COMPONENT (CORRECTED STRUCTURE TO FIX BUILD) ---
 function SidebarItems({ 
   isMobileSheet = false,
   onLinkClick,
@@ -280,7 +282,18 @@ function SidebarItems({
     { icon: Home, label: "Dashboard", href: "/dashboard" },
     { icon: Briefcase, label: "Projects", href: "/dashboard/projects" },
     { icon: ClipboardList, label: "Operations", href: "/dashboard/operations" },
-    { icon: Landmark, label: "Financials", href: "/dashboard/financials" },
+    { 
+      icon: Landmark, 
+      label: "Financials", 
+      href: "/dashboard/financials",
+      subItems: [
+        { label: "Overview", href: "/dashboard/financials" },
+        { label: "Income", href: "/dashboard/financials/income" },
+        { label: "Expenses", href: "/dashboard/financials/expenses" },
+        { label: "Reports", href: "/dashboard/financials/reports" },
+        { label: "Documents", href: "/dashboard/financials/documents" },
+      ] 
+    },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: FileText, label: "Documents", href: "/dashboard/documents" },
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
@@ -288,25 +301,22 @@ function SidebarItems({
 
   const showText = isMobileSheet || open;
 
-  // Determine which icon URL to use based on the theme
   const originalIconUrl = theme === 'dark' 
     ? settings?.darkModeIconUrl 
     : settings?.lightModeIconUrl;
 
-  // --- NEW: Construct the URL for our file-serving API route ---
   const displayIconUrl = originalIconUrl 
     ? `/logos/${originalIconUrl.split('/').pop()}`
     : null;
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       <SidebarHeader>
-        <div className="flex justify-center items-center p-2 h-[64px]"> {/* Set a fixed height */}
+        <div className="flex justify-center items-center p-2 h-[64px]">
           <Link href="/dashboard" onClick={onLinkClick}>
             {isLoading ? (
               <div style={{ width: showText ? 48 : 32, height: showText ? 48 : 32 }} className="bg-muted rounded animate-pulse" />
             ) : (
-              // Only render the Image component if a displayIconUrl exists
               displayIconUrl && (
                 <Image
                   src={displayIconUrl}
@@ -322,35 +332,72 @@ function SidebarItems({
           </Link>
         </div>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
+      <SidebarContent className="flex-grow">
+        <SidebarGroup className="my-auto">
           <SidebarGroupContent>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname.startsWith(item.href) && (item.href !== "/dashboard" || pathname === "/dashboard")}
-                >
-                  <Link 
-                    href={item.href} 
-                    className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}
+            {/* START: === CORRECTED NAVIGATION LOGIC === */}
+            <div className="w-full space-y-1">
+              {menuItems.map((item) => (
+                item.subItems ? (
+                  <Accordion type="single" collapsible className="w-full" key={item.label}>
+                    <AccordionItem value={item.label} className="border-none">
+                      <AccordionTrigger 
+                        className={cn(
+                          "flex items-center gap-2 w-full text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground p-2 hover:no-underline",
+                          { "bg-accent text-accent-foreground": pathname.startsWith(item.href) },
+                          { "justify-end": isRightHanded }
+                        )}
+                      >
+                         <div className={cn("flex items-center gap-2", { "flex-row-reverse": isRightHanded })}>
+                            <item.icon className="h-4 w-4 flex-shrink-0" />
+                            {showText && <span className="truncate">{item.label}</span>}
+                         </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pl-6 pr-2 pb-0 pt-1">
+                        <ul className="space-y-1">
+                          {item.subItems.map((subItem) => (
+                             <li key={subItem.href}>
+                               <SidebarMenuButton
+                                 asChild
+                                 isActive={pathname === subItem.href}
+                                 className="w-full justify-start h-8"
+                               >
+                                 <Link 
+                                   href={subItem.href} 
+                                   className={cn("flex items-center gap-2 w-full text-sm", { "justify-end": isRightHanded })}
+                                   onClick={onLinkClick}
+                                 >
+                                   {showText && <span className="truncate">{subItem.label}</span>}
+                                 </Link>
+                               </SidebarMenuButton>
+                             </li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                ) : (
+                  <Link
+                    key={item.href}
+                    href={item.href}
                     onClick={onLinkClick}
-                  >
-                    {isRightHanded ? (
-                      <>
-                        {showText && <span className="truncate">{item.label}</span>}
-                        <item.icon className="h-4 w-4 flex-shrink-0" />
-                      </>
-                    ) : (
-                      <>
-                        <item.icon className="h-4 w-4 flex-shrink-0" />
-                        {showText && <span className="truncate">{item.label}</span>}
-                      </>
+                    className={cn(
+                      "flex items-center justify-between gap-2 w-full text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground p-2",
+                      { "bg-accent text-accent-foreground": pathname.startsWith(item.href) && (item.href !== "/dashboard" || pathname === "/dashboard") },
+                      { "justify-end": isRightHanded }
                     )}
+                  >
+                    <div className={cn("flex items-center gap-2", { "flex-row-reverse": isRightHanded })}>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {showText && <span className="truncate">{item.label}</span>}
+                    </div>
+                    {/* Placeholder for chevron to ensure text alignment */}
+                    <div className="h-4 w-4" />
                   </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+                )
+              ))}
+            </div>
+            {/* END: === CORRECTED NAVIGATION LOGIC === */}
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
@@ -377,10 +424,11 @@ function SidebarItems({
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarFooter>
-    </>
+    </div>
   );
 }
 
+// --- DEFAULT EXPORT (No changes) ---
 export default function DashboardLayout({
   children,
 }: {

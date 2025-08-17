@@ -19,10 +19,16 @@ module.exports = {
       },
     },
     extend: {
+      // START: === NEW CHANGE ===
+      // This section overrides Tailwind's default spacing value for the key '4'.
+      spacing: {
+        '4': '1.5rem', // Changes .w-4, .h-4, etc. to 1.5rem (24px)
+      },
+      // END: === NEW CHANGE ===
+
+      // PREVIOUS CUSTOMIZATION: Keep existing font families
       fontFamily: {
-        // STEP 1: Re-establish 'Nunito' as the primary sans-serif font.
         sans: ["var(--font-nunito)", ...fontFamily.sans],
-        // STEP 2: Re-establish 'Roboto' as the primary serif font for titles.
         serif: ["var(--font-roboto)", ...fontFamily.serif],
       },
       colors: {
