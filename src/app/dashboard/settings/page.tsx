@@ -16,6 +16,7 @@ import FeatureRequests from '../FeatureRequests'; // Import the FeatureRequests 
 // Interface for the notification settings we'll fetch
 interface UserSettings {
   sendDailyManifest: boolean;
+  sendAfternoonManifest: boolean; // <-- ADD THIS
 }
 
 export default function SettingsPage() {
@@ -26,7 +27,8 @@ export default function SettingsPage() {
   // --- State for Notification Settings ---
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
+  const [isSendingMorning, setIsSendingMorning] = useState(false);
+  const [isSendingAfternoon, setIsSendingAfternoon] = useState(false); // <-- ADD THIS
   const { toast } = useToast();
 
   // Fetch all settings when the component mounts
@@ -89,9 +91,9 @@ export default function SettingsPage() {
     }
   };
 
-  // --- Handler for Manual Manifest Send ---
-  const handleSendManualManifest = async () => {
-    setIsSending(true);
+  // --- Handler for Manual Morning Manifest Send ---
+  const handleSendMorningManifest = async () => {
+    setIsSendingMorning(true);
     try {
       const response = await fetch('/api/cron/send-manifest', {
         method: 'POST',
@@ -113,7 +115,35 @@ export default function SettingsPage() {
         variant: 'destructive',
       });
     } finally {
-      setIsSending(false);
+      setIsSendingMorning(false);
+    }
+  };
+
+  // --- Handler for Manual Afternoon Manifest Send ---
+  const handleSendAfternoonManifest = async () => {
+    setIsSendingAfternoon(true);
+    try {
+      const response = await fetch('/api/cron/send-afternoon-manifest', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send afternoon manifest.');
+      }
+
+      toast({
+        title: 'Success!',
+        description: 'The afternoon manifest has been sent to your email.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Could not send the afternoon manifest. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingAfternoon(false);
     }
   };
 
@@ -145,8 +175,8 @@ export default function SettingsPage() {
               Choose how you want to be notified.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            {/* This div is now responsive */}
+          <CardContent className="space-y-4">
+            {/* Morning Manifest Section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4 rounded-lg border p-4">
               <div className="space-y-0.5">
                 <Label htmlFor="daily-manifest" className="text-base">
@@ -156,21 +186,49 @@ export default function SettingsPage() {
                   Receive an email every morning with a summary of items due for the day.
                 </p>
               </div>
-              {/* This div is now responsive */}
               <div className="flex items-center justify-between sm:justify-end space-x-4">
                 <Button 
-                  onClick={handleSendManualManifest}
-                  disabled={isSending}
+                  onClick={handleSendMorningManifest}
+                  disabled={isSendingMorning}
                   size="sm"
-                  className="flex-shrink-0" // Prevents button from shrinking
+                  className="flex-shrink-0"
                 >
-                  {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSendingMorning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Send Now
                 </Button>
                 <Switch
                   id="daily-manifest"
                   checked={settings?.sendDailyManifest || false}
                   onCheckedChange={(value) => handleSettingChange('sendDailyManifest', value)}
+                  disabled={!settings}
+                />
+              </div>
+            </div>
+
+            {/* Afternoon Manifest Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4 rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="afternoon-manifest" className="text-base">
+                  Daily Afternoon Manifest
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Receive an email every afternoon with a summary of items due for tomorrow.
+                </p>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end space-x-4">
+                <Button 
+                  onClick={handleSendAfternoonManifest}
+                  disabled={isSendingAfternoon}
+                  size="sm"
+                  className="flex-shrink-0"
+                >
+                  {isSendingAfternoon && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send Now
+                </Button>
+                <Switch
+                  id="afternoon-manifest"
+                  checked={settings?.sendAfternoonManifest || false}
+                  onCheckedChange={(value) => handleSettingChange('sendAfternoonManifest', value)}
                   disabled={!settings}
                 />
               </div>
@@ -187,7 +245,6 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* This div is now responsive */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <div className="space-y-0.5">
                 <Label htmlFor="dark-mode" className="text-base font-medium">
@@ -208,7 +265,6 @@ export default function SettingsPage() {
               </div>
             </div>
             
-            {/* This div is now responsive */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <div className="space-y-0.5">
                 <Label htmlFor="layout-preference" className="text-base font-medium">
@@ -262,7 +318,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
         
-        {/* --- NEW: Feature Requests Section --- */}
+        {/* --- Feature Requests Section --- */}
         <div className="mt-8">
           <FeatureRequests />
         </div>

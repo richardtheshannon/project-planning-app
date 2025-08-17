@@ -16,6 +16,7 @@ export async function GET() {
       where: { id: session.user.id },
       select: {
         sendDailyManifest: true,
+        sendAfternoonManifest: true, // <-- ADD THIS LINE
       },
     });
 
@@ -39,18 +40,28 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { sendDailyManifest } = body;
+    const { sendDailyManifest, sendAfternoonManifest } = body;
 
-    // Validate input
-    if (typeof sendDailyManifest !== 'boolean') {
-      return NextResponse.json({ error: 'Invalid input for sendDailyManifest' }, { status: 400 });
+    const dataToUpdate: { sendDailyManifest?: boolean; sendAfternoonManifest?: boolean } = {};
+
+    // Validate and add sendDailyManifest to the update object if it exists
+    if (typeof sendDailyManifest === 'boolean') {
+      dataToUpdate.sendDailyManifest = sendDailyManifest;
+    }
+
+    // Validate and add sendAfternoonManifest to the update object if it exists
+    if (typeof sendAfternoonManifest === 'boolean') {
+      dataToUpdate.sendAfternoonManifest = sendAfternoonManifest;
+    }
+
+    // Check if there is anything to update
+    if (Object.keys(dataToUpdate).length === 0) {
+        return NextResponse.json({ error: 'No valid settings provided for update' }, { status: 400 });
     }
 
     await prisma.user.update({
       where: { id: session.user.id },
-      data: {
-        sendDailyManifest,
-      },
+      data: dataToUpdate,
     });
 
     return NextResponse.json({ success: true });

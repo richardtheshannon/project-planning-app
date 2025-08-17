@@ -13,17 +13,18 @@ datasource db {
 // --- AUTHENTICATION MODELS ---
 
 model User {
-  id                String    @id @default(cuid())
-  name              String?
-  email             String?   @unique
-  emailVerified     DateTime? // This is the missing field
-  image             String?
-  password          String?
-  role              UserRole  @default(USER)
-  isActive          Boolean   @default(false)
-  sendDailyManifest Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  name                  String?
+  email                 String?   @unique
+  emailVerified         DateTime?
+  image                 String?
+  password              String?
+  role                  UserRole  @default(USER)
+  isActive              Boolean   @default(false)
+  sendDailyManifest     Boolean   @default(false)
+  sendAfternoonManifest Boolean   @default(false) // <-- THIS LINE IS ADDED
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   // Relations
   accounts             Account[]
