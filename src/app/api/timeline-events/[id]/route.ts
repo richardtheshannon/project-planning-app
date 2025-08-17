@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * PUT handler to update a specific timeline event.
- * ✅ FIX: Now allows any authenticated user to update any event.
+ * ✅ FIX: Now correctly handles clearing the event date.
  */
 export async function PUT(
   request: NextRequest,
@@ -23,14 +23,15 @@ export async function PUT(
     const body = await request.json();
     const { title, description, eventDate, isCompleted } = body;
 
-    // The permission check that verified project ownership has been removed.
-
     const updatedEvent = await prisma.timelineEvent.update({
       where: { id: eventId },
       data: {
         title,
         description,
-        eventDate: eventDate ? new Date(eventDate) : undefined,
+        // --- FIX APPLIED HERE ---
+        // If eventDate is present, convert it to a Date object.
+        // If it's empty or null, explicitly set the database field to null.
+        eventDate: eventDate ? new Date(eventDate) : null,
         isCompleted,
       },
     });
@@ -39,7 +40,6 @@ export async function PUT(
 
   } catch (error) {
     console.error(`Failed to update timeline event ${params.id}:`, error);
-    // Handle cases where the event might not be found
     if (
       typeof error === "object" &&
       error !== null &&
@@ -54,7 +54,7 @@ export async function PUT(
 
 /**
  * DELETE handler to remove a specific timeline event.
- * ✅ FIX: Now allows any authenticated user to delete any event.
+ * (No changes needed here)
  */
 export async function DELETE(
   request: NextRequest,
@@ -68,8 +68,6 @@ export async function DELETE(
 
     const eventId = params.id;
 
-    // The permission check that verified project ownership has been removed.
-
     await prisma.timelineEvent.delete({
       where: { id: eventId },
     });
@@ -78,7 +76,6 @@ export async function DELETE(
 
   } catch (error) {
     console.error(`Failed to delete timeline event ${params.id}:`, error);
-    // Handle cases where the event might not be found
     if (
       typeof error === "object" &&
       error !== null &&
