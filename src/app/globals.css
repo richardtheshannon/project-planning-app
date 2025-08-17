@@ -114,4 +114,10 @@
       @apply text-muted-foreground;
     }
   }
+
+  /* --- NEW RULE FOR GLOBAL ICON SIZE --- */
+  /* This targets all SVGs with a class name containing "lucide-" */
+  svg[class*="lucide-"] {
+    @apply h-6 w-6; /* Sets icon size to 1.5rem x 1.5rem */
+  }
 }

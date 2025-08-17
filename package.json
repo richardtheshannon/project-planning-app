@@ -12,6 +12,8 @@
     "start": "next start",
     "lint": "next lint",
     "db:push": "prisma db push --accept-data-loss",
+    "db:deploy": "prisma migrate deploy",
+    "start:prod": "npm run db:deploy && npm run start",
     "postinstall": "prisma generate"
   },
   "overrides": {

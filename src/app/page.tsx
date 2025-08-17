@@ -40,8 +40,7 @@ export default function LandingPage() {
     fetchAppearanceSettings();
   }, []);
 
-  // **MODIFIED LOGIC**
-  // These lines construct the correct URL to use our new file-serving API route.
+  // Construct the correct URL to use our new file-serving API route.
   const lightLogoSrc = settings.lightModeLogoUrl 
     ? `/logos/${settings.lightModeLogoUrl.split('/').pop()}` 
     : null;
@@ -85,14 +84,15 @@ export default function LandingPage() {
         <div className="mt-8 flex items-center justify-center gap-4">
           {mounted && (
             <div className="flex items-center space-x-2">
-              <Sun className="h-5 w-5" />
+              {/* Sizes are now controlled by globals.css */}
+              <Sun />
               <Switch
                 id="theme-toggle"
                 checked={theme === "dark"}
                 onCheckedChange={() => setTheme(theme === "dark" ? "light" : "dark")}
                 aria-label="Toggle theme"
               />
-              <Moon className="h-5 w-5" />
+              <Moon />
             </div>
           )}
 
