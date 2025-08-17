@@ -40,26 +40,36 @@ export default function LandingPage() {
     fetchAppearanceSettings();
   }, []);
 
+  // **MODIFIED LOGIC**
+  // These lines construct the correct URL to use our new file-serving API route.
+  const lightLogoSrc = settings.lightModeLogoUrl 
+    ? `/logos/${settings.lightModeLogoUrl.split('/').pop()}` 
+    : null;
+
+  const darkLogoSrc = settings.darkModeLogoUrl 
+    ? `/logos/${settings.darkModeLogoUrl.split('/').pop()}` 
+    : null;
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="flex w-full max-w-md flex-col items-center text-center lg:max-w-none">
         
         <div className="mb-8 h-[115px] flex items-center justify-center">
-          {/* Conditionally render logos based on settings and theme */}
-          {settings.lightModeLogoUrl && (
+          {/* Conditionally render logos based on the new src variables */}
+          {lightLogoSrc && (
             <Image
               className="block dark:hidden"
-              src={settings.lightModeLogoUrl}
+              src={lightLogoSrc}
               alt="Company Logo"
               width={400}
               height={115}
               priority
             />
           )}
-          {settings.darkModeLogoUrl && (
+          {darkLogoSrc && (
             <Image
               className="hidden dark:block"
-              src={settings.darkModeLogoUrl}
+              src={darkLogoSrc}
               alt="Company Logo"
               width={400}
               height={115}

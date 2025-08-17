@@ -289,9 +289,14 @@ function SidebarItems({
   const showText = isMobileSheet || open;
 
   // Determine which icon URL to use based on the theme
-  const iconUrl = theme === 'dark' 
+  const originalIconUrl = theme === 'dark' 
     ? settings?.darkModeIconUrl 
     : settings?.lightModeIconUrl;
+
+  // --- NEW: Construct the URL for our file-serving API route ---
+  const displayIconUrl = originalIconUrl 
+    ? `/logos/${originalIconUrl.split('/').pop()}`
+    : null;
 
   return (
     <>
@@ -301,10 +306,10 @@ function SidebarItems({
             {isLoading ? (
               <div style={{ width: showText ? 48 : 32, height: showText ? 48 : 32 }} className="bg-muted rounded animate-pulse" />
             ) : (
-              // Only render the Image component if an iconUrl exists
-              iconUrl && (
+              // Only render the Image component if a displayIconUrl exists
+              displayIconUrl && (
                 <Image
-                  src={iconUrl}
+                  src={displayIconUrl}
                   alt="Company Icon"
                   width={showText ? 48 : 32}
                   height={showText ? 48 : 32}
