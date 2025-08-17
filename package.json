@@ -2,6 +2,7 @@
   "name": "project-planning-app",
   "version": "0.1.0",
   "private": true,
+  // Fixed migration issues - 2025-08-17
   "engines": {
     "node": "18.x",
     "npm": ">=9.x"
