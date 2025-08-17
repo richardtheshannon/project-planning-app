@@ -426,7 +426,7 @@ function SidebarItems({
   );
 }
 
-// --- DEFAULT EXPORT (No changes) ---
+// --- DEFAULT EXPORT (CORRECTED PROVIDER WRAPPING) ---
 export default function DashboardLayout({
   children,
 }: {
@@ -449,6 +449,7 @@ export default function DashboardLayout({
   return (
     <AppearanceProvider>
       <LayoutPreferenceProvider>
+        {/* The SidebarProvider now wraps the LayoutRenderer and defaults to open */}
         <SidebarProvider defaultOpen={true}>
           <LayoutRenderer>{children}</LayoutRenderer>
         </SidebarProvider>
