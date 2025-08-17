@@ -4,7 +4,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-// ✅ MODIFIED: Imported the ContractTerm enum object, not just the type.
 import { type Invoice, type Expense, type Subscription, type Prisma, ExpenseCategory, type Client, ContractTerm } from "@prisma/client";
 import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfYear, getMonth, getYear, parseISO, isBefore, isAfter, isEqual } from "date-fns";
 
@@ -29,10 +28,8 @@ interface ForecastedItem {
   amount: number;
 }
 
-// ✅ MODIFIED: Helper function to convert ContractTerm enum to a number of months
 const getMonthsFromTerm = (term: ContractTerm): number => {
     switch (term) {
-        // ✅ FIXED: Used the correct snake_case enum members from schema.prisma
         case ContractTerm.ONE_MONTH: return 1;
         case ContractTerm.THREE_MONTH: return 3;
         case ContractTerm.SIX_MONTH: return 6;
@@ -142,6 +139,7 @@ export default async function FinancialsOverviewPage() {
   let totalThisMonthExpensesForNet = 0;
   let totalNextMonthExpensesForNet = 0;
 
+  // We still check for a session to ensure only logged-in users can see the page.
   if (session?.user?.id) {
     const today = new Date();
     const startDateYTD = startOfYear(today);
@@ -156,6 +154,9 @@ export default async function FinancialsOverviewPage() {
     const nextMonthStart = startOfMonth(nextMonthDate);
     const nextMonthEnd = endOfMonth(nextMonthDate);
 
+    // --- MODIFICATION START ---
+    // The 'userId' filter has been removed from all 'where' clauses below
+    // to fetch data for all users, making the page collaborative.
     const [
       allInvoices, 
       allExpenses, 
@@ -163,13 +164,14 @@ export default async function FinancialsOverviewPage() {
       allClients
     ] = await Promise.all([
       prisma.invoice.findMany({ 
-        where: { userId: session.user.id, issuedDate: { gte: startDateYTD } },
+        where: { issuedDate: { gte: startDateYTD } },
         include: { client: { select: { name: true } } }
       }),
-      prisma.expense.findMany({ where: { userId: session.user.id, date: { gte: startDateYTD } } }),
-      prisma.subscription.findMany({ where: { userId: session.user.id } }),
-      prisma.client.findMany({ where: { userId: session.user.id } })
+      prisma.expense.findMany({ where: { date: { gte: startDateYTD } } }),
+      prisma.subscription.findMany(),
+      prisma.client.findMany()
     ]);
+    // --- MODIFICATION END ---
     
     chartData = processDataForChart(allInvoices, allExpenses, allSubscriptions, allClients);
 

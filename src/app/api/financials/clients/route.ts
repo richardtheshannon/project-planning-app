@@ -5,14 +5,13 @@ import * as z from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { ContractTerm } from "@prisma/client";
 
-// Zod schema for server-side validation
+// Zod schema for server-side validation (no changes needed here)
 const clientSchema = z.object({
   name: z.string().min(2, {
     message: "Client name must be at least 2 characters.",
   }),
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
-  // Use z.coerce.date() to handle the date string from the client
   contractStartDate: z.coerce.date().optional().nullable(),
   contractTerm: z.nativeEnum(ContractTerm),
   contractAmount: z.number().positive("Amount must be a positive number.").optional().nullable(),
@@ -27,9 +26,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const clients = await prisma.client.findMany({
-      where: { userId: session.user.id },
-    });
+    // --- MODIFICATION START ---
+    // The 'where' clause has been removed from this query.
+    // It now fetches ALL clients from the database, not just those for the logged-in user.
+    const clients = await prisma.client.findMany();
+    // --- MODIFICATION END ---
     return NextResponse.json(clients);
   } catch (error) {
     console.error("Error fetching clients:", error);
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// The POST handler remains unchanged, as new clients should still be associated with the user who creates them.
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -46,7 +48,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    // The schema will now correctly parse the date string
     const validatedData = clientSchema.parse(body);
 
     const client = await prisma.client.create({
@@ -60,7 +61,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating client:", error);
     if (error instanceof z.ZodError) {
-      // Return the detailed Zod error issues for better client-side debugging
       return NextResponse.json({ error: "Invalid data", issues: error.issues }, { status: 400 });
     }
     return NextResponse.json({ error: "Failed to create client" }, { status: 500 });

@@ -25,7 +25,8 @@ const getMonthsFromTerm = (term: ContractTerm): number => {
     }
 };
 
-async function getOperationalData(userId: string) {
+// MODIFIED: The userId parameter is no longer needed as we are fetching all data.
+async function getOperationalData() {
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
@@ -36,7 +37,6 @@ async function getOperationalData(userId: string) {
   const todayBounds = getDayBounds(today);
   const tomorrowBounds = getDayBounds(tomorrow);
   
-  // The overall interval we are interested in
   const relevantInterval = { start: yesterdayBounds.start, end: tomorrowBounds.end };
 
   const [
@@ -46,44 +46,43 @@ async function getOperationalData(userId: string) {
     invoices,
     recurringClients
   ] = await Promise.all([
+    // MODIFIED: Removed 'ownerId: userId' to fetch all projects
     prisma.project.findMany({
-      where: { ownerId: userId, endDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
+      where: { endDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
       select: { id: true, name: true, endDate: true }
     }),
+    // MODIFIED: Removed 'project: { ownerId: userId }' to fetch all tasks
     prisma.task.findMany({
-      where: { project: { ownerId: userId }, dueDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
+      where: { dueDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
       select: { id: true, title: true, dueDate: true, projectId: true, project: { select: { name: true } } }
     }),
-    // ✅ MODIFIED: Added isCompleted: false to the query
+    // MODIFIED: Removed 'project: { ownerId: userId }' to fetch all timeline events
     prisma.timelineEvent.findMany({
-      where: { project: { ownerId: userId }, eventDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end }, isCompleted: false },
+      where: { eventDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end }, isCompleted: false },
       select: { id: true, title: true, eventDate: true, projectId: true, project: { select: { name: true } } }
     }),
+    // MODIFIED: Removed 'userId: userId' to fetch all invoices
     prisma.invoice.findMany({
-      where: { userId: userId, dueDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
+      where: { dueDate: { gte: yesterdayBounds.start, lte: tomorrowBounds.end } },
       select: { id: true, invoiceNumber: true, dueDate: true, client: { select: { name: true } } }
     }),
-    // ✅ NEW: Fetch all clients with recurring contract details
+    // MODIFIED: Removed 'userId' to fetch all recurring clients
     prisma.client.findMany({
-        where: { userId, contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' },
+        where: { contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' },
         select: { id: true, name: true, contractStartDate: true, contractTerm: true }
     })
   ]);
 
-  // ✅ NEW: Logic to generate recurring client payment items
   const clientContractItems: OperationalItem[] = [];
   recurringClients.forEach(client => {
       if (!client.contractStartDate) return;
       
       const startDate = new Date(client.contractStartDate);
       const termInMonths = getMonthsFromTerm(client.contractTerm);
-      const contractEndDate = addMonths(startDate, termInMonths);
 
-      // Generate a payment date for each month of the contract
       for (let i = 0; i < termInMonths; i++) {
           const paymentDate = addMonths(startDate, i);
           
-          // Check if this payment date falls within our -1, 0, +1 day window
           if (isWithinInterval(paymentDate, relevantInterval)) {
               clientContractItems.push({
                   id: `${client.id}-month-${i}`,
@@ -99,11 +98,10 @@ async function getOperationalData(userId: string) {
 
 
   const allItems: OperationalItem[] = [
-    ...projects.map(p => ({ id: p.id, title: p.name, type: 'Project' as const, dueDate: p.endDate!, link: `/dashboard/projects/${p.id}` })),
-    ...tasks.map(t => ({ id: t.id, title: t.title, type: 'Task' as const, dueDate: t.dueDate!, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
-    ...timelineEvents.map(te => ({ id: te.id, title: te.title, type: 'Timeline Event' as const, dueDate: te.eventDate!, link: `/dashboard/projects/${te.projectId}`, projectName: te.project.name })),
-    ...invoices.map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate, link: `/dashboard/financials`, clientName: i.client.name })),
-    // ✅ NEW: Add the generated client contract items to the main list
+    ...projects.filter(p => p.endDate).map(p => ({ id: p.id, title: p.name, type: 'Project' as const, dueDate: p.endDate!, link: `/dashboard/projects/${p.id}` })),
+    ...tasks.filter(t => t.dueDate).map(t => ({ id: t.id, title: t.title, type: 'Task' as const, dueDate: t.dueDate!, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
+    ...timelineEvents.filter(te => te.eventDate).map(te => ({ id: te.id, title: te.title, type: 'Timeline Event' as const, dueDate: te.eventDate!, link: `/dashboard/projects/${te.projectId}`, projectName: te.project.name })),
+    ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials`, clientName: i.client.name })),
     ...clientContractItems
   ];
 
@@ -126,7 +124,8 @@ export default async function OperationsPage() {
     return <div>Please sign in to view this page.</div>;
   }
 
-  const { yesterdayItems, todayItems, tomorrowItems } = await getOperationalData(session.user.id);
+  // MODIFIED: The function no longer requires a userId to be passed.
+  const { yesterdayItems, todayItems, tomorrowItems } = await getOperationalData();
 
   return (
     <div className="space-y-8 p-4 md:p-6">

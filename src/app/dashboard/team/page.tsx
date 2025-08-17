@@ -14,7 +14,7 @@ async function getUsers() {
       role: true,      // Added role
       isActive: true,  // Added isActive status
       createdAt: true,
-      avatar: true,    // We will need the avatar field for the new UI
+      image: true,    // CORRECTED: Changed 'avatar' to 'image' to match the Prisma schema
     },
     orderBy: {
       createdAt: 'desc', // Show newest users first
@@ -25,7 +25,13 @@ async function getUsers() {
 
 // This is the main page component (Server Component)
 export default async function TeamPage() {
-  const users = await getUsers();
+  const usersFromDb = await getUsers();
+
+  // FIX APPLIED: Filter out users without a name or email to satisfy the UserTable component's props.
+  // The `(user): user is ...` part is a type guard that tells TypeScript the new array is of a stricter type.
+  const users = usersFromDb.filter(
+    (user): user is typeof user & { name: string; email: string } => !!user.name && !!user.email
+  );
 
   return (
     <div className="px-4 py-6 sm:px-0">
@@ -36,7 +42,7 @@ export default async function TeamPage() {
         </p>
       </div>
 
-      {/* Render the UserTable client component, passing the full user data as a prop */}
+      {/* Render the UserTable client component, passing the filtered user data as a prop */}
       <UserTable users={users} />
       
     </div>

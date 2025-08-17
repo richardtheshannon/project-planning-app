@@ -7,7 +7,7 @@ import { defaultTimelineEvents } from "../../../../timeline-template";
 import { z } from 'zod';
 import { ProjectStatus, Priority, ProjectType } from '@prisma/client';
 
-// --- GET Handler (Unchanged from your original file) ---
+// --- GET Handler ---
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,8 +16,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     
+    // --- MODIFICATION START ---
+    // The 'where' clause has been removed from this query.
+    // It now fetches ALL projects from the database, not just those for the logged-in user.
     const projects = await prisma.project.findMany({
-      where: { ownerId: session.user.id }, // Fetch projects for the logged-in user
       include: {
         owner: {
           select: { id: true, name: true, email: true }
@@ -28,6 +30,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: 'desc' }
     })
+    // --- MODIFICATION END ---
 
     return NextResponse.json(projects)
   } catch (error) {
@@ -39,7 +42,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// --- Zod Schema for Validation (From my suggestion) ---
+// --- Zod Schema for Validation ---
 const createProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required.'),
   description: z.string().optional(),
@@ -54,7 +57,7 @@ const createProjectSchema = z.object({
 });
 
 
-// --- POST Handler (Merged for the best of both) ---
+// --- POST Handler (No changes needed here) ---
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -65,7 +68,6 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
 
     const body = await request.json();
-    // 1. Validate the incoming data
     const validation = createProjectSchema.safeParse(body);
 
     if (!validation.success) {
@@ -74,7 +76,6 @@ export async function POST(request: NextRequest) {
     
     const { name, description, projectGoal, projectValue, website, status, priority, projectType, startDate, endDate } = validation.data;
 
-    // 2. Use a transaction to create project and default timeline events
     const newProject = await prisma.$transaction(async (tx) => {
       const project = await tx.project.create({
         data: {
@@ -104,7 +105,6 @@ export async function POST(request: NextRequest) {
       return project;
     });
     
-    // 3. Fetch the new project with relations to return to the client
     const projectWithRelations = await prisma.project.findUnique({
         where: { id: newProject.id },
         include: {

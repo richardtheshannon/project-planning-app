@@ -29,14 +29,17 @@ type RecentProject = { id: string; name: string; createdAt: Date };
 type RecentTask = { id: string; title: string; createdAt: Date };
 
 // --- DATA FETCHING & PROCESSING FUNCTIONS ---
-async function getActivityForPeriod(userId: string, startDate: Date, endDate: Date): Promise<MonthlyActivity[]> {
+// MODIFIED: Removed the 'userId' parameter to fetch data for all users.
+async function getActivityForPeriod(startDate: Date, endDate: Date): Promise<MonthlyActivity[]> {
   const [projects, timelineEvents] = await Promise.all([
-    prisma.project.findMany({ where: { ownerId: userId, endDate: { gte: startDate, lte: endDate } }, select: { id: true, name: true, endDate: true } }),
-    prisma.timelineEvent.findMany({ where: { project: { ownerId: userId }, eventDate: { gte: startDate, lte: endDate }, isCompleted: false }, include: { project: { select: { id: true, name: true } } } }),
+    // MODIFIED: Removed 'ownerId' filter
+    prisma.project.findMany({ where: { endDate: { gte: startDate, lte: endDate } }, select: { id: true, name: true, endDate: true } }),
+    // MODIFIED: Removed 'project: { ownerId }' filter
+    prisma.timelineEvent.findMany({ where: { eventDate: { gte: startDate, lte: endDate }, isCompleted: false }, include: { project: { select: { id: true, name: true } } } }),
   ]);
 
-  const mappedProjects: MonthlyActivity[] = projects.map(p => ({ id: p.id, type: 'Project', title: p.name, date: p.endDate!, projectId: p.id, projectName: p.name }));
-  const mappedEvents: MonthlyActivity[] = timelineEvents.map(e => ({ id: e.id, type: 'TimelineEvent', title: e.title, date: e.eventDate!, isCompleted: e.isCompleted, projectId: e.project.id, projectName: e.project.name }));
+  const mappedProjects: MonthlyActivity[] = projects.filter(p => p.endDate).map(p => ({ id: p.id, type: 'Project', title: p.name, date: p.endDate!, projectId: p.id, projectName: p.name }));
+  const mappedEvents: MonthlyActivity[] = timelineEvents.filter(e => e.eventDate).map(e => ({ id: e.id, type: 'TimelineEvent', title: e.title, date: e.eventDate!, isCompleted: e.isCompleted, projectId: e.project.id, projectName: e.project.name }));
   return [...mappedProjects, ...mappedEvents].sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
@@ -58,10 +61,9 @@ function processFinancialDataForThreeMonths(invoices: Invoice[], expenses: Expen
     if (monthIndex >= 0 && monthIndex < 3) monthlyData[monthIndex].expenses += expense.amount;
   });
   
-  // Simplified subscription logic for clarity
   monthlyData.forEach(md => md.netIncome = md.revenue - md.expenses);
   monthlyData[2].forecast = forecastValue;
-  monthlyData[2].revenue = forecastValue; // Assuming forecast becomes revenue next month
+  monthlyData[2].revenue = forecastValue; 
 
   return monthlyData;
 }
@@ -72,27 +74,30 @@ export default async function Dashboard() {
   if (!session?.user?.id) {
     redirect('/api/auth/signin');
   }
-  const userId = session.user.id;
   const now = new Date();
   const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
+  // --- MODIFICATION START ---
+  // The 'userId' and 'ownerId' filters have been removed from all queries below
+  // to fetch data for the entire application.
   const [
     paidInvoices, oneTimeExpenses, subscriptions, projectForecast, projectCount, activeTaskCount,
     completedThisWeekCount, recentProjects, recentTasks, lastMonthActivity, thisMonthActivity, nextMonthActivity
   ] = await Promise.all([
-    prisma.invoice.findMany({ where: { userId, status: 'PAID', updatedAt: { gte: lastMonth } }, select: { amount: true, updatedAt: true, status: true } }),
-    prisma.expense.findMany({ where: { userId, date: { gte: lastMonth } }, select: { amount: true, date: true } }),
-    prisma.subscription.findMany({ where: { userId }, select: { amount: true, billingCycle: true, createdAt: true } }),
-    prisma.project.aggregate({ where: { ownerId: userId }, _sum: { projectValue: true } }),
-    prisma.project.count({ where: { ownerId: userId } }),
-    prisma.task.count({ where: { project: { ownerId: userId }, status: { not: 'COMPLETED' } } }),
-    prisma.task.count({ where: { project: { ownerId: userId }, status: 'COMPLETED', updatedAt: { gte: new Date(now.setDate(now.getDate() - 7)) } } }),
-    prisma.project.findMany({ where: { ownerId: userId }, orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, name: true, createdAt: true } }),
-    prisma.task.findMany({ where: { project: { ownerId: userId } }, orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, title: true, createdAt: true } }),
-    getActivityForPeriod(userId, new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 0)),
-    getActivityForPeriod(userId, new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0)),
-    getActivityForPeriod(userId, new Date(now.getFullYear(), now.getMonth() + 1, 1), new Date(now.getFullYear(), now.getMonth() + 2, 0)),
+    prisma.invoice.findMany({ where: { status: 'PAID', updatedAt: { gte: lastMonth } }, select: { amount: true, updatedAt: true, status: true } }),
+    prisma.expense.findMany({ where: { date: { gte: lastMonth } }, select: { amount: true, date: true } }),
+    prisma.subscription.findMany({ select: { amount: true, billingCycle: true, createdAt: true } }),
+    prisma.project.aggregate({ _sum: { projectValue: true } }),
+    prisma.project.count(),
+    prisma.task.count({ where: { status: { not: 'COMPLETED' } } }),
+    prisma.task.count({ where: { status: 'COMPLETED', updatedAt: { gte: new Date(new Date().setDate(new Date().getDate() - 7)) } } }),
+    prisma.project.findMany({ orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, name: true, createdAt: true } }),
+    prisma.task.findMany({ orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, title: true, createdAt: true } }),
+    getActivityForPeriod(new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 0)),
+    getActivityForPeriod(new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    getActivityForPeriod(new Date(now.getFullYear(), now.getMonth() + 1, 1), new Date(now.getFullYear(), now.getMonth() + 2, 0)),
   ]);
+  // --- MODIFICATION END ---
 
   const forecastValue = projectForecast._sum.projectValue ?? 0;
   const financialChartData = processFinancialDataForThreeMonths(paidInvoices, oneTimeExpenses, subscriptions, forecastValue);
@@ -106,7 +111,7 @@ export default async function Dashboard() {
       <div className="lg:col-span-2 space-y-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-2 mb-8">Welcome back! Here's what's happening with your projects.</p>
+          <p className="text-muted-foreground mt-2 mb-8">Welcome back! Here's what's happening across the application.</p>
         </div>
         <FinancialOverviewChart data={financialChartData} />
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -116,7 +121,8 @@ export default async function Dashboard() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Projects</CardTitle><FolderKanban className="h-4 w-4 text-muted-foreground" /></CardHeader>
-            <CardContent><div className="text-2xl font-bold">{projectCount}</div><p className="text-xs text-muted-foreground">Projects owned by you.</p></CardContent>
+            {/* MODIFIED: Updated description to reflect all projects */}
+            <CardContent><div className="text-2xl font-bold">{projectCount}</div><p className="text-xs text-muted-foreground">All projects in the system.</p></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Active Tasks</CardTitle><CheckCircle2 className="h-4 w-4 text-muted-foreground" /></CardHeader>
