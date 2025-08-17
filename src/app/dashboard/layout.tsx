@@ -264,7 +264,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- SIDEBAR ITEMS COMPONENT (CORRECTED STRUCTURE TO FIX BUILD) ---
+// --- SIDEBAR ITEMS COMPONENT (RESTORED ACCORDION & ALIGNMENT) ---
 function SidebarItems({ 
   isMobileSheet = false,
   onLinkClick,
@@ -335,7 +335,6 @@ function SidebarItems({
       <SidebarContent className="flex-grow">
         <SidebarGroup className="my-auto">
           <SidebarGroupContent>
-            {/* START: === CORRECTED NAVIGATION LOGIC === */}
             <div className="w-full space-y-1">
               {menuItems.map((item) => (
                 item.subItems ? (
@@ -397,7 +396,6 @@ function SidebarItems({
                 )
               ))}
             </div>
-            {/* END: === CORRECTED NAVIGATION LOGIC === */}
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

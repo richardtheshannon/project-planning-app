@@ -5,12 +5,8 @@ import formidable, { File } from 'formidable';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// Disable the default Next.js body parser to allow formidable to handle the stream.
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+// This line tells Next.js to always run this route dynamically, which is required for file uploads.
+export const dynamic = 'force-dynamic';
 
 /**
  * @description Handles file uploads for logos and icons.
@@ -26,7 +22,6 @@ export async function POST(request: Request) {
 
   try {
     // 2. Define the upload directory from environment variables
-    // This path should point to your mounted persistent volume on Railway.
     const uploadDir = process.env.LOGO_UPLOAD_DIR;
     if (!uploadDir) {
         console.error('CRITICAL: LOGO_UPLOAD_DIR environment variable is not set.');
@@ -47,8 +42,6 @@ export async function POST(request: Request) {
       },
     });
 
-    // formidable's parse method needs a Node.js-style request object.
-    // We cast the Next.js request to 'any' to make it compatible.
     const [fields, files] = await form.parse(request as any);
 
     const file = (Array.isArray(files.file) ? files.file[0] : files.file) as File | undefined;
@@ -58,7 +51,6 @@ export async function POST(request: Request) {
     }
 
     // 4. Create a unique filename and move the file to its final destination
-    // Formidable saves the file with a temporary name, so we rename it.
     const uniqueFilename = `${Date.now()}-${file.originalFilename?.replace(/\s+/g, '_')}`;
     const finalFilePath = path.join(uploadDir, uniqueFilename);
     await fs.rename(file.filepath, finalFilePath);
@@ -66,10 +58,8 @@ export async function POST(request: Request) {
     console.log(`File uploaded successfully to: ${finalFilePath}`);
 
     // 5. Return the URL that the client can use to access the file.
-    // This URL points to our dedicated file-serving route.
     const fileUrl = `/logos/${uniqueFilename}`;
     
-    // IMPORTANT: The client-side form expects a JSON response with a 'url' property.
     return NextResponse.json({ url: fileUrl });
 
   } catch (error) {
