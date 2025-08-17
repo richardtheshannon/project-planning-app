@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Toaster, toast } from 'sonner';
 import { Label } from "@/components/ui/label";
-import { ArrowUpDown } from 'lucide-react'; // Step 1: Import the icon
+import { ArrowUpDown } from 'lucide-react';
 
 // Define the interface for our data models
 interface FeatureRequest {
@@ -50,7 +50,7 @@ interface FeatureRequest {
     updatedAt: string;
 }
 
-// Step 2: Define a type for our sortable keys
+// Define a type for our sortable keys
 type SortKey = keyof FeatureRequest;
 
 export default function FeatureRequests() {
@@ -70,7 +70,7 @@ export default function FeatureRequests() {
     const [editPriority, setEditPriority] = useState<"Low" | "Medium" | "High">("Medium");
     const [editStatus, setEditStatus] = useState<"Pending" | "In Progress" | "Done" | "Canceled">("Pending");
 
-    // Step 3: Add state for sorting
+    // Add state for sorting
     const [sortKey, setSortKey] = useState<SortKey>('createdAt');
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
@@ -184,7 +184,7 @@ export default function FeatureRequests() {
         fetchRequests();
     }, []);
 
-    // Step 4: Add sorting logic
+    // Add sorting logic
     const sortedRequests = useMemo(() => {
         const sorted = [...requests].sort((a, b) => {
             const valA = a[sortKey];
@@ -203,8 +203,8 @@ export default function FeatureRequests() {
     }, [requests, sortKey, sortOrder]);
 
 
-    // Step 5: Create a reusable sortable header component
-    const SortableHeader = ({ tkey, label }: { tkey: SortKey, label: string }) => {
+    // Create a reusable sortable header component
+    const SortableHeader = ({ tkey, label, className }: { tkey: SortKey, label: string, className?: string }) => {
         const handleSort = (key: SortKey) => {
             if (sortKey === key) {
                 setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -215,7 +215,7 @@ export default function FeatureRequests() {
         };
 
         return (
-            <TableHead onClick={() => handleSort(tkey)} className="cursor-pointer hover:bg-muted/50">
+            <TableHead onClick={() => handleSort(tkey)} className={`cursor-pointer hover:bg-muted/50 ${className}`}>
                 <div className="flex items-center gap-2">
                     {label}
                     {sortKey === tkey && <ArrowUpDown className="h-4 w-4" />}
@@ -274,34 +274,35 @@ export default function FeatureRequests() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        {/* Step 6: Update the TableHeader to use the SortableHeader component */}
-                        <TableHeader>
-                            <TableRow>
-                                <SortableHeader tkey="title" label="Title" />
-                                <SortableHeader tkey="status" label="Status" />
-                                <SortableHeader tkey="priority" label="Priority" />
-                                <SortableHeader tkey="submittedBy" label="Submitted By" />
-                                <SortableHeader tkey="createdAt" label="Date" />
-                            </TableRow>
-                        </TableHeader>
-                        {/* Step 7: Update the TableBody to map over sortedRequests */}
-                        <TableBody>
-                            {sortedRequests.map((request) => (
-                                <TableRow
-                                    key={request.id}
-                                    onClick={() => handleViewDetails(request)}
-                                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                >
-                                    <TableCell>{request.title}</TableCell>
-                                    <TableCell>{request.status}</TableCell>
-                                    <TableCell>{request.priority}</TableCell>
-                                    <TableCell>{request.submittedBy}</TableCell>
-                                    <TableCell>{new Date(request.createdAt).toLocaleDateString()}</TableCell>
+                    {/* The overflow wrapper is kept as a fallback, but hiding columns is the primary fix */}
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <SortableHeader tkey="title" label="Title" />
+                                    <SortableHeader tkey="status" label="Status" />
+                                    <SortableHeader tkey="priority" label="Priority" />
+                                    <SortableHeader tkey="submittedBy" label="Submitted By" className="hidden md:table-cell" />
+                                    <SortableHeader tkey="createdAt" label="Date" className="hidden md:table-cell" />
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {sortedRequests.map((request) => (
+                                    <TableRow
+                                        key={request.id}
+                                        onClick={() => handleViewDetails(request)}
+                                        className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                        <TableCell>{request.title}</TableCell>
+                                        <TableCell>{request.status}</TableCell>
+                                        <TableCell>{request.priority}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{request.submittedBy}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{new Date(request.createdAt).toLocaleDateString()}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
 

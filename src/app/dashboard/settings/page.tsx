@@ -146,7 +146,8 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
+            {/* This div is now responsive */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4 rounded-lg border p-4">
               <div className="space-y-0.5">
                 <Label htmlFor="daily-manifest" className="text-base">
                   Daily Morning Manifest
@@ -155,11 +156,13 @@ export default function SettingsPage() {
                   Receive an email every morning with a summary of items due for the day.
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
+              {/* This div is now responsive */}
+              <div className="flex items-center justify-between sm:justify-end space-x-4">
                 <Button 
                   onClick={handleSendManualManifest}
                   disabled={isSending}
                   size="sm"
+                  className="flex-shrink-0" // Prevents button from shrinking
                 >
                   {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Send Now
@@ -184,7 +187,8 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
+            {/* This div is now responsive */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <div className="space-y-0.5">
                 <Label htmlFor="dark-mode" className="text-base font-medium">
                   Dark Mode
@@ -204,7 +208,8 @@ export default function SettingsPage() {
               </div>
             </div>
             
-            <div className="flex items-center justify-between">
+            {/* This div is now responsive */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <div className="space-y-0.5">
                 <Label htmlFor="layout-preference" className="text-base font-medium">
                   Handedness
