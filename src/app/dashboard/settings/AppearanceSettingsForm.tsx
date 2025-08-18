@@ -61,6 +61,7 @@ type ImageFileField = 'lightModeLogoFile' | 'darkModeLogoFile' | 'lightModeIconF
 
 export default function AppearanceSettingsForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<AppearanceSettingsFormData>({
@@ -76,20 +77,21 @@ export default function AppearanceSettingsForm() {
     },
   });
 
-  const { reset, watch, setValue } = form;
+  const { reset, watch, setValue, getValues } = form;
 
   // Function to handle file uploads.
   // Using useCallback to memoize the function for stability.
   const handleFileUpload = useCallback(async (file: File, fieldName: ImageFileField) => {
     if (!file) return;
 
+    console.log(`[FORM] Starting upload for ${fieldName}`);
     const formData = new FormData();
     formData.append('file', file);
     // We send the fieldName to the API to know which image is being uploaded.
     formData.append('field', fieldName);
 
     try {
-      setIsSubmitting(true);
+      setIsUploading(true);
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
@@ -100,36 +102,45 @@ export default function AppearanceSettingsForm() {
       }
 
       const data = await response.json();
+      console.log(`[FORM] Upload response:`, data);
+      
       if (data.url) {
         // Construct the corresponding URL field name from the file field name.
         // e.g., 'lightModeLogoFile' becomes 'lightModeLogoUrl'
         const urlField = fieldName.replace('File', 'Url') as ImageUrlField;
-        setValue(urlField, data.url, { shouldDirty: true });
+        setValue(urlField, data.url, { shouldDirty: true, shouldValidate: true });
+        
+        // Log the current form values after setting
+        console.log(`[FORM] Set ${urlField} to ${data.url}`);
+        console.log(`[FORM] Current form values:`, getValues());
+        
         toast({
           title: "Success",
           description: `${fieldName.replace('File', '')} uploaded successfully.`,
         });
       }
     } catch (error) {
-      console.error(error);
+      console.error(`[FORM] Upload error:`, error);
       toast({
         title: "Error",
         description: "Failed to upload file. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsUploading(false);
     }
-  }, [setValue, toast]);
+  }, [setValue, toast, getValues]);
 
   // Function to clear a specific image field.
   const handleClearImage = (fieldName: ImageUrlField) => {
     // Set the URL value to null to remove the image.
     setValue(fieldName, null, { shouldDirty: true });
+    console.log(`[FORM] Cleared ${fieldName}`);
   };
 
   // Main form submission handler.
   const onSubmit = async (data: AppearanceSettingsFormData) => {
+    console.log(`[FORM] Submitting form with data:`, data);
     setIsSubmitting(true);
     try {
       // We only send the data defined in the original AppearanceSettingsSchema to the API.
@@ -142,6 +153,8 @@ export default function AppearanceSettingsForm() {
         darkModeIconUrl: data.darkModeIconUrl,
       };
 
+      console.log(`[FORM] Sending payload to API:`, payload);
+
       const response = await fetch('/api/appearance', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -149,17 +162,21 @@ export default function AppearanceSettingsForm() {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[FORM] API error response:`, errorText);
         throw new Error('Failed to save settings');
       }
 
       const updatedSettings = await response.json();
+      console.log(`[FORM] API success response:`, updatedSettings);
+      
       reset(updatedSettings); // Reset form with fresh data from the server.
       toast({
         title: "Success",
         description: "Your appearance settings have been saved.",
       });
     } catch (error) {
-      console.error("Error saving settings:", error);
+      console.error("[FORM] Error saving settings:", error);
       toast({
         title: "Error",
         description: "Failed to save settings. Please try again.",
@@ -174,12 +191,14 @@ export default function AppearanceSettingsForm() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
+        console.log(`[FORM] Fetching initial settings...`);
         const response = await fetch('/api/appearance');
         if (!response.ok) throw new Error("Failed to fetch settings");
         const data: AppearanceSettings = await response.json();
+        console.log(`[FORM] Loaded settings:`, data);
         reset(data); // Populate form with fetched data.
       } catch (error) {
-        console.error("Failed to fetch appearance settings:", error);
+        console.error("[FORM] Failed to fetch appearance settings:", error);
         toast({
             title: "Error",
             description: "Could not load appearance settings.",
@@ -223,6 +242,8 @@ export default function AppearanceSettingsForm() {
   // Helper function to render image upload fields.
   const renderImageUpload = (fileField: ImageFileField, urlField: ImageUrlField, label: string, width: number, height: number) => {
     const imageUrl = watch(urlField);
+    console.log(`[FORM] Rendering ${urlField}:`, imageUrl);
+    
     return (
       <div>
         <FormLabel className="font-semibold">{label}</FormLabel>
@@ -236,8 +257,13 @@ export default function AppearanceSettingsForm() {
                   <Input
                     type="file"
                     accept="image/png, image/jpeg, image/gif, image/webp"
-                    onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
+                    onChange={(e) => {
+                      const file = e.target.files ? e.target.files[0] : null;
+                      console.log(`[FORM] File selected for ${fileField}:`, file?.name);
+                      field.onChange(file);
+                    }}
                     className="w-auto"
+                    disabled={isUploading}
                   />
                 </FormControl>
                 <FormMessage />
@@ -260,6 +286,7 @@ export default function AppearanceSettingsForm() {
                 size="icon"
                 onClick={() => handleClearImage(urlField)}
                 title="Clear Image"
+                disabled={isUploading}
               >
                 <XCircle className="h-4 w-4 text-red-500" />
               </Button>
@@ -319,11 +346,16 @@ export default function AppearanceSettingsForm() {
           {renderImageUpload('darkModeIconFile', 'darkModeIconUrl', 'Dark Mode Icon', 30, 30)}
         </div>
         
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting || isUploading}>
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Saving...
+            </>
+          ) : isUploading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Uploading...
             </>
           ) : "Save Settings"}
         </Button>
