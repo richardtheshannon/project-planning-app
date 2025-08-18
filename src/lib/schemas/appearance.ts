@@ -8,11 +8,12 @@ export const AppearanceSettingsSchema = z.object({
   businessName: z.string().optional().nullable(),
   missionStatement: z.string().optional().nullable(),
   
-  // URLs for logos and icons. We validate that they are strings and valid URLs.
-  lightModeLogoUrl: z.string().url("Must be a valid URL.").optional().nullable(),
-  lightModeIconUrl: z.string().url("Must be a valid URL.").optional().nullable(),
-  darkModeLogoUrl: z.string().url("Must be a valid URL.").optional().nullable(),
-  darkModeIconUrl: z.string().url("Must be a valid URL.").optional().nullable(),
+  // URLs for logos and icons. We validate that they are strings.
+  // We removed .url() to allow for relative paths like "/logos/image.png".
+  lightModeLogoUrl: z.string().optional().nullable(),
+  lightModeIconUrl: z.string().optional().nullable(),
+  darkModeLogoUrl: z.string().optional().nullable(),
+  darkModeIconUrl: z.string().optional().nullable(),
 
   // Light Theme Colors
   // Each color is validated to be a string in hex format (e.g., #ffffff).

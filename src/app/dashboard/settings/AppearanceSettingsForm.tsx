@@ -17,24 +17,24 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { AppearanceSettings, AppearanceSettingsSchema } from "@/lib/schemas/appearance";
 import { Loader2, XCircle } from "lucide-react";
 
 // Extended schema to include file fields for the form state.
-// These fields are for handling file inputs in the UI and are not part of the database model.
-// We use z.any() during SSR and refine it to File in the browser
+// These are not part of the database model but are used for client-side validation.
 const formSchema = AppearanceSettingsSchema.extend({
   lightModeLogoFile: z.any().optional(),
   lightModeIconFile: z.any().optional(),
   darkModeLogoFile: z.any().optional(),
   darkModeIconFile: z.any().optional(),
 }).refine((data) => {
-  // Only validate File instances in the browser
+  // In the browser, ensure that if a file field is present, it is a File object.
   if (typeof window !== 'undefined') {
     const fileFields = ['lightModeLogoFile', 'lightModeIconFile', 'darkModeLogoFile', 'darkModeIconFile'] as const;
     for (const field of fileFields) {
       const value = data[field];
+      // The value can be undefined, null, or a File object. Anything else is invalid.
       if (value !== undefined && value !== null && !(value instanceof File)) {
         return false;
       }
@@ -42,22 +42,12 @@ const formSchema = AppearanceSettingsSchema.extend({
   }
   return true;
 }, {
-  message: "Invalid file type"
+  message: "Invalid file type submitted."
 });
 
-// Infer the TypeScript type for our form data from the extended Zod schema.
-type AppearanceSettingsFormData = z.infer<typeof formSchema> & {
-  lightModeLogoFile?: File;
-  lightModeIconFile?: File;
-  darkModeLogoFile?: File;
-  darkModeIconFile?: File;
-};
-
-// Define the specific keys that represent file URLs in our form data.
+type AppearanceSettingsFormData = z.infer<typeof formSchema>;
 type ImageUrlField = 'lightModeLogoUrl' | 'darkModeLogoUrl' | 'lightModeIconUrl' | 'darkModeIconUrl';
-// Define the specific keys that represent file inputs.
 type ImageFileField = 'lightModeLogoFile' | 'darkModeLogoFile' | 'lightModeIconFile' | 'darkModeIconFile';
-
 
 export default function AppearanceSettingsForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,7 +56,6 @@ export default function AppearanceSettingsForm() {
 
   const form = useForm<AppearanceSettingsFormData>({
     resolver: zodResolver(formSchema),
-    // Set default values to prevent "uncontrolled component" warnings.
     defaultValues: {
       businessName: "",
       missionStatement: "",
@@ -77,73 +66,71 @@ export default function AppearanceSettingsForm() {
     },
   });
 
-  const { reset, watch, setValue, getValues } = form;
+  const { reset, watch, setValue, getValues, handleSubmit, control } = form;
 
-  // Function to handle file uploads.
-  // Using useCallback to memoize the function for stability.
-  const handleFileUpload = useCallback(async (file: File, fieldName: ImageFileField) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>, fieldName: ImageFileField) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
-    console.log(`[FORM] Starting upload for ${fieldName}`);
+    console.log(`[FORM] File selected for ${fieldName}, starting upload.`);
+    
     const formData = new FormData();
     formData.append('file', file);
-    // We send the fieldName to the API to know which image is being uploaded.
-    formData.append('field', fieldName);
 
+    setIsUploading(true);
     try {
-      setIsUploading(true);
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('File upload failed');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'File upload failed');
       }
 
       const data = await response.json();
-      console.log(`[FORM] Upload response:`, data);
+      console.log(`[FORM] Upload successful for ${fieldName}. Response:`, data);
       
       if (data.url) {
-        // Construct the corresponding URL field name from the file field name.
-        // e.g., 'lightModeLogoFile' becomes 'lightModeLogoUrl'
         const urlField = fieldName.replace('File', 'Url') as ImageUrlField;
         setValue(urlField, data.url, { shouldDirty: true, shouldValidate: true });
         
-        // Log the current form values after setting
-        console.log(`[FORM] Set ${urlField} to ${data.url}`);
-        console.log(`[FORM] Current form values:`, getValues());
-        
+        console.log(`[FORM] Set value for ${urlField}: ${data.url}`);
+        console.log('[FORM] Current form values after setValue:', getValues());
+
         toast({
-          title: "Success",
-          description: `${fieldName.replace('File', '')} uploaded successfully.`,
+          title: "Upload Successful",
+          description: `Image for ${labelFromFileField(fieldName)} has been uploaded.`,
         });
       }
     } catch (error) {
-      console.error(`[FORM] Upload error:`, error);
+      console.error(`[FORM] Upload error for ${fieldName}:`, error);
       toast({
-        title: "Error",
-        description: "Failed to upload file. Please try again.",
+        title: "Upload Error",
+        description: `Failed to upload file. Please try again.`,
         variant: "destructive",
       });
     } finally {
       setIsUploading(false);
     }
-  }, [setValue, toast, getValues]);
-
-  // Function to clear a specific image field.
-  const handleClearImage = (fieldName: ImageUrlField) => {
-    // Set the URL value to null to remove the image.
-    setValue(fieldName, null, { shouldDirty: true });
-    console.log(`[FORM] Cleared ${fieldName}`);
   };
 
-  // Main form submission handler.
+  const handleClearImage = (urlField: ImageUrlField) => {
+    setValue(urlField, null, { shouldDirty: true, shouldValidate: true });
+    console.log(`[FORM] Cleared image for ${urlField}`);
+    toast({
+      title: "Image Cleared",
+      description: `The image for ${labelFromFileField(urlField.replace('Url', 'File') as ImageFileField)} has been removed.`
+    });
+  };
+
+  // This is our function that will run if validation passes.
   const onSubmit = async (data: AppearanceSettingsFormData) => {
-    console.log(`[FORM] Submitting form with data:`, data);
+    console.log(`[FORM] Submitting form. Final data being sent:`, data);
+    
     setIsSubmitting(true);
     try {
-      // We only send the data defined in the original AppearanceSettingsSchema to the API.
       const payload: AppearanceSettings = {
         businessName: data.businessName,
         missionStatement: data.missionStatement,
@@ -153,7 +140,7 @@ export default function AppearanceSettingsForm() {
         darkModeIconUrl: data.darkModeIconUrl,
       };
 
-      console.log(`[FORM] Sending payload to API:`, payload);
+      console.log(`[FORM] Sending this payload to /api/appearance:`, payload);
 
       const response = await fetch('/api/appearance', {
         method: 'PUT',
@@ -170,7 +157,7 @@ export default function AppearanceSettingsForm() {
       const updatedSettings = await response.json();
       console.log(`[FORM] API success response:`, updatedSettings);
       
-      reset(updatedSettings); // Reset form with fresh data from the server.
+      reset(updatedSettings);
       toast({
         title: "Success",
         description: "Your appearance settings have been saved.",
@@ -187,7 +174,16 @@ export default function AppearanceSettingsForm() {
     }
   };
 
-  // Fetch initial settings on component mount.
+  // *** NEW ***: This function will run if validation fails.
+  const onInvalid = (errors: any) => {
+    console.error('[FORM] Validation Failed:', errors);
+    toast({
+        title: "Validation Error",
+        description: "Please check the form for errors.",
+        variant: "destructive"
+    });
+  };
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -196,7 +192,7 @@ export default function AppearanceSettingsForm() {
         if (!response.ok) throw new Error("Failed to fetch settings");
         const data: AppearanceSettings = await response.json();
         console.log(`[FORM] Loaded settings:`, data);
-        reset(data); // Populate form with fetched data.
+        reset(data);
       } catch (error) {
         console.error("[FORM] Failed to fetch appearance settings:", error);
         toast({
@@ -209,47 +205,19 @@ export default function AppearanceSettingsForm() {
     fetchSettings();
   }, [reset, toast]);
 
-  // Watch for changes to file inputs and trigger uploads.
-  const lightModeLogoFile = watch('lightModeLogoFile');
-  const darkModeLogoFile = watch('darkModeLogoFile');
-  const lightModeIconFile = watch('lightModeIconFile');
-  const darkModeIconFile = watch('darkModeIconFile');
+  const labelFromFileField = (field: string) => {
+    return field.replace(/([A-Z])/g, ' $1').replace('File', '').replace('Url', '').trim();
+  }
 
-  useEffect(() => {
-    if (lightModeLogoFile && lightModeLogoFile instanceof File && lightModeLogoFile.size > 0) {
-      handleFileUpload(lightModeLogoFile, 'lightModeLogoFile');
-    }
-  }, [lightModeLogoFile, handleFileUpload]);
-
-  useEffect(() => {
-    if (darkModeLogoFile && darkModeLogoFile instanceof File && darkModeLogoFile.size > 0) {
-      handleFileUpload(darkModeLogoFile, 'darkModeLogoFile');
-    }
-  }, [darkModeLogoFile, handleFileUpload]);
-
-  useEffect(() => {
-    if (lightModeIconFile && lightModeIconFile instanceof File && lightModeIconFile.size > 0) {
-      handleFileUpload(lightModeIconFile, 'lightModeIconFile');
-    }
-  }, [lightModeIconFile, handleFileUpload]);
-
-  useEffect(() => {
-    if (darkModeIconFile && darkModeIconFile instanceof File && darkModeIconFile.size > 0) {
-      handleFileUpload(darkModeIconFile, 'darkModeIconFile');
-    }
-  }, [darkModeIconFile, handleFileUpload]);
-
-  // Helper function to render image upload fields.
   const renderImageUpload = (fileField: ImageFileField, urlField: ImageUrlField, label: string, width: number, height: number) => {
     const imageUrl = watch(urlField);
-    console.log(`[FORM] Rendering ${urlField}:`, imageUrl);
     
     return (
-      <div>
+      <div className="space-y-2">
         <FormLabel className="font-semibold">{label}</FormLabel>
-        <div className="flex items-center space-x-2 mt-2">
+        <div className="flex items-center space-x-4">
           <FormField
-            control={form.control}
+            control={control}
             name={fileField}
             render={({ field }) => (
               <FormItem>
@@ -257,13 +225,9 @@ export default function AppearanceSettingsForm() {
                   <Input
                     type="file"
                     accept="image/png, image/jpeg, image/gif, image/webp"
-                    onChange={(e) => {
-                      const file = e.target.files ? e.target.files[0] : null;
-                      console.log(`[FORM] File selected for ${fileField}:`, file?.name);
-                      field.onChange(file);
-                    }}
+                    onChange={(e) => handleFileChange(e, fileField)}
                     className="w-auto"
-                    disabled={isUploading}
+                    disabled={isUploading || isSubmitting}
                   />
                 </FormControl>
                 <FormMessage />
@@ -271,7 +235,7 @@ export default function AppearanceSettingsForm() {
             )}
           />
           {imageUrl && typeof imageUrl === 'string' && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 p-2 border rounded-md bg-muted">
               <img
                 src={imageUrl}
                 alt={`${label} Preview`}
@@ -279,6 +243,7 @@ export default function AppearanceSettingsForm() {
                 height={height}
                 className="rounded-md object-contain bg-gray-200"
                 style={{ width: `${width}px`, height: `${height}px` }}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
               <Button
                 type="button"
@@ -286,7 +251,7 @@ export default function AppearanceSettingsForm() {
                 size="icon"
                 onClick={() => handleClearImage(urlField)}
                 title="Clear Image"
-                disabled={isUploading}
+                disabled={isUploading || isSubmitting}
               >
                 <XCircle className="h-4 w-4 text-red-500" />
               </Button>
@@ -299,12 +264,12 @@ export default function AppearanceSettingsForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {/* Branding section */}
+      {/* *** UPDATED ***: We now pass our new onInvalid function to handleSubmit */}
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8">
         <div className="space-y-4 p-4 border rounded-lg">
           <h3 className="text-lg font-medium">Branding</h3>
           <FormField
-            control={form.control}
+            control={control}
             name="businessName"
             render={({ field }) => (
               <FormItem>
@@ -317,7 +282,7 @@ export default function AppearanceSettingsForm() {
             )}
           />
           <FormField
-            control={form.control}
+            control={control}
             name="missionStatement"
             render={({ field }) => (
               <FormItem>
@@ -331,7 +296,6 @@ export default function AppearanceSettingsForm() {
           />
         </div>
 
-        {/* Logos & Icons section */}
         <div className="space-y-6 p-4 border rounded-lg">
           <div>
             <h3 className="text-lg font-medium">Logos & Icons</h3>
