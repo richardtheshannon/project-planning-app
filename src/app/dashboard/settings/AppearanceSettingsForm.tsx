@@ -24,15 +24,35 @@ import Image from "next/image";
 
 // Extended schema to include file fields for the form state.
 // These fields are for handling file inputs in the UI and are not part of the database model.
+// We use z.any() during SSR and refine it to File in the browser
 const formSchema = AppearanceSettingsSchema.extend({
-  lightModeLogoFile: z.instanceof(File).optional(),
-  lightModeIconFile: z.instanceof(File).optional(),
-  darkModeLogoFile: z.instanceof(File).optional(),
-  darkModeIconFile: z.instanceof(File).optional(),
+  lightModeLogoFile: z.any().optional(),
+  lightModeIconFile: z.any().optional(),
+  darkModeLogoFile: z.any().optional(),
+  darkModeIconFile: z.any().optional(),
+}).refine((data) => {
+  // Only validate File instances in the browser
+  if (typeof window !== 'undefined') {
+    const fileFields = ['lightModeLogoFile', 'lightModeIconFile', 'darkModeLogoFile', 'darkModeIconFile'] as const;
+    for (const field of fileFields) {
+      const value = data[field];
+      if (value !== undefined && value !== null && !(value instanceof File)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}, {
+  message: "Invalid file type"
 });
 
 // Infer the TypeScript type for our form data from the extended Zod schema.
-type AppearanceSettingsFormData = z.infer<typeof formSchema>;
+type AppearanceSettingsFormData = z.infer<typeof formSchema> & {
+  lightModeLogoFile?: File;
+  lightModeIconFile?: File;
+  darkModeLogoFile?: File;
+  darkModeIconFile?: File;
+};
 
 // Define the specific keys that represent file URLs in our form data.
 type ImageUrlField = 'lightModeLogoUrl' | 'darkModeLogoUrl' | 'lightModeIconUrl' | 'darkModeIconUrl';
@@ -178,19 +198,27 @@ export default function AppearanceSettingsForm() {
   const darkModeIconFile = watch('darkModeIconFile');
 
   useEffect(() => {
-    if (lightModeLogoFile && lightModeLogoFile.size > 0) handleFileUpload(lightModeLogoFile, 'lightModeLogoFile');
+    if (lightModeLogoFile && lightModeLogoFile instanceof File && lightModeLogoFile.size > 0) {
+      handleFileUpload(lightModeLogoFile, 'lightModeLogoFile');
+    }
   }, [lightModeLogoFile, handleFileUpload]);
 
   useEffect(() => {
-    if (darkModeLogoFile && darkModeLogoFile.size > 0) handleFileUpload(darkModeLogoFile, 'darkModeLogoFile');
+    if (darkModeLogoFile && darkModeLogoFile instanceof File && darkModeLogoFile.size > 0) {
+      handleFileUpload(darkModeLogoFile, 'darkModeLogoFile');
+    }
   }, [darkModeLogoFile, handleFileUpload]);
 
   useEffect(() => {
-    if (lightModeIconFile && lightModeIconFile.size > 0) handleFileUpload(lightModeIconFile, 'lightModeIconFile');
+    if (lightModeIconFile && lightModeIconFile instanceof File && lightModeIconFile.size > 0) {
+      handleFileUpload(lightModeIconFile, 'lightModeIconFile');
+    }
   }, [lightModeIconFile, handleFileUpload]);
 
   useEffect(() => {
-    if (darkModeIconFile && darkModeIconFile.size > 0) handleFileUpload(darkModeIconFile, 'darkModeIconFile');
+    if (darkModeIconFile && darkModeIconFile instanceof File && darkModeIconFile.size > 0) {
+      handleFileUpload(darkModeIconFile, 'darkModeIconFile');
+    }
   }, [darkModeIconFile, handleFileUpload]);
 
   // Helper function to render image upload fields.
