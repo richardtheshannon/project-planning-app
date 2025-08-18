@@ -21,17 +21,27 @@ export async function POST(request: Request) {
   try {
     // 2. Get the form data from the request
     const formData = await request.formData();
-    const file = formData.get('file') as File | null;
+    const file = formData.get('file');
 
-    if (!file) {
+    if (!file || typeof file === 'string') {
       return NextResponse.json({ error: 'No file was uploaded.' }, { status: 400 });
     }
 
+    // Type guard to ensure we have a Blob/File-like object
+    if (!('arrayBuffer' in file) || !('name' in file) || !('type' in file) || !('size' in file)) {
+      return NextResponse.json({ error: 'Invalid file upload.' }, { status: 400 });
+    }
+
+    // Now we can safely access file properties
+    const fileName = (file as any).name as string;
+    const fileType = (file as any).type as string;
+    const fileSize = (file as any).size as number;
+
     // 3. Validate file type and size
-    if (!file.type.startsWith('image/')) {
+    if (!fileType.startsWith('image/')) {
       return NextResponse.json({ error: 'Uploaded file is not an image.' }, { status: 400 });
     }
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    if (fileSize > 5 * 1024 * 1024) { // 5MB limit
       return NextResponse.json({ error: 'File size exceeds the 5MB limit.' }, { status: 400 });
     }
 
@@ -44,7 +54,7 @@ export async function POST(request: Request) {
     await fs.mkdir(uploadDir, { recursive: true });
 
     // 5. Create a unique filename and file path
-    const uniqueFilename = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+    const uniqueFilename = `${Date.now()}-${fileName.replace(/\s+/g, '_')}`;
     const finalFilePath = path.join(uploadDir, uniqueFilename);
 
     // 6. Convert file to a Buffer and write to the persistent volume
