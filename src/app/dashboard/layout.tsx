@@ -26,7 +26,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark, ClipboardList, ChevronDown } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark, ClipboardList } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
 
@@ -264,7 +275,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- SIDEBAR ITEMS COMPONENT (RESTORED ACCORDION & ALIGNMENT) ---
+// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH POPOVERS AND TOOLTIPS) ---
 function SidebarItems({ 
   isMobileSheet = false,
   onLinkClick,
@@ -332,24 +343,91 @@ function SidebarItems({
           </Link>
         </div>
       </SidebarHeader>
-      <SidebarContent className="flex-grow">
+      {/* UPDATE: Added overflow-x-hidden to prevent scrollbar on collapse */}
+      <SidebarContent className="flex-grow overflow-x-hidden">
         <SidebarGroup className="my-auto">
           <SidebarGroupContent>
             <div className="w-full space-y-1">
-              {menuItems.map((item) => (
-                item.subItems ? (
+              {menuItems.map((item) => {
+                const hasSubItems = item.subItems && item.subItems.length > 0;
+
+                // --- RENDER LOGIC FOR COLLAPSED SIDEBAR ---
+                if (!showText) {
+                  if (hasSubItems) {
+                    return (
+                      <Popover key={item.label}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <PopoverTrigger asChild>
+                              <div className={cn(
+                                "flex items-center justify-center gap-2 w-full text-sm font-medium rounded-md p-2 cursor-pointer",
+                                { "bg-accent text-accent-foreground": pathname.startsWith(item.href) },
+                                "hover:bg-accent hover:text-accent-foreground"
+                              )}>
+                                <item.icon className="h-5 w-5 flex-shrink-0" />
+                              </div>
+                            </PopoverTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent side={isRightHanded ? "left" : "right"}>
+                            <p>{item.label}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <PopoverContent side={isRightHanded ? "left" : "right"} align="start" className="w-[200px] p-2">
+                           <div className="space-y-1">
+                              {item.subItems?.map((subItem) => (
+                                <SidebarMenuButton
+                                  key={subItem.href}
+                                  asChild
+                                  isActive={pathname === subItem.href}
+                                  className="w-full justify-start h-8"
+                                >
+                                  <Link href={subItem.href} onClick={onLinkClick}>
+                                    {subItem.label}
+                                  </Link>
+                                </SidebarMenuButton>
+                              ))}
+                           </div>
+                        </PopoverContent>
+                      </Popover>
+                    );
+                  }
+                  return (
+                    <Tooltip key={item.href}>
+                      <TooltipTrigger asChild>
+                        <Link
+                          href={item.href}
+                          onClick={onLinkClick}
+                          className={cn(
+                            "flex items-center justify-center gap-2 w-full text-sm font-medium rounded-md p-2",
+                            { "bg-accent text-accent-foreground": pathname.startsWith(item.href) && (item.href !== "/dashboard" || pathname === "/dashboard") },
+                            "hover:bg-accent hover:text-accent-foreground"
+                          )}
+                        >
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side={isRightHanded ? "left" : "right"}>
+                        <p>{item.label}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
+                // --- RENDER LOGIC FOR EXPANDED SIDEBAR ---
+                return hasSubItems ? (
                   <Accordion type="single" collapsible className="w-full" key={item.label}>
                     <AccordionItem value={item.label} className="border-none">
                       <AccordionTrigger 
                         className={cn(
                           "flex items-center gap-2 w-full text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground p-2 hover:no-underline",
                           { "bg-accent text-accent-foreground": pathname.startsWith(item.href) },
-                          { "justify-end": isRightHanded }
+                          { "justify-between": !isRightHanded },
+                          { "flex-row-reverse": isRightHanded }
                         )}
                       >
                          <div className={cn("flex items-center gap-2", { "flex-row-reverse": isRightHanded })}>
                             <item.icon className="h-4 w-4 flex-shrink-0" />
-                            {showText && <span className="truncate">{item.label}</span>}
+                            <span className="truncate">{item.label}</span>
                          </div>
                       </AccordionTrigger>
                       <AccordionContent className="pl-6 pr-2 pb-0 pt-1">
@@ -366,7 +444,7 @@ function SidebarItems({
                                    className={cn("flex items-center gap-2 w-full text-sm", { "justify-end": isRightHanded })}
                                    onClick={onLinkClick}
                                  >
-                                   {showText && <span className="truncate">{subItem.label}</span>}
+                                   <span className="truncate">{subItem.label}</span>
                                  </Link>
                                </SidebarMenuButton>
                              </li>
@@ -383,18 +461,16 @@ function SidebarItems({
                     className={cn(
                       "flex items-center justify-between gap-2 w-full text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground p-2",
                       { "bg-accent text-accent-foreground": pathname.startsWith(item.href) && (item.href !== "/dashboard" || pathname === "/dashboard") },
-                      { "justify-end": isRightHanded }
+                      { "flex-row-reverse": isRightHanded }
                     )}
                   >
                     <div className={cn("flex items-center gap-2", { "flex-row-reverse": isRightHanded })}>
                       <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {showText && <span className="truncate">{item.label}</span>}
+                      <span className="truncate">{item.label}</span>
                     </div>
-                    {/* Placeholder for chevron to ensure text alignment */}
-                    <div className="h-4 w-4" />
                   </Link>
-                )
-              ))}
+                );
+              })}
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -406,19 +482,15 @@ function SidebarItems({
               signOut();
               if (onLinkClick) onLinkClick();
             }} 
-            className={cn("flex items-center gap-2 w-full", { "justify-end": isRightHanded })}
+            className={cn("flex w-full items-center gap-2", { 
+              "justify-center": !showText,
+              "justify-start": showText && !isRightHanded,
+              "justify-end": showText && isRightHanded,
+              "flex-row-reverse": showText && isRightHanded
+            })}
           >
-            {isRightHanded ? (
-              <>
-                {showText && <span>Logout</span>}
-                <LogOut className="h-4 w-4 flex-shrink-0" />
-              </>
-            ) : (
-              <>
-                <LogOut className="h-4 w-4 flex-shrink-0" />
-                {showText && <span>Logout</span>}
-              </>
-            )}
+            <LogOut className="h-4 w-4 flex-shrink-0" />
+            {showText && <span>Logout</span>}
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarFooter>
@@ -426,7 +498,7 @@ function SidebarItems({
   );
 }
 
-// --- DEFAULT EXPORT (CORRECTED PROVIDER WRAPPING) ---
+// --- DEFAULT EXPORT (UPDATED WITH TOOLTIP PROVIDER) ---
 export default function DashboardLayout({
   children,
 }: {
@@ -449,9 +521,11 @@ export default function DashboardLayout({
   return (
     <AppearanceProvider>
       <LayoutPreferenceProvider>
-        {/* The SidebarProvider now wraps the LayoutRenderer and defaults to open */}
         <SidebarProvider defaultOpen={true}>
-          <LayoutRenderer>{children}</LayoutRenderer>
+          {/* UPDATE: TooltipProvider needs to wrap the layout for tooltips to work */}
+          <TooltipProvider>
+            <LayoutRenderer>{children}</LayoutRenderer>
+          </TooltipProvider>
         </SidebarProvider>
       </LayoutPreferenceProvider>
     </AppearanceProvider>
