@@ -10,8 +10,10 @@ export async function GET(
 ) {
   try {
     const filename = params.filename.join('/');
+    console.log(`[SERVE] Attempting to serve file: ${filename}`);
 
     if (!filename) {
+      console.log('[SERVE] No filename provided');
       return new NextResponse('Filename is required', { status: 400 });
     }
 
@@ -21,14 +23,20 @@ export async function GET(
     const uploadDir = logoUploadDir 
       ? logoUploadDir
       : path.join(process.cwd(), 'public/uploads');
+    
+    console.log(`[SERVE] Upload directory: ${uploadDir}`);
+    console.log(`[SERVE] LOGO_UPLOAD_DIR env: ${process.env.LOGO_UPLOAD_DIR}`);
       
     const filePath = path.join(uploadDir, filename);
+    console.log(`[SERVE] Full file path: ${filePath}`);
 
     // Read the file from the persistent volume.
     const buffer = await readFile(filePath);
+    console.log(`[SERVE] File read successfully, size: ${buffer.length} bytes`);
 
     // Determine the content type from the filename.
     const contentType = mime.lookup(filename) || 'application/octet-stream';
+    console.log(`[SERVE] Content type: ${contentType}`);
 
     // Return the file content with the correct headers.
     return new NextResponse(buffer, {
@@ -36,16 +44,18 @@ export async function GET(
       headers: {
         'Content-Type': contentType,
         'Content-Length': buffer.length.toString(),
+        'Cache-Control': 'public, max-age=31536000, immutable',
       },
     });
   } catch (error: any) {
     // If the file doesn't exist (ENOENT), return a 404.
     if (error.code === 'ENOENT') {
-      console.error(`File not found: ${params.filename.join('/')}`);
+      console.error(`[SERVE] File not found: ${params.filename.join('/')}`);
+      console.error(`[SERVE] Error details:`, error);
       return new NextResponse('File not found', { status: 404 });
     }
     // For any other errors, return a 500.
-    console.error('Error serving file:', error);
+    console.error('[SERVE] Error serving file:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
