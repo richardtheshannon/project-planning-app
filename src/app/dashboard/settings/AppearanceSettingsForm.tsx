@@ -21,20 +21,16 @@ import { useEffect, useState } from "react";
 import { AppearanceSettings, AppearanceSettingsSchema } from "@/lib/schemas/appearance";
 import { Loader2, XCircle } from "lucide-react";
 
-// Extended schema to include file fields for the form state.
-// These are not part of the database model but are used for client-side validation.
 const formSchema = AppearanceSettingsSchema.extend({
   lightModeLogoFile: z.any().optional(),
   lightModeIconFile: z.any().optional(),
   darkModeLogoFile: z.any().optional(),
   darkModeIconFile: z.any().optional(),
 }).refine((data) => {
-  // In the browser, ensure that if a file field is present, it is a File object.
   if (typeof window !== 'undefined') {
     const fileFields = ['lightModeLogoFile', 'lightModeIconFile', 'darkModeLogoFile', 'darkModeIconFile'] as const;
     for (const field of fileFields) {
       const value = data[field];
-      // The value can be undefined, null, or a File object. Anything else is invalid.
       if (value !== undefined && value !== null && !(value instanceof File)) {
         return false;
       }
@@ -84,9 +80,15 @@ export default function AppearanceSettingsForm() {
         body: formData,
       });
 
+      // *** MODIFIED FOR DEBUGGING ***
+      // This block now creates a more detailed error if the upload fails.
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'File upload failed');
+        console.error('[FORM] Full error response from server:', errorData);
+        // Create a new error object and attach the details to it.
+        const uploadError = new Error(errorData.error || 'File upload failed');
+        (uploadError as any).details = errorData.details || 'No details provided from server.';
+        throw uploadError;
       }
 
       const data = await response.json();
@@ -105,10 +107,17 @@ export default function AppearanceSettingsForm() {
         });
       }
     } catch (error) {
+      // *** MODIFIED FOR DEBUGGING ***
+      // This block now logs the detailed error and shows it in the toast.
       console.error(`[FORM] Upload error for ${fieldName}:`, error);
+      
+      const description = error instanceof Error && (error as any).details 
+        ? (error as any).details 
+        : 'An unknown error occurred. Please try again.';
+
       toast({
         title: "Upload Error",
-        description: `Failed to upload file. Please try again.`,
+        description: description, // Use the detailed description from the server
         variant: "destructive",
       });
     } finally {
@@ -125,7 +134,6 @@ export default function AppearanceSettingsForm() {
     });
   };
 
-  // This is our function that will run if validation passes.
   const onSubmit = async (data: AppearanceSettingsFormData) => {
     console.log(`[FORM] Submitting form. Final data being sent:`, data);
     
@@ -174,7 +182,6 @@ export default function AppearanceSettingsForm() {
     }
   };
 
-  // *** NEW ***: This function will run if validation fails.
   const onInvalid = (errors: any) => {
     console.error('[FORM] Validation Failed:', errors);
     toast({
@@ -264,7 +271,6 @@ export default function AppearanceSettingsForm() {
 
   return (
     <Form {...form}>
-      {/* *** UPDATED ***: We now pass our new onInvalid function to handleSubmit */}
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8">
         <div className="space-y-4 p-4 border rounded-lg">
           <h3 className="text-lg font-medium">Branding</h3>

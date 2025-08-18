@@ -38,7 +38,6 @@ export async function POST(request: Request) {
     }
 
     // 4. Define the upload directory with a fallback for local development
-    // On Railway, LOGO_UPLOAD_DIR will be set. Locally, it will use public/uploads.
     const uploadDir = process.env.LOGO_UPLOAD_DIR || path.join(process.cwd(), 'public', 'uploads');
     
     // Ensure the upload directory exists
@@ -61,9 +60,18 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('[API/UPLOAD] File upload failed:', error);
-    // IMPORTANT: Always return errors in JSON format
+    
+    // *** MODIFIED FOR DEBUGGING ***
+    // We are now sending a more detailed error message to the client.
+    // WARNING: For security, you should remove the 'details' field in a real
+    // production environment after debugging is complete.
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    
     return NextResponse.json(
-      { error: 'An internal error occurred during file upload.' }, 
+      { 
+        error: 'An internal error occurred during file upload.',
+        details: errorMessage // This new field contains the specific error
+      }, 
       { status: 500 }
     );
   }
