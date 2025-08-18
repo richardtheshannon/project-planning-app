@@ -24,16 +24,22 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get('file');
 
-    // Use a type guard to ensure we have a File object
-    if (!(file instanceof File)) {
+    // *** FINAL FIX ***
+    // We can't use `instanceof File` on the server because the File object
+    // doesn't exist in all Node.js environments.
+    // Instead, we use "duck typing" to check if the object has the properties of a file.
+    if (!file || typeof file === 'string' || !('arrayBuffer' in file) || !('name' in file)) {
       return NextResponse.json({ error: 'No file was uploaded or the upload format is incorrect.' }, { status: 400 });
     }
 
+    // We can now safely treat `file` as a File-like object.
+    const uploadedFile = file as File;
+
     // 3. Validate file type and size
-    if (!file.type.startsWith('image/')) {
+    if (!uploadedFile.type.startsWith('image/')) {
       return NextResponse.json({ error: 'Uploaded file is not an image.' }, { status: 400 });
     }
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    if (uploadedFile.size > 5 * 1024 * 1024) { // 5MB limit
       return NextResponse.json({ error: 'File size exceeds the 5MB limit.' }, { status: 400 });
     }
 
@@ -44,11 +50,11 @@ export async function POST(request: Request) {
     await fs.mkdir(uploadDir, { recursive: true });
 
     // 5. Create a unique filename and file path
-    const uniqueFilename = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+    const uniqueFilename = `${Date.now()}-${uploadedFile.name.replace(/\s+/g, '_')}`;
     const finalFilePath = path.join(uploadDir, uniqueFilename);
 
     // 6. Convert file to a Buffer and write to the file system
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await uploadedFile.arrayBuffer());
     await fs.writeFile(finalFilePath, buffer);
 
     console.log(`[API/UPLOAD] File uploaded successfully to: ${finalFilePath}`);
@@ -61,16 +67,12 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('[API/UPLOAD] File upload failed:', error);
     
-    // *** MODIFIED FOR DEBUGGING ***
-    // We are now sending a more detailed error message to the client.
-    // WARNING: For security, you should remove the 'details' field in a real
-    // production environment after debugging is complete.
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
     
     return NextResponse.json(
       { 
         error: 'An internal error occurred during file upload.',
-        details: errorMessage // This new field contains the specific error
+        details: errorMessage
       }, 
       { status: 500 }
     );
