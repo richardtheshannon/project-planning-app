@@ -20,7 +20,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { useEffect, useState, useCallback } from "react";
 import { AppearanceSettings, AppearanceSettingsSchema } from "@/lib/schemas/appearance";
 import { Loader2, XCircle } from "lucide-react";
-import Image from "next/image";
 
 // Extended schema to include file fields for the form state.
 // These fields are for handling file inputs in the UI and are not part of the database model.
@@ -247,12 +246,13 @@ export default function AppearanceSettingsForm() {
           />
           {imageUrl && typeof imageUrl === 'string' && (
             <div className="flex items-center space-x-2">
-              <Image
+              <img
                 src={imageUrl}
                 alt={`${label} Preview`}
                 width={width}
                 height={height}
                 className="rounded-md object-contain bg-gray-200"
+                style={{ width: `${width}px`, height: `${height}px` }}
               />
               <Button
                 type="button"
