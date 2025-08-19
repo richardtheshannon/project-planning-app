@@ -37,7 +37,19 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Home, Briefcase, Users, FileText, Settings, LogOut, Landmark, ClipboardList } from "lucide-react";
+import { 
+  Home, 
+  Briefcase, 
+  Users, 
+  FileText, 
+  Settings, 
+  LogOut, 
+  Landmark, 
+  ClipboardList,
+  Bell,
+  Palette,
+  Lightbulb
+} from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
 
@@ -275,7 +287,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH POPOVERS AND TOOLTIPS) ---
+// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH SETTINGS SUB-ITEMS) ---
 function SidebarItems({ 
   isMobileSheet = false,
   onLinkClick,
@@ -307,7 +319,16 @@ function SidebarItems({
     },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: FileText, label: "Documents", href: "/dashboard/documents" },
-    { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+    { 
+      icon: Settings, 
+      label: "Settings", 
+      href: "/dashboard/settings",
+      subItems: [
+        { label: "Notifications", href: "/dashboard/settings/notifications", icon: Bell },
+        { label: "Branding", href: "/dashboard/settings/branding", icon: Palette },
+        { label: "Feature Requests", href: "/dashboard/settings/feature-requests", icon: Lightbulb },
+      ]
+    },
   ];
 
   const showText = isMobileSheet || open;
