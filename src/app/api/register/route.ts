@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     // 1. Send email to the newly registered user
     await sendEmail({
-      to: newUser.email,
+      to: newUser.email || '',
       subject: 'Account Registration Pending Approval',
       text: `Hi ${newUser.name},\n\nThank you for registering for the Project Planning & Management Application. Your account has been created successfully and is now pending approval from an administrator. You will receive another email once your account is activated.\n\nBest regards,\nThe Team`,
       html: `
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     for (const admin of admins) {
       await sendEmail({
-        to: admin.email,
+        to: admin.email || '',
         subject: 'New User Account Pending Approval',
         text: `Hello Admin,\n\nA new user, ${newUser.name} (${newUser.email}), has registered and is pending your approval. Please log in to the application to activate their account.\n\nBest regards,\nThe System`,
         html: `

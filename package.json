@@ -16,7 +16,16 @@
     "db:baseline": "prisma migrate resolve --applied 20250817153122_feat_dual_theming",
     "db:fix": "prisma migrate resolve --rolled-forward 20250801023706_init_tasks_and_contacts",
     "start:prod": "npm run db:deploy && npm run start",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prepare": "husky",
+    "db:status": "prisma migrate status",
+    "db:validate": "node ./scripts/validate-migration.js",
+    "db:backup": "node ./scripts/backup-database.js",
+    "db:backup:list": "dir backups\\*.sql",
+    "dev:clean": "rmdir /s /q .next 2>nul || echo Cache cleaned",
+    "dev:fresh": "npm run dev:clean && npm run dev",
+    "predeploy:check": "npm run db:validate && npm run db:backup",
+    "docs:structure": "node ./scripts/analyze-structure.js"
   },
   "overrides": {
     "react": "^18.2.0"
@@ -39,6 +48,7 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-switch": "^1.2.5",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.14",
     "@radix-ui/react-tooltip": "^1.2.8",
     "axios": "^1.11.0",
@@ -69,13 +79,14 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/formidable": "^3.4.5",
     "@types/mime-types": "^3.0.1",
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.19.11",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.0",
     "eslint": "^8.55.0",
     "eslint-config-next": "13.5.6",
+    "husky": "^9.1.7",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.3.0",
     "typescript": "^5.3.0"

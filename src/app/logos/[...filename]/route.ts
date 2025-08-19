@@ -39,7 +39,7 @@ export async function GET(
     console.log(`[SERVE] Content type: ${contentType}`);
 
     // Return the file content with the correct headers.
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer) as any, {
       status: 200,
       headers: {
         'Content-Type': contentType,

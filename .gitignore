@@ -5,16 +5,23 @@
 
 # local env files
 .env*.local
+.env.development
+.env.staging
+.env.production
 
 # logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+logs/
+*.log
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+desktop.ini
 
 # vercel
 .vercel
@@ -31,3 +38,25 @@ pnpm-debug.log*
 
 # Local scripts and environment files
 .env*
+
+# === NEW SAFETY ADDITIONS ===
+
+# Cache files
+.next/cache/
+*.pack.gz
+*.pack
+
+# Prisma generated files
+prisma/src/
+
+# Backup files (don't commit database backups)
+backups/*.sql
+!backups/.gitkeep
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Temporary files
+*.tmp
+*.temp

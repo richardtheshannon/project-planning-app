@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import * as z from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { ContractTerm } from "@prisma/client";
 
 // Zod schema for UPDATING a client.
-// The invalid 'ContractTerm' import has been removed.
 const clientUpdateSchema = z.object({
   name: z.string().min(2, {
     message: "Client name must be at least 2 characters.",
@@ -13,8 +13,8 @@ const clientUpdateSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   contractStartDate: z.coerce.date().optional().nullable(),
-  // contractTerm is now validated as a simple string.
-  contractTerm: z.string().optional(),
+  // contractTerm now validates against the actual enum values
+  contractTerm: z.enum(['MONTHLY', 'QUARTERLY', 'ANNUAL', 'PROJECT_BASED', 'CUSTOM']).optional(),
   frequency: z.string().optional(),
   contractAmount: z.number().positive("Amount must be a positive number.").optional().nullable(),
   notes: z.string().optional(),
@@ -90,9 +90,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
             return NextResponse.json({ error: "Client not found or you do not have permission to edit it." }, { status: 404 });
         }
 
+        // Ensure contractTerm is cast to the correct enum type if it exists
+        const updateData: any = { ...validatedData };
+        if (updateData.contractTerm) {
+            updateData.contractTerm = updateData.contractTerm as ContractTerm;
+        }
+
         const updatedClient = await prisma.client.update({
             where: { id: id },
-            data: validatedData,
+            data: updateData,
         });
 
         return NextResponse.json(updatedClient);
