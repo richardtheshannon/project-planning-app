@@ -17,7 +17,7 @@
     "db:fix": "prisma migrate resolve --rolled-forward 20250801023706_init_tasks_and_contacts",
     "start:prod": "npm run db:deploy && npm run start",
     "postinstall": "prisma generate",
-    "prepare": "husky",
+    "prepare": "husky || true",
     "db:status": "prisma migrate status",
     "db:validate": "node ./scripts/validate-migration.js",
     "db:backup": "node ./scripts/backup-database.js",
