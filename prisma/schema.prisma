@@ -364,6 +364,7 @@ model FeatureRequest {
   submittedBy String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  dueDate     DateTime? // Added this line
 }
 
 // --- FINANCIAL MODELS ---
