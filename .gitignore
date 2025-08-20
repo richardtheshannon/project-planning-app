@@ -1,15 +1,18 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# Dependencies
 /node_modules
 
-# local env files
+# Local Environment Files
+# Do not commit sensitive environment variables.
 .env*.local
 .env.development
 .env.staging
 .env.production
+.env
 
-# logs
+# Logs
+# Logs can contain sensitive information and are machine-specific.
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -17,44 +20,33 @@ pnpm-debug.log*
 logs/
 *.log
 
-# misc
+# Next.js Build Artifacts
+# These are generated during the build process.
+/.next/
+/out/
+
+# Build Output
+/build
+tsconfig.tsbuildinfo
+
+# Prisma Client
+# The Prisma client is generated automatically.
+prisma/src/
+
+# TurboRepo Cache
+.turbo
+
+# Database Backups
+# Do not commit database backups to the repository.
+backups/*.sql
+!backups/.gitkeep
+
+# OS-specific & IDE files
 .DS_Store
 *.pem
 Thumbs.db
 desktop.ini
-
-# vercel
 .vercel
-
-# next.js
-/.next/
-/out/
-
-# build
-/build
-tsconfig.tsbuildinfo
-
-# turbo
-.turbo
-
-# Local scripts and environment files
-.env*
-
-# === NEW SAFETY ADDITIONS ===
-
-# Cache files
-.next/cache/
-*.pack.gz
-*.pack
-
-# Prisma generated files
-prisma/src/
-
-# Backup files (don't commit database backups)
-backups/*.sql
-!backups/.gitkeep
-
-# IDE
 .vscode/settings.json
 .idea/
 

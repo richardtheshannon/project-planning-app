@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql" // Changed from "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -51,12 +51,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -117,7 +117,7 @@ model Contact {
   phone     String?
   company   String?
   role      String?
-  notes     String?  @db.Text
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -129,8 +129,8 @@ model Contact {
 model Project {
   id           String         @id @default(cuid())
   name         String
-  description  String?        @db.Text
-  projectGoal  String?        @db.Text
+  description  String?
+  projectGoal  String?
   projectValue Float?
   website      String?
   status       ProjectStatus  @default(PLANNING)
@@ -229,7 +229,7 @@ model Category {
 model Task {
   id             String     @id @default(cuid())
   title          String
-  description    String?    @db.Text
+  description    String?
   status         TaskStatus @default(TODO)
   priority       Priority   @default(MEDIUM)
   startDate      DateTime?
@@ -266,7 +266,7 @@ enum TaskStatus {
 
 model Comment {
   id        String   @id @default(cuid())
-  content   String   @db.Text
+  content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -316,7 +316,7 @@ model File {
 model Notification {
   id        String           @id @default(cuid())
   title     String
-  message   String           @db.Text
+  message   String
   type      NotificationType @default(INFO)
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
@@ -343,7 +343,7 @@ enum NotificationType {
 model TimelineEvent {
   id          String   @id @default(cuid())
   title       String
-  description String?  @db.Text
+  description String?
   eventDate   DateTime?
   isCompleted Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -358,7 +358,7 @@ model TimelineEvent {
 model FeatureRequest {
   id          Int      @id @default(autoincrement())
   title       String
-  description String   @db.Text
+  description String
   status      String   @default("Pending")
   priority    String   @default("Medium")
   submittedBy String
@@ -381,7 +381,7 @@ model Client {
   name              String
   email             String?
   website           String?
-  notes             String?      @db.Text
+  notes             String?
   contractTerm      ContractTerm @default(ONE_TIME)
   contractAmount    Float?
   contractStartDate DateTime?
@@ -491,7 +491,7 @@ model FinancialDocument {
 model AppearanceSettings {
   id                 String   @id @default("global_settings")
   businessName       String?
-  missionStatement   String?  @db.Text
+  missionStatement   String?
   lightModeLogoUrl   String?
   lightModeIconUrl   String?
   darkModeLogoUrl    String?
