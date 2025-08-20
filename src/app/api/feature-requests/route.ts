@@ -1,60 +1,67 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // Corrected import
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// GET all feature requests
 export async function GET() {
   try {
-    const requests = await prisma.featureRequest.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const featureRequests = await prisma.featureRequest.findMany({
+      orderBy: { createdAt: 'desc' },
     });
-    return NextResponse.json(requests);
+
+    return NextResponse.json(featureRequests);
   } catch (error) {
     console.error('Error fetching feature requests:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch feature requests' },
+      { status: 500 }
+    );
   }
 }
 
-// POST a new feature request
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !session.user || !session.user.name) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
-
+export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
-    // FIX: Added dueDate to destructuring
-    const { title, description, priority, dueDate } = body;
+    console.log('Received feature request data:', body);
 
-    if (!title || !description || !priority) {
-      return new NextResponse('Missing required fields', { status: 400 });
+    // Validate required fields
+    if (!body.title) {
+      return NextResponse.json(
+        { error: 'Title is required' },
+        { status: 400 }
+      );
     }
 
-    // FIX: Handle dueDate - just save as-is from the date input
-    let dueDateValue = null;
-    if (dueDate) {
-      // The date input gives us YYYY-MM-DD, save it as midnight local
-      dueDateValue = new Date(dueDate);
-    }
-
-    const newRequest = await prisma.featureRequest.create({
+    // Create the feature request - DO NOT include 'id' field
+    const featureRequest = await prisma.featureRequest.create({
       data: {
-        title,
-        description,
-        priority,
-        submittedBy: session.user.name,
-        dueDate: dueDateValue, // FIX: Added dueDate to creation
+        title: body.title,
+        description: body.description || '',
+        status: body.status || 'Pending',
+        priority: body.priority || 'Medium',
+        submittedBy: body.submittedBy || session.user?.name || session.user?.email || 'Unknown',
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
       },
     });
 
-    return NextResponse.json(newRequest, { status: 201 });
+    console.log('Created feature request:', featureRequest);
+
+    return NextResponse.json(featureRequest, { status: 201 });
   } catch (error) {
     console.error('Error creating feature request:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 }

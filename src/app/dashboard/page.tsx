@@ -10,6 +10,7 @@ import MonthlyTimeline from "./MonthlyTimeline";
 import { FolderKanban, CheckCircle2, DollarSign, PlusCircle } from 'lucide-react';
 import FinancialOverviewChart, { ChartDataPoint } from "./components/FinancialOverviewChart";
 import ContactForm from "./components/ContactForm";
+import QuickActionsCard from "./components/QuickActionsCard";
 
 // --- TYPE DEFINITIONS ---
 export type MonthlyActivity = {
@@ -46,24 +47,76 @@ async function getActivityForPeriod(startDate: Date, endDate: Date): Promise<Mon
 function processFinancialDataForThreeMonths(invoices: Invoice[], expenses: Expense[], subscriptions: Subscription[], forecastValue: number): ChartDataPoint[] {
   const now = new Date();
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  
+  // Initialize data for 3 months (last month, current month, next month)
   const monthlyData: ChartDataPoint[] = Array.from({ length: 3 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 1 + i);
-    return { month: monthNames[d.getMonth()], revenue: 0, expenses: 0, netIncome: 0, forecast: 0 };
+    const d = new Date(now.getFullYear(), now.getMonth() - 1 + i, 1);
+    return { 
+      month: monthNames[d.getMonth()], 
+      revenue: 0, 
+      expenses: 0, 
+      netIncome: 0, 
+      forecast: 0 
+    };
   });
 
+  // Add revenue from paid invoices
   invoices.forEach(invoice => {
-    const monthIndex = (new Date(invoice.updatedAt).getMonth() - (now.getMonth() - 1) + 12) % 12;
-    if (monthIndex >= 0 && monthIndex < 3) monthlyData[monthIndex].revenue += invoice.amount;
+    const invoiceDate = new Date(invoice.updatedAt);
+    const monthDiff = (invoiceDate.getFullYear() - now.getFullYear()) * 12 + invoiceDate.getMonth() - now.getMonth();
+    const monthIndex = monthDiff + 1; // +1 because we start from last month
+    
+    if (monthIndex >= 0 && monthIndex < 3) {
+      monthlyData[monthIndex].revenue += invoice.amount;
+    }
   });
 
+  // Add one-time expenses
   expenses.forEach(expense => {
-    const monthIndex = (new Date(expense.date).getMonth() - (now.getMonth() - 1) + 12) % 12;
-    if (monthIndex >= 0 && monthIndex < 3) monthlyData[monthIndex].expenses += expense.amount;
+    const expenseDate = new Date(expense.date);
+    const monthDiff = (expenseDate.getFullYear() - now.getFullYear()) * 12 + expenseDate.getMonth() - now.getMonth();
+    const monthIndex = monthDiff + 1; // +1 because we start from last month
+    
+    if (monthIndex >= 0 && monthIndex < 3) {
+      monthlyData[monthIndex].expenses += expense.amount;
+    }
   });
   
-  monthlyData.forEach(md => md.netIncome = md.revenue - md.expenses);
+  // Add subscription costs to each month
+  subscriptions.forEach(subscription => {
+    // Calculate monthly cost based on billing cycle
+    let monthlyCost = 0;
+    if (subscription.billingCycle === 'MONTHLY') {
+      monthlyCost = subscription.amount;
+    } else if (subscription.billingCycle === 'ANNUALLY') {
+      monthlyCost = subscription.amount / 12; // Distribute annual cost over 12 months
+    } else if (subscription.billingCycle === 'QUARTERLY') {
+      monthlyCost = subscription.amount / 3; // Distribute quarterly cost over 3 months
+    }
+    
+    // Add subscription cost to each month in our 3-month window
+    // Only add if subscription was created before the end of each month
+    const subCreatedDate = new Date(subscription.createdAt);
+    
+    for (let i = 0; i < 3; i++) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - 1 + i, 1);
+      const monthEndDate = new Date(now.getFullYear(), now.getMonth() - 1 + i + 1, 0);
+      
+      // If subscription was created before the end of this month, include it
+      if (subCreatedDate <= monthEndDate) {
+        monthlyData[i].expenses += monthlyCost;
+      }
+    }
+  });
+  
+  // Calculate net income for each month
+  monthlyData.forEach(md => {
+    md.netIncome = md.revenue - md.expenses;
+  });
+  
+  // Add forecast to the last month (future month)
   monthlyData[2].forecast = forecastValue;
-  monthlyData[2].revenue = forecastValue; 
+  monthlyData[2].revenue = Math.max(monthlyData[2].revenue, forecastValue); 
 
   return monthlyData;
 }
@@ -75,7 +128,7 @@ export default async function Dashboard() {
     redirect('/api/auth/signin');
   }
   const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
 
   // --- MODIFICATION START ---
   // The 'userId' and 'ownerId' filters have been removed from all queries below
@@ -84,9 +137,25 @@ export default async function Dashboard() {
     paidInvoices, oneTimeExpenses, subscriptions, projectForecast, projectCount, activeTaskCount,
     completedThisWeekCount, recentProjects, recentTasks, lastMonthActivity, thisMonthActivity, nextMonthActivity
   ] = await Promise.all([
-    prisma.invoice.findMany({ where: { status: 'PAID', updatedAt: { gte: lastMonth } }, select: { amount: true, updatedAt: true, status: true } }),
-    prisma.expense.findMany({ where: { date: { gte: lastMonth } }, select: { amount: true, date: true } }),
-    prisma.subscription.findMany({ select: { amount: true, billingCycle: true, createdAt: true } }),
+    // Fetch invoices from the last 3 months
+    prisma.invoice.findMany({ 
+      where: { 
+        status: 'PAID', 
+        updatedAt: { gte: threeMonthsAgo } 
+      }, 
+      select: { amount: true, updatedAt: true, status: true } 
+    }),
+    // Fetch expenses from the last 3 months
+    prisma.expense.findMany({ 
+      where: { 
+        date: { gte: threeMonthsAgo } 
+      }, 
+      select: { amount: true, date: true } 
+    }),
+    // Fetch all active subscriptions
+    prisma.subscription.findMany({ 
+      select: { amount: true, billingCycle: true, createdAt: true } 
+    }),
     prisma.project.aggregate({ _sum: { projectValue: true } }),
     prisma.project.count(),
     prisma.task.count({ where: { status: { not: 'COMPLETED' } } }),
@@ -101,20 +170,37 @@ export default async function Dashboard() {
 
   const forecastValue = projectForecast._sum.projectValue ?? 0;
   const financialChartData = processFinancialDataForThreeMonths(paidInvoices, oneTimeExpenses, subscriptions, forecastValue);
+  
+  // Log the data for debugging
+  console.log('Financial Chart Data:', financialChartData);
+  console.log('Expenses found:', oneTimeExpenses.length);
+  console.log('Subscriptions found:', subscriptions.length);
+  
   const recentActivity = [
     ...recentProjects.map(p => ({ ...p, type: 'Project', title: p.name, date: p.createdAt })),
     ...recentTasks.map(t => ({ ...t, type: 'Task', title: t.title, date: t.createdAt })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4 md:p-6">
-      <div className="lg:col-span-2 space-y-8">
+    <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8 p-4 md:p-6">
+      {/* Main Content Area */}
+      <div className="lg:col-span-2 flex flex-col space-y-8">
+        {/* Title Section */}
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-2 mb-8">Welcome back! Here's what's happening across the application.</p>
         </div>
+        
+        {/* Financial Overview Chart */}
         <FinancialOverviewChart data={financialChartData} />
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        
+        {/* Quick Actions Card - Shows on mobile only, hidden on lg screens */}
+        <div className="lg:hidden">
+          <QuickActionsCard />
+        </div>
+        
+        {/* Metric Cards */}
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Forecast</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
             <CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(forecastValue)}</div><p className="text-xs text-muted-foreground">Total value of all projects.</p></CardContent>
@@ -133,22 +219,22 @@ export default async function Dashboard() {
             <CardContent><div className="text-2xl font-bold">{completedThisWeekCount}</div><p className="text-xs text-muted-foreground">Completed in the last 7 days.</p></CardContent>
           </Card>
         </div>
+        
+        {/* Monthly Timeline */}
         <MonthlyTimeline {...{ lastMonthActivity, thisMonthActivity, nextMonthActivity }} />
+        
+        {/* Contact Form */}
         <ContactForm />
       </div>
-      <div className="lg:col-span-1 space-y-8 lg:sticky lg:top-6 lg:self-start">
-        <Card>
-          <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
-          <CardContent>
-            <div className="flex flex-col space-y-4">
-              <Link href="/dashboard/projects/new">
-                <Button className="w-full"><PlusCircle className="mr-2 h-4 w-4" />Create New Project</Button>
-              </Link>
-              <Button asChild variant="outline" className="w-full"><Link href="/dashboard/tasks/create">Add Task</Link></Button>
-              <Button asChild variant="ghost" className="w-full"><Link href="/dashboard/projects">View All Projects</Link></Button>
-            </div>
-          </CardContent>
-        </Card>
+      
+      {/* Sidebar - Hidden on mobile, shown on lg screens */}
+      <div className="lg:col-span-1 flex flex-col space-y-8 lg:sticky lg:top-6 lg:self-start">
+        {/* Quick Actions Card - Hidden on mobile, shows on lg screens */}
+        <div className="hidden lg:block">
+          <QuickActionsCard />
+        </div>
+        
+        {/* Recent Activity Card */}
         <Card>
           <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
           <CardContent>
