@@ -4,14 +4,11 @@ import { prisma } from "@/lib/prisma";
 import DailyItemsCard, { OperationalItem } from "./components/DailyItemsCard";
 import InteractiveCalendar from "./components/InteractiveCalendar"; // Import the new calendar component
 import { ContractTerm } from "@prisma/client";
-import { addMonths, isWithinInterval, startOfMonth, endOfMonth } from "date-fns";
+import { addMonths, isWithinInterval, startOfMonth, endOfMonth, startOfDay, endOfDay, format } from "date-fns";
 
 const getDayBounds = (date: Date) => {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
-  const start = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+  const start = startOfDay(date);
+  const end = endOfDay(date);
   return { start, end };
 };
 
@@ -42,7 +39,8 @@ async function getOperationalData() {
     tasks,
     timelineEvents,
     invoices,
-    recurringClients
+    recurringClients,
+    featureRequests // Added feature requests to the fetch
   ] = await Promise.all([
     prisma.project.findMany({
       where: { endDate: { gte: monthStart, lte: monthEnd } },
@@ -63,6 +61,27 @@ async function getOperationalData() {
     prisma.client.findMany({
         where: { contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' },
         select: { id: true, name: true, contractStartDate: true, contractTerm: true }
+    }),
+    // New: Fetch feature requests with due dates in the current month
+    prisma.featureRequest.findMany({
+      where: { 
+        dueDate: { 
+          not: null,
+          gte: monthStart, 
+          lte: monthEnd 
+        },
+        status: { 
+          notIn: ['Done', 'Canceled'] // Only show active feature requests
+        }
+      },
+      select: { 
+        id: true, 
+        title: true, 
+        dueDate: true, 
+        status: true, 
+        priority: true,
+        submittedBy: true 
+      }
     })
   ]);
 
@@ -91,11 +110,35 @@ async function getOperationalData() {
     ...projects.filter(p => p.endDate).map(p => ({ id: p.id, title: p.name, type: 'Project' as const, dueDate: p.endDate!, link: `/dashboard/projects/${p.id}` })),
     ...tasks.filter(t => t.dueDate).map(t => ({ id: t.id, title: t.title, type: 'Task' as const, dueDate: t.dueDate!, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
     ...timelineEvents.filter(te => te.eventDate).map(te => ({ id: te.id, title: te.title, type: 'Timeline Event' as const, dueDate: te.eventDate!, link: `/dashboard/projects/${te.projectId}`, projectName: te.project.name })),
-    ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials`, clientName: i.client.name }))
+    ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials`, clientName: i.client.name })),
+    // FIX: Handle feature request dates the same as other dates
+    ...featureRequests
+      .filter(fr => fr.dueDate !== null)
+      .map(fr => ({
+        id: `feature-${fr.id}`, 
+        title: fr.title, 
+        type: 'Feature Request' as const, 
+        dueDate: new Date(fr.dueDate!),
+        link: `/dashboard/settings/feature-requests`,
+        priority: fr.priority,
+        status: fr.status,
+        submittedBy: fr.submittedBy
+      }))
   );
 
-  const todayItems = allItems.filter(item => isWithinInterval(item.dueDate, { start: todayBounds.start, end: todayBounds.end }));
-  const tomorrowItems = allItems.filter(item => isWithinInterval(item.dueDate, { start: tomorrowBounds.start, end: tomorrowBounds.end }));
+  // FIX: Use UTC date string comparison to avoid timezone issues
+  const todayDateStr = today.toLocaleDateString('en-US', { timeZone: 'UTC' });
+  const tomorrowDateStr = tomorrow.toLocaleDateString('en-US', { timeZone: 'UTC' });
+
+  const todayItems = allItems.filter(item => {
+    const itemDateStr = new Date(item.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' });
+    return itemDateStr === todayDateStr;
+  });
+
+  const tomorrowItems = allItems.filter(item => {
+    const itemDateStr = new Date(item.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' });
+    return itemDateStr === tomorrowDateStr;
+  });
   
   const sortFn = (a: OperationalItem, b: OperationalItem) => a.dueDate.getTime() - b.dueDate.getTime();
   todayItems.sort(sortFn);

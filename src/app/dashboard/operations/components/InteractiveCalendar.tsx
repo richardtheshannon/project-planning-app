@@ -33,10 +33,19 @@ const getTypeColor = (type: OperationalItem['type']): string => {
     case 'Project': return 'bg-blue-500';
     case 'Task': return 'bg-green-500';
     case 'Timeline Event': return 'bg-purple-500';
-    case 'Invoice': return 'bg-yellow-500 text-black';
-    case 'Client Contract': return 'bg-pink-500';
+    case 'Invoice': return 'bg-orange-500';
+    case 'Subscription': return 'bg-pink-500';
+    case 'Client Contract': return 'bg-teal-500';
+    case 'Feature Request': return 'bg-yellow-500'; // Added Feature Request color
     default: return 'bg-gray-500';
   }
+};
+
+// FIX: Helper function to compare dates using UTC date strings
+const isSameDayUTC = (date1: Date, date2: Date): boolean => {
+  const d1 = new Date(date1).toLocaleDateString('en-US', { timeZone: 'UTC' });
+  const d2 = new Date(date2).toLocaleDateString('en-US', { timeZone: 'UTC' });
+  return d1 === d2;
 };
 
 export default function InteractiveCalendar({ allItems }: { allItems: OperationalItem[] }) {
@@ -93,7 +102,8 @@ export default function InteractiveCalendar({ allItems }: { allItems: Operationa
           <div key={day} className="text-center font-semibold text-sm text-muted-foreground p-2">{day}</div>
         ))}
         {calendarDays.map((day) => {
-          const itemsForDay = allItems.filter(item => isSameDay(item.dueDate, day));
+          // FIX: Use UTC comparison for filtering items
+          const itemsForDay = allItems.filter(item => isSameDayUTC(item.dueDate, day));
           const isCurrentMonth = isSameMonth(day, currentDate);
           const isCurrentDay = isToday(day);
 

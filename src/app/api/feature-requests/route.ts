@@ -28,10 +28,18 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { title, description, priority } = body;
+    // FIX: Added dueDate to destructuring
+    const { title, description, priority, dueDate } = body;
 
     if (!title || !description || !priority) {
       return new NextResponse('Missing required fields', { status: 400 });
+    }
+
+    // FIX: Handle dueDate - just save as-is from the date input
+    let dueDateValue = null;
+    if (dueDate) {
+      // The date input gives us YYYY-MM-DD, save it as midnight local
+      dueDateValue = new Date(dueDate);
     }
 
     const newRequest = await prisma.featureRequest.create({
@@ -40,6 +48,7 @@ export async function POST(request: Request) {
         description,
         priority,
         submittedBy: session.user.name,
+        dueDate: dueDateValue, // FIX: Added dueDate to creation
       },
     });
 
@@ -49,4 +58,3 @@ export async function POST(request: Request) {
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
-//

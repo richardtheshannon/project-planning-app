@@ -311,8 +311,8 @@ export default function FeatureRequests() {
                                         <TableCell>{request.status}</TableCell>
                                         <TableCell>{request.priority}</TableCell>
                                         <TableCell className="hidden md:table-cell">{request.submittedBy}</TableCell>
-                                        {/* UPDATE: Display the formatted due date, or 'N/A' if not set */}
-                                        <TableCell>{request.dueDate ? new Date(request.dueDate).toLocaleDateString() : 'N/A'}</TableCell>
+                                        {/* FIX: Display the formatted due date with UTC timezone */}
+                                        <TableCell>{request.dueDate ? new Date(request.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -323,43 +323,49 @@ export default function FeatureRequests() {
 
             <Dialog open={!!selectedRequest} onOpenChange={handleCloseDetails}>
                 {selectedRequest && !isEditing && (
-                    <DialogContent className="w-[90vw] max-w-md">
-                        <DialogHeader>
+                    <DialogContent className="w-[90vw] max-w-2xl max-h-[85vh] flex flex-col">
+                        <DialogHeader className="flex-shrink-0">
                             <DialogTitle>{selectedRequest.title}</DialogTitle>
                             <DialogDescription>
                                 Details of the submitted feature request.
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="flex flex-col space-y-1">
-                                <span className="text-sm font-semibold">Description:</span>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 break-words">{selectedRequest.description}</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold">Status:</span>
-                                    <span className="text-sm">{selectedRequest.status}</span>
+                        <div className="flex-1 overflow-y-auto px-1">
+                            <div className="grid gap-4 py-4">
+                                <div className="flex flex-col space-y-1">
+                                    <span className="text-sm font-semibold">Description:</span>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 break-words whitespace-pre-wrap">
+                                        {selectedRequest.description}
+                                    </p>
                                 </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold">Priority:</span>
-                                    <span className="text-sm">{selectedRequest.priority}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold">Submitted By:</span>
-                                    <span className="text-sm">{selectedRequest.submittedBy}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold">Submitted On:</span>
-                                    <span className="text-sm">{new Date(selectedRequest.createdAt).toLocaleDateString()}</span>
-                                </div>
-                                {/* UPDATE: Display Due Date in the details view */}
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold">Due Date:</span>
-                                    <span className="text-sm">{selectedRequest.dueDate ? new Date(selectedRequest.dueDate).toLocaleDateString() : 'Not set'}</span>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold">Status:</span>
+                                        <span className="text-sm">{selectedRequest.status}</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold">Priority:</span>
+                                        <span className="text-sm">{selectedRequest.priority}</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold">Submitted By:</span>
+                                        <span className="text-sm">{selectedRequest.submittedBy}</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold">Submitted On:</span>
+                                        {/* FIX: Display date with UTC timezone */}
+                                        <span className="text-sm">{new Date(selectedRequest.createdAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}</span>
+                                    </div>
+                                    {/* UPDATE: Display Due Date in the details view */}
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold">Due Date:</span>
+                                        {/* FIX: Display date with UTC timezone */}
+                                        <span className="text-sm">{selectedRequest.dueDate ? new Date(selectedRequest.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'Not set'}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <DialogFooter className="flex flex-col sm:flex-row sm:justify-between mt-4 gap-2">
+                        <DialogFooter className="flex-shrink-0 flex flex-col sm:flex-row sm:justify-between mt-4 gap-2">
                             <Button variant="destructive" onClick={handleDelete}>
                                 Delete
                             </Button>
@@ -376,72 +382,75 @@ export default function FeatureRequests() {
                 )}
 
                 {selectedRequest && isEditing && (
-                    <DialogContent className="w-[90vw] max-w-md">
-                        <DialogHeader>
+                    <DialogContent className="w-[90vw] max-w-2xl max-h-[85vh] flex flex-col">
+                        <DialogHeader className="flex-shrink-0">
                             <DialogTitle>Edit Request</DialogTitle>
                             <DialogDescription>
                                 Update the details of the feature request.
                             </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleUpdate} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-title">Title</Label>
-                                <Input
-                                    id="edit-title"
-                                    value={editTitle}
-                                    onChange={(e) => setEditTitle(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-description">Description</Label>
-                                <Textarea
-                                    id="edit-description"
-                                    value={editDescription}
-                                    onChange={(e) => setEditDescription(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <form onSubmit={handleUpdate} className="flex flex-col flex-1 overflow-hidden">
+                            <div className="flex-1 overflow-y-auto px-1 space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="edit-priority">Priority</Label>
-                                    <Select onValueChange={(value: "Low" | "Medium" | "High") => setEditPriority(value)} value={editPriority}>
-                                        <SelectTrigger id="edit-priority" className="w-full">
-                                            <SelectValue placeholder="Priority" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Low">Low</SelectItem>
-                                            <SelectItem value="Medium">Medium</SelectItem>
-                                            <SelectItem value="High">High</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <Label htmlFor="edit-title">Title</Label>
+                                    <Input
+                                        id="edit-title"
+                                        value={editTitle}
+                                        onChange={(e) => setEditTitle(e.target.value)}
+                                        required
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="edit-status">Status</Label>
-                                    <Select onValueChange={(value: "Pending" | "In Progress" | "Done" | "Canceled") => setEditStatus(value)} value={editStatus}>
-                                        <SelectTrigger id="edit-status" className="w-full">
-                                            <SelectValue placeholder="Status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Pending">Pending</SelectItem>
-                                            <SelectItem value="In Progress">In Progress</SelectItem>
-                                            <SelectItem value="Done">Done</SelectItem>
-                                            <SelectItem value="Canceled">Canceled</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <Label htmlFor="edit-description">Description</Label>
+                                    <Textarea
+                                        id="edit-description"
+                                        value={editDescription}
+                                        onChange={(e) => setEditDescription(e.target.value)}
+                                        className="min-h-[200px]"
+                                        required
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-priority">Priority</Label>
+                                        <Select onValueChange={(value: "Low" | "Medium" | "High") => setEditPriority(value)} value={editPriority}>
+                                            <SelectTrigger id="edit-priority" className="w-full">
+                                                <SelectValue placeholder="Priority" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Low">Low</SelectItem>
+                                                <SelectItem value="Medium">Medium</SelectItem>
+                                                <SelectItem value="High">High</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-status">Status</Label>
+                                        <Select onValueChange={(value: "Pending" | "In Progress" | "Done" | "Canceled") => setEditStatus(value)} value={editStatus}>
+                                            <SelectTrigger id="edit-status" className="w-full">
+                                                <SelectValue placeholder="Status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Pending">Pending</SelectItem>
+                                                <SelectItem value="In Progress">In Progress</SelectItem>
+                                                <SelectItem value="Done">Done</SelectItem>
+                                                <SelectItem value="Canceled">Canceled</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                {/* UPDATE: Added Due Date input to the edit form */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-due-date">Due Date</Label>
+                                    <Input
+                                        id="edit-due-date"
+                                        type="date"
+                                        value={editDueDate}
+                                        onChange={(e) => setEditDueDate(e.target.value)}
+                                    />
                                 </div>
                             </div>
-                            {/* UPDATE: Added Due Date input to the edit form */}
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-due-date">Due Date</Label>
-                                <Input
-                                    id="edit-due-date"
-                                    type="date"
-                                    value={editDueDate}
-                                    onChange={(e) => setEditDueDate(e.target.value)}
-                                />
-                            </div>
-                            <DialogFooter>
+                            <DialogFooter className="flex-shrink-0 mt-4">
                                 <Button type="button" variant="secondary" onClick={() => setIsEditing(false)}>
                                     Cancel
                                 </Button>

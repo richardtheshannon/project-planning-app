@@ -44,11 +44,19 @@ export async function PUT(
         }
 
         const body = await request.json();
-        const { title, description, status, priority } = body;
+        // UPDATE: Extract dueDate from the request body
+        const { title, description, status, priority, dueDate } = body;
 
         // You may want to add more robust validation here
         if (!title || !description || !status || !priority) {
             return new NextResponse('Missing required fields', { status: 400 });
+        }
+
+        // FIX: Handle dueDate - just save as-is from the date input
+        let dueDateValue = null;
+        if (dueDate) {
+            // The date input gives us YYYY-MM-DD, save it as midnight local
+            dueDateValue = new Date(dueDate);
         }
 
         // We can add a check here to ensure the user updating the request is the original submitter or an admin
@@ -62,6 +70,7 @@ export async function PUT(
                 description,
                 status,
                 priority,
+                dueDate: dueDateValue, // UPDATE: Include dueDate in the update
             },
         });
 
