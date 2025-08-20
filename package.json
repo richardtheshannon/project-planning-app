@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "db:push": "prisma db push --accept-data-loss",
@@ -17,7 +17,7 @@
     "db:migrate:data": "node ./scripts/migrate-data.js",
     "db:baseline": "prisma migrate resolve --applied 20250817153122_feat_dual_theming",
     "db:fix": "prisma migrate resolve --rolled-forward 20250801023706_init_tasks_and_contacts",
-    "start:prod": "npm run db:deploy && npm run start",
+    "start:prod": "npm run start",
     "postinstall": "prisma generate",
     "prepare": "husky || true",
     "db:status": "prisma migrate status",
