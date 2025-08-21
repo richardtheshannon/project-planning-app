@@ -22,17 +22,34 @@ const getMonthsFromTerm = (term: ContractTerm): number => {
     }
 };
 
-async function getOperationalData() {
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
+// FIX: Use the EXACT same helper function as InteractiveCalendar.tsx
+const isSameDayUTC = (date1: Date, date2: Date): boolean => {
+  const d1 = new Date(date1).toLocaleDateString('en-US', { timeZone: 'UTC' });
+  const d2 = new Date(date2).toLocaleDateString('en-US', { timeZone: 'UTC' });
+  return d1 === d2;
+};
 
-  const todayBounds = getDayBounds(today);
-  const tomorrowBounds = getDayBounds(tomorrow);
+async function getOperationalData() {
+  // FIX: Create dates that represent the LOCAL calendar date at midnight UTC
+  // This matches how the dates are stored in the database
+  const now = new Date();
+  
+  // Get the local date components
+  const localYear = now.getFullYear();
+  const localMonth = now.getMonth();
+  const localDay = now.getDate();
+  
+  // Create dates at midnight UTC for the LOCAL calendar date
+  // This ensures we're comparing the right calendar dates regardless of timezone
+  const today = new Date(Date.UTC(localYear, localMonth, localDay, 0, 0, 0));
+  const tomorrow = new Date(Date.UTC(localYear, localMonth, localDay + 1, 0, 0, 0));
+
+  const todayBounds = getDayBounds(now);
+  const tomorrowBounds = getDayBounds(new Date(now.getTime() + 24 * 60 * 60 * 1000));
 
   // --- MODIFICATION: Fetch data for the entire current month for the calendar ---
-  const monthStart = startOfMonth(today);
-  const monthEnd = endOfMonth(today);
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
   
   const [
     projects,
@@ -126,19 +143,9 @@ async function getOperationalData() {
       }))
   );
 
-  // FIX: Use UTC date string comparison to avoid timezone issues
-  const todayDateStr = today.toLocaleDateString('en-US', { timeZone: 'UTC' });
-  const tomorrowDateStr = tomorrow.toLocaleDateString('en-US', { timeZone: 'UTC' });
-
-  const todayItems = allItems.filter(item => {
-    const itemDateStr = new Date(item.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' });
-    return itemDateStr === todayDateStr;
-  });
-
-  const tomorrowItems = allItems.filter(item => {
-    const itemDateStr = new Date(item.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' });
-    return itemDateStr === tomorrowDateStr;
-  });
+  // FIX: Use the same isSameDayUTC function as the calendar for filtering
+  const todayItems = allItems.filter(item => isSameDayUTC(item.dueDate, today));
+  const tomorrowItems = allItems.filter(item => isSameDayUTC(item.dueDate, tomorrow));
   
   const sortFn = (a: OperationalItem, b: OperationalItem) => a.dueDate.getTime() - b.dueDate.getTime();
   todayItems.sort(sortFn);
