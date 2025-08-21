@@ -37,6 +37,23 @@ const getMonthsFromTerm = (term: ContractTerm): number => {
     }
 };
 
+// --- URL Helper Function ---
+const getBaseUrl = (): string => {
+  let url = process.env.NEXTAUTH_URL || '';
+  
+  // If URL exists but doesn't start with http, add https://
+  if (url && !url.startsWith('http')) {
+    url = `https://${url}`;
+  }
+  
+  // Fallback to default if no URL is set
+  if (!url) {
+    url = 'https://app.salesfield.net';
+  }
+  
+  return url;
+};
+
 // --- Data Fetching Logic ---
 async function getTodaysOperationalData(userId: string) {
   const todayBounds = getDayBounds(new Date());
@@ -128,7 +145,7 @@ function createManifestEmailHtml(userName: string, items: OperationalItem[], app
           </a>
         </p>
         <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
-          This is a manually requested email from your settings page.
+          This is an automated daily manifest email.
         </p>
       </div>
     </div>
@@ -145,7 +162,7 @@ export async function GET(request: Request) {
 
   try {
     const usersToSend = await prisma.user.findMany({
-      where: { sendDailyManifest: true, email: { not: null } },
+      where: { sendDailyManifest: true, email: { not: null }, isActive: true },
       select: { id: true, email: true, name: true }
     });
 
@@ -154,32 +171,31 @@ export async function GET(request: Request) {
     }
 
     const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com', port: 465, secure: true,
+      host: 'smtp.gmail.com', 
+      port: 465, 
+      secure: true,
       auth: {
         user: process.env.EMAIL_SERVER_USER,
         pass: process.env.EMAIL_SERVER_PASSWORD,
       },
     });
 
-    const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const appUrl = getBaseUrl();
     let emailsSent = 0;
 
     for (const user of usersToSend) {
-      // This explicit check creates a new scope where TypeScript is 100% certain
-      // that user.email is a string, which resolves the type error.
       if (user.email) {
         const items = await getTodaysOperationalData(user.id);
         
-        if (items.length > 0) {
-          const emailHtml = createManifestEmailHtml(user.name || 'User', items, appUrl);
-          await transporter.sendMail({
-            from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
-            to: user.email, // Now safely typed as a string within this block
-            subject: `Your Daily Manifest for ${new Date().toLocaleDateString()}`,
-            html: emailHtml,
-          });
-          emailsSent++;
-        }
+        // Send email even if no items (to confirm the service is working)
+        const emailHtml = createManifestEmailHtml(user.name || 'User', items, appUrl);
+        await transporter.sendMail({
+          from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
+          to: user.email,
+          subject: `Your Daily Manifest for ${new Date().toLocaleDateString()}`,
+          html: emailHtml,
+        });
+        emailsSent++;
       }
     }
 
@@ -199,7 +215,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Extract email to a const variable for type safety
     const userEmail = session.user.email;
     const userId = session.user.id;
     const userName = session.user.name || 'User';
@@ -216,13 +231,13 @@ export async function POST(request: Request) {
       },
     });
 
-    const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const appUrl = getBaseUrl();
     const emailHtml = createManifestEmailHtml(userName, items, appUrl);
 
     await transporter.sendMail({
       from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
       to: userEmail,
-      subject: `Your Manually Requested Manifest for ${new Date().toLocaleDateString()}`,
+      subject: `Your Daily Manifest for ${new Date().toLocaleDateString()}`,
       html: emailHtml,
     });
 

@@ -41,6 +41,23 @@ const getMonthsFromTerm = (term: ContractTerm): number => {
     }
 };
 
+// --- URL Helper Function ---
+const getBaseUrl = (): string => {
+  let url = process.env.NEXTAUTH_URL || '';
+  
+  // If URL exists but doesn't start with http, add https://
+  if (url && !url.startsWith('http')) {
+    url = `https://${url}`;
+  }
+  
+  // Fallback to default if no URL is set
+  if (!url) {
+    url = 'https://app.salesfield.net';
+  }
+  
+  return url;
+};
+
 // --- DATA FETCHING LOGIC ---
 
 async function getTomorrowsOperationalData(userId: string): Promise<OperationalItem[]> {
@@ -75,8 +92,6 @@ async function getTomorrowsOperationalData(userId: string): Promise<OperationalI
         }
     });
 
-    // --- FIX APPLIED HERE ---
-    // Added .filter() to each mapping to ensure the date field is not null, satisfying the OperationalItem interface.
     const allItems: OperationalItem[] = [
         ...projects.filter(p => p.endDate).map(p => ({ id: p.id, title: p.name, type: 'Project' as const, dueDate: p.endDate!, link: `/dashboard/projects/${p.id}` })),
         ...tasks.filter(t => t.dueDate).map(t => ({ id: t.id, title: t.title, type: 'Task' as const, dueDate: t.dueDate!, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
@@ -96,12 +111,11 @@ function isSessionUser(user: any): user is SessionUser {
     return user && typeof user.id === 'string' && typeof user.email === 'string';
 }
 
-
 async function sendManifestEmail(user: SessionUser, items: OperationalItem[]) {
     const tomorrow = new Date();
     tomorrow.setDate(new Date().getDate() + 1);
     const tomorrowFormatted = format(tomorrow, 'EEEE, MMMM d, yyyy');
-    const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const appUrl = getBaseUrl();
 
     const renderItems = (itemList: OperationalItem[]) => {
         if (itemList.length === 0) return '<li>No items due tomorrow.</li>';
@@ -134,6 +148,9 @@ async function sendManifestEmail(user: SessionUser, items: OperationalItem[]) {
                 View Operations Dashboard
               </a>
             </p>
+            <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
+              This is an automated afternoon manifest email.
+            </p>
           </div>
         </div>
       `;
@@ -156,7 +173,6 @@ async function sendManifestEmail(user: SessionUser, items: OperationalItem[]) {
     });
 }
 
-
 // --- API ROUTE HANDLERS ---
 
 /**
@@ -174,16 +190,17 @@ export async function GET(request: Request) {
             where: { sendAfternoonManifest: true, isActive: true, email: { not: null } },
         });
 
+        let emailsSent = 0;
         for (const user of subscribedUsers) {
             if(isSessionUser(user)) {
                 const items = await getTomorrowsOperationalData(user.id);
-                if (items.length > 0) {
-                    await sendManifestEmail(user, items);
-                }
+                // Send email even if no items (to confirm the service is working)
+                await sendManifestEmail(user, items);
+                emailsSent++;
             }
         }
 
-        return NextResponse.json({ success: true, message: `Afternoon manifests processed for ${subscribedUsers.length} users.` });
+        return NextResponse.json({ success: true, message: `Afternoon manifests processed for ${emailsSent} users.` });
     } catch (error) {
         console.error("Error sending scheduled afternoon manifests:", error);
         return NextResponse.json({ error: "Failed to send manifests" }, { status: 500 });
