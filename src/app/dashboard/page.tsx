@@ -23,6 +23,18 @@ export type MonthlyActivity = {
   projectName?: string;
 };
 
+export type OverdueItem = {
+  id: string;
+  type: 'Project' | 'TimelineEvent' | 'Invoice' | 'FeatureRequest';
+  title: string;
+  date: Date;
+  status?: string;
+  projectId?: string;
+  projectName?: string;
+  clientName?: string;
+  amount?: number;
+};
+
 type Invoice = { amount: number; updatedAt: Date; status: string; };
 type Expense = { amount: number; date: Date; };
 type Subscription = { amount: number; billingCycle: string; createdAt: Date; };
@@ -30,6 +42,137 @@ type RecentProject = { id: string; name: string; createdAt: Date };
 type RecentTask = { id: string; title: string; createdAt: Date };
 
 // --- DATA FETCHING & PROCESSING FUNCTIONS ---
+// New function to fetch overdue items
+async function getOverdueItems(): Promise<OverdueItem[]> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+
+  const [overdueProjects, overdueTimelineEvents, overdueInvoices, overdueFeatureRequests] = await Promise.all([
+    // Projects with end date before today
+    prisma.project.findMany({
+      where: {
+        endDate: {
+          lt: today
+        },
+        status: {
+          notIn: ['COMPLETED', 'CANCELLED']
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        endDate: true
+      }
+    }),
+    
+    // Timeline events before today that are not completed
+    prisma.timelineEvent.findMany({
+      where: {
+        eventDate: {
+          lt: today
+        },
+        isCompleted: false
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    }),
+    
+    // Invoices with due date before today marked as DRAFT
+    prisma.invoice.findMany({
+      where: {
+        dueDate: {
+          lt: today
+        },
+        status: 'DRAFT'
+      },
+      include: {
+        client: {
+          select: {
+            name: true
+          }
+        }
+      }
+    }),
+    
+    // Feature requests with due date before today marked as Pending or In Progress
+    prisma.featureRequest.findMany({
+      where: {
+        dueDate: {
+          lt: today
+        },
+        status: {
+          in: ['Pending', 'In Progress']
+        }
+      }
+    })
+  ]);
+
+  const overdueItems: OverdueItem[] = [];
+
+  // Map projects
+  overdueProjects.forEach(project => {
+    if (project.endDate) {
+      overdueItems.push({
+        id: project.id,
+        type: 'Project',
+        title: project.name,
+        date: project.endDate,
+        projectId: project.id,
+        projectName: project.name
+      });
+    }
+  });
+
+  // Map timeline events
+  overdueTimelineEvents.forEach(event => {
+    if (event.eventDate) {
+      overdueItems.push({
+        id: event.id,
+        type: 'TimelineEvent',
+        title: event.title,
+        date: event.eventDate,
+        projectId: event.project.id,
+        projectName: event.project.name
+      });
+    }
+  });
+
+  // Map invoices
+  overdueInvoices.forEach(invoice => {
+    overdueItems.push({
+      id: invoice.id,
+      type: 'Invoice',
+      title: `Invoice ${invoice.invoiceNumber}`,
+      date: invoice.dueDate,
+      clientName: invoice.client.name || 'Unknown Client',
+      amount: invoice.amount,
+      status: invoice.status
+    });
+  });
+
+  // Map feature requests
+  overdueFeatureRequests.forEach(request => {
+    if (request.dueDate) {
+      overdueItems.push({
+        id: request.id.toString(),
+        type: 'FeatureRequest',
+        title: request.title,
+        date: request.dueDate,
+        status: request.status
+      });
+    }
+  });
+
+  // Sort by date (most overdue first)
+  return overdueItems.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
 // MODIFIED: Removed the 'userId' parameter to fetch data for all users.
 async function getActivityForPeriod(startDate: Date, endDate: Date): Promise<MonthlyActivity[]> {
   const [projects, timelineEvents] = await Promise.all([
@@ -146,7 +289,7 @@ export default async function Dashboard() {
   // to fetch data for the entire application.
   const [
     paidInvoices, oneTimeExpenses, subscriptions, projectForecast, projectCount, activeTaskCount,
-    completedThisWeekCount, recentProjects, recentTasks, lastMonthActivity, thisMonthActivity, nextMonthActivity
+    completedThisWeekCount, recentProjects, recentTasks, overdueItems, thisMonthActivity, nextMonthActivity
   ] = await Promise.all([
     // Fetch invoices from the last 3 months
     prisma.invoice.findMany({ 
@@ -173,7 +316,7 @@ export default async function Dashboard() {
     prisma.task.count({ where: { status: 'COMPLETED', updatedAt: { gte: new Date(new Date().setDate(new Date().getDate() - 7)) } } }),
     prisma.project.findMany({ orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, name: true, createdAt: true } }),
     prisma.task.findMany({ orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, title: true, createdAt: true } }),
-    getActivityForPeriod(new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 0)),
+    getOverdueItems(), // Changed from lastMonthActivity to overdueItems
     getActivityForPeriod(new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0)),
     getActivityForPeriod(new Date(now.getFullYear(), now.getMonth() + 1, 1), new Date(now.getFullYear(), now.getMonth() + 2, 0)),
   ]);
@@ -231,8 +374,8 @@ export default async function Dashboard() {
           </Card>
         </div>
         
-        {/* Monthly Timeline */}
-        <MonthlyTimeline {...{ lastMonthActivity, thisMonthActivity, nextMonthActivity }} />
+        {/* Monthly Timeline - Now with overdueItems instead of lastMonthActivity */}
+        <MonthlyTimeline overdueItems={overdueItems} thisMonthActivity={thisMonthActivity} nextMonthActivity={nextMonthActivity} />
         
         {/* Contact Form */}
         <ContactForm />
