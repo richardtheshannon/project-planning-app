@@ -83,8 +83,9 @@ export default function QuickActionsCard() {
       });
       setOpen(false);
       
-      // Refresh the page to show new data
-      router.refresh();
+      // Navigate to the new feature request detail page
+      router.push(`/dashboard/settings/feature-requests/${result.id}`);
+      
     } catch (error) {
       console.error('Error creating feature request:', error);
       toast({

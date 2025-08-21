@@ -82,12 +82,18 @@ export default function FeatureRequests() {
                 throw new Error('Failed to submit feature request');
             }
 
+            // Get the newly created feature request from the response
+            const newFeatureRequest = await response.json();
+
             setTitle('');
             setDescription('');
             setPriority("Medium");
             setDueDate('');
-            fetchRequests();
+            
             toast.success('Feature request submitted successfully!');
+            
+            // Navigate to the new feature request detail page
+            router.push(`/dashboard/settings/feature-requests/${newFeatureRequest.id}`);
 
         } catch (error) {
             console.error('Error submitting request:', error);
