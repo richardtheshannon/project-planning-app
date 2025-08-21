@@ -5,30 +5,31 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import nodemailer from 'nodemailer';
-import { ContractTerm, User } from "@prisma/client";
-import { addMonths, isWithinInterval, format } from "date-fns";
+import { ContractTerm } from "@prisma/client";
+import { addMonths, isWithinInterval, startOfMonth, endOfMonth, format } from "date-fns";
 
 // --- TYPES AND INTERFACES ---
 
 interface OperationalItem {
     id: string;
     title: string;
-    type: 'Project' | 'Task' | 'Timeline Event' | 'Invoice' | 'Client Contract';
+    type: 'Project' | 'Task' | 'Timeline Event' | 'Invoice' | 'Client Contract' | 'Feature Request';
     dueDate: Date;
     link: string;
     projectName?: string;
     clientName?: string;
+    priority?: string;
+    status?: string;
+    submittedBy?: string;
 }
 
 // --- HELPER FUNCTIONS ---
 
-const getDayBounds = (date: Date) => {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
-  const start = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-  return { start, end };
+// FIX: Use the EXACT same helper function as Operations page
+const isSameDayUTC = (date1: Date, date2: Date): boolean => {
+  const d1 = new Date(date1).toLocaleDateString('en-US', { timeZone: 'UTC' });
+  const d2 = new Date(date2).toLocaleDateString('en-US', { timeZone: 'UTC' });
+  return d1 === d2;
 };
 
 const getMonthsFromTerm = (term: ContractTerm): number => {
@@ -58,73 +59,179 @@ const getBaseUrl = (): string => {
   return url;
 };
 
-// --- DATA FETCHING LOGIC ---
+// --- DATA FETCHING LOGIC (Matches Operations Page Exactly) ---
 
-async function getTomorrowsOperationalData(userId: string): Promise<OperationalItem[]> {
-    const tomorrow = new Date();
-    tomorrow.setDate(new Date().getDate() + 1);
-    const tomorrowBounds = getDayBounds(tomorrow);
+async function getTomorrowsOperationalData(): Promise<OperationalItem[]> {
+    // FIX: Create dates that represent the LOCAL calendar date at midnight UTC
+    // This matches how the dates are stored in the database
+    const now = new Date();
+    
+    // Get the local date components
+    const localYear = now.getFullYear();
+    const localMonth = now.getMonth();
+    const localDay = now.getDate();
+    
+    // Create date at midnight UTC for tomorrow's LOCAL calendar date
+    const tomorrow = new Date(Date.UTC(localYear, localMonth, localDay + 1, 0, 0, 0));
 
+    // Fetch data for the entire current month (for recurring clients calculation)
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    // Fetch ALL data without owner filtering (collaborative model)
     const [
         projects,
         tasks,
         timelineEvents,
         invoices,
-        recurringClients
+        recurringClients,
+        featureRequests // Added feature requests
     ] = await Promise.all([
-        prisma.project.findMany({ where: { ownerId: userId, endDate: { gte: tomorrowBounds.start, lte: tomorrowBounds.end } }, select: { id: true, name: true, endDate: true } }),
-        prisma.task.findMany({ where: { project: { ownerId: userId }, dueDate: { gte: tomorrowBounds.start, lte: tomorrowBounds.end } }, select: { id: true, title: true, projectId: true, dueDate: true, project: { select: { name: true } } } }),
-        prisma.timelineEvent.findMany({ where: { project: { ownerId: userId }, eventDate: { gte: tomorrowBounds.start, lte: tomorrowBounds.end }, isCompleted: false }, select: { id: true, title: true, projectId: true, eventDate: true, project: { select: { name: true } } } }),
-        prisma.invoice.findMany({ where: { userId: userId, dueDate: { gte: tomorrowBounds.start, lte: tomorrowBounds.end } }, select: { id: true, invoiceNumber: true, dueDate: true, client: { select: { name: true } } } }),
-        prisma.client.findMany({ where: { userId, contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' }, select: { id: true, name: true, contractStartDate: true, contractTerm: true } })
+        prisma.project.findMany({
+            where: { endDate: { gte: monthStart, lte: monthEnd } },
+            select: { id: true, name: true, endDate: true }
+        }),
+        prisma.task.findMany({
+            where: { dueDate: { gte: monthStart, lte: monthEnd } },
+            select: { id: true, title: true, dueDate: true, projectId: true, project: { select: { name: true } } }
+        }),
+        prisma.timelineEvent.findMany({
+            where: { eventDate: { gte: monthStart, lte: monthEnd }, isCompleted: false },
+            select: { id: true, title: true, eventDate: true, projectId: true, project: { select: { name: true } } }
+        }),
+        prisma.invoice.findMany({
+            where: { dueDate: { gte: monthStart, lte: monthEnd } },
+            select: { id: true, invoiceNumber: true, dueDate: true, client: { select: { name: true } } }
+        }),
+        prisma.client.findMany({
+            where: { contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' },
+            select: { id: true, name: true, contractStartDate: true, contractTerm: true }
+        }),
+        // New: Fetch feature requests with due dates
+        prisma.featureRequest.findMany({
+            where: { 
+                dueDate: { 
+                    not: null,
+                    gte: monthStart, 
+                    lte: monthEnd 
+                },
+                status: { 
+                    notIn: ['Done', 'Canceled'] // Only show active feature requests
+                }
+            },
+            select: { 
+                id: true, 
+                title: true, 
+                dueDate: true, 
+                status: true, 
+                priority: true,
+                submittedBy: true 
+            }
+        })
     ]);
 
-    const clientContractItems: OperationalItem[] = [];
+    const allItems: OperationalItem[] = [];
+
+    // Process recurring clients
     recurringClients.forEach(client => {
         if (!client.contractStartDate) return;
         const startDate = new Date(client.contractStartDate);
         const termInMonths = getMonthsFromTerm(client.contractTerm);
-        for (let i = 0; i < termInMonths; i++) {
+        for (let i = 0; i < termInMonths * 4; i++) { // Extend recurring items for visibility
             const paymentDate = addMonths(startDate, i);
-            if (isWithinInterval(paymentDate, { start: tomorrowBounds.start, end: tomorrowBounds.end })) {
-                clientContractItems.push({ id: `${client.id}-month-${i}`, title: `Recurring Payment`, type: 'Client Contract' as const, dueDate: paymentDate, link: `/dashboard/financials`, clientName: client.name });
+            if (isWithinInterval(paymentDate, { start: monthStart, end: addMonths(monthEnd, 12) })) { // Look ahead 12 months
+                allItems.push({
+                    id: `${client.id}-month-${i}`,
+                    title: `Recurring Payment`,
+                    type: 'Client Contract' as const,
+                    dueDate: paymentDate,
+                    link: `/dashboard/financials`,
+                    clientName: client.name
+                });
             }
         }
     });
 
-    const allItems: OperationalItem[] = [
-        ...projects.filter(p => p.endDate).map(p => ({ id: p.id, title: p.name, type: 'Project' as const, dueDate: p.endDate!, link: `/dashboard/projects/${p.id}` })),
-        ...tasks.filter(t => t.dueDate).map(t => ({ id: t.id, title: t.title, type: 'Task' as const, dueDate: t.dueDate!, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
-        ...timelineEvents.filter(te => te.eventDate).map(te => ({ id: te.id, title: te.title, type: 'Timeline Event' as const, dueDate: te.eventDate!, link: `/dashboard/projects/${te.projectId}`, projectName: te.project.name })),
-        ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials`, clientName: i.client.name })),
-        ...clientContractItems
-    ];
+    // Add all items
+    allItems.push(
+        ...projects.filter(p => p.endDate).map(p => ({ 
+            id: p.id, 
+            title: p.name, 
+            type: 'Project' as const, 
+            dueDate: p.endDate!, 
+            link: `/dashboard/projects/${p.id}` 
+        })),
+        ...tasks.filter(t => t.dueDate).map(t => ({ 
+            id: t.id, 
+            title: t.title, 
+            type: 'Task' as const, 
+            dueDate: t.dueDate!, 
+            link: `/dashboard/projects/${t.projectId}`, 
+            projectName: t.project.name 
+        })),
+        ...timelineEvents.filter(te => te.eventDate).map(te => ({ 
+            id: te.id, 
+            title: te.title, 
+            type: 'Timeline Event' as const, 
+            dueDate: te.eventDate!, 
+            link: `/dashboard/projects/${te.projectId}`, 
+            projectName: te.project.name 
+        })),
+        ...invoices.filter(i => i.dueDate).map(i => ({ 
+            id: i.id, 
+            title: `Invoice #${i.invoiceNumber}`, 
+            type: 'Invoice' as const, 
+            dueDate: i.dueDate!, 
+            link: `/dashboard/financials`, 
+            clientName: i.client.name 
+        })),
+        // Add feature requests
+        ...featureRequests
+            .filter(fr => fr.dueDate !== null)
+            .map(fr => ({
+                id: `feature-${fr.id}`, 
+                title: fr.title, 
+                type: 'Feature Request' as const, 
+                dueDate: new Date(fr.dueDate!),
+                link: `/dashboard/settings/feature-requests`,
+                priority: fr.priority,
+                status: fr.status,
+                submittedBy: fr.submittedBy
+            }))
+    );
+
+    // Filter for tomorrow's items using the same UTC comparison
+    const tomorrowItems = allItems.filter(item => isSameDayUTC(item.dueDate, tomorrow));
     
-    return allItems.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+    // Sort by due date
+    tomorrowItems.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+
+    return tomorrowItems;
 }
 
 // --- EMAIL SENDING LOGIC ---
 
-// A type guard to ensure the session user object is complete
-type SessionUser = { id: string; email: string; name: string | null; };
-function isSessionUser(user: any): user is SessionUser {
-    return user && typeof user.id === 'string' && typeof user.email === 'string';
-}
-
-async function sendManifestEmail(user: SessionUser, items: OperationalItem[]) {
+async function sendManifestEmail(userName: string, userEmail: string, items: OperationalItem[]) {
     const tomorrow = new Date();
     tomorrow.setDate(new Date().getDate() + 1);
     const tomorrowFormatted = format(tomorrow, 'EEEE, MMMM d, yyyy');
     const appUrl = getBaseUrl();
 
+    const projectItems = items.filter(item => ['Project', 'Task', 'Timeline Event'].includes(item.type));
+    const financialItems = items.filter(item => ['Invoice', 'Client Contract'].includes(item.type));
+    const featureItems = items.filter(item => item.type === 'Feature Request');
+
     const renderItems = (itemList: OperationalItem[]) => {
-        if (itemList.length === 0) return '<li>No items due tomorrow.</li>';
+        if (itemList.length === 0) return '<li>No items in this category.</li>';
         return itemList.map(item => `
         <li style="margin-bottom: 15px; padding: 10px; border-left: 3px solid #7c3aed; background-color: #f3f4f6;">
             <strong>${item.title}</strong> (${item.type})<br>
             <span style="font-size: 12px; color: #6b7280;">
-            ${item.projectName ? `Project: ${item.projectName}` : ''}
-            ${item.clientName ? `Client: ${item.clientName}` : ''}
+            ${item.projectName ? `Project: ${item.projectName}<br>` : ''}
+            ${item.clientName ? `Client: ${item.clientName}<br>` : ''}
+            ${item.priority ? `Priority: ${item.priority}<br>` : ''}
+            ${item.status ? `Status: ${item.status}<br>` : ''}
+            ${item.submittedBy ? `Submitted by: ${item.submittedBy}` : ''}
             </span><br>
             <a href="${appUrl}${item.link}" style="font-size: 12px; color: #4f46e5;">View Details</a>
         </li>
@@ -135,13 +242,30 @@ async function sendManifestEmail(user: SessionUser, items: OperationalItem[]) {
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
             <h1 style="font-size: 24px; color: #111827;">Your Afternoon Manifest for ${tomorrowFormatted}</h1>
-            <p>Hi ${user.name || 'User'}, here is a summary of your items due tomorrow:</p>
+            <p>Hi ${userName}, here is a summary of your items due tomorrow:</p>
             
-            ${items.length > 0 ? `
+            ${projectItems.length > 0 ? `
+              <h2 style="font-size: 18px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; margin-top: 20px;">Projects & Tasks</h2>
               <ul style="list-style-type: none; padding: 0;">
-                ${renderItems(items)}
+                ${renderItems(projectItems)}
               </ul>
-            ` : `<p>You have no items due tomorrow. Enjoy your evening!</p>`}
+            ` : ''}
+
+            ${financialItems.length > 0 ? `
+              <h2 style="font-size: 18px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; margin-top: 20px;">Financials</h2>
+              <ul style="list-style-type: none; padding: 0;">
+                ${renderItems(financialItems)}
+              </ul>
+            ` : ''}
+
+            ${featureItems.length > 0 ? `
+              <h2 style="font-size: 18px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; margin-top: 20px;">Feature Requests</h2>
+              <ul style="list-style-type: none; padding: 0;">
+                ${renderItems(featureItems)}
+              </ul>
+            ` : ''}
+
+            ${items.length === 0 ? `<p>You have no items due tomorrow. Enjoy your evening!</p>` : ''}
     
             <p style="margin-top: 30px;">
               <a href="${appUrl}/dashboard/operations" style="background-color: #4f46e5; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
@@ -167,7 +291,7 @@ async function sendManifestEmail(user: SessionUser, items: OperationalItem[]) {
 
     await transporter.sendMail({
         from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
-        to: user.email,
+        to: userEmail,
         subject: `Your Afternoon Manifest for ${tomorrowFormatted}`,
         html: emailHtml,
     });
@@ -188,14 +312,20 @@ export async function GET(request: Request) {
     try {
         const subscribedUsers = await prisma.user.findMany({
             where: { sendAfternoonManifest: true, isActive: true, email: { not: null } },
+            select: { id: true, email: true, name: true }
         });
 
+        if (subscribedUsers.length === 0) {
+            return NextResponse.json({ message: 'No users to email.' });
+        }
+
+        const items = await getTomorrowsOperationalData(); // Get items once for all users
         let emailsSent = 0;
+
         for (const user of subscribedUsers) {
-            if(isSessionUser(user)) {
-                const items = await getTomorrowsOperationalData(user.id);
+            if (user.email) {
                 // Send email even if no items (to confirm the service is working)
-                await sendManifestEmail(user, items);
+                await sendManifestEmail(user.name || 'User', user.email, items);
                 emailsSent++;
             }
         }
@@ -214,15 +344,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || !isSessionUser(session.user)) {
+        if (!session || !session.user || !session.user.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        const { user } = session;
 
-        const items = await getTomorrowsOperationalData(user.id);
-        await sendManifestEmail(user, items);
+        const userEmail = session.user.email;
+        const userName = session.user.name || 'User';
 
-        return NextResponse.json({ success: true, message: `Afternoon manifest sent to ${user.email}.` });
+        const items = await getTomorrowsOperationalData();
+        await sendManifestEmail(userName, userEmail, items);
+
+        return NextResponse.json({ success: true, message: `Afternoon manifest sent to ${userEmail}.` });
     } catch (error) {
         console.error("Error sending manual afternoon manifest:", error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

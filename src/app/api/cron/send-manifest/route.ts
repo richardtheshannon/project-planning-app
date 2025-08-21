@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import nodemailer from 'nodemailer';
 import { ContractTerm } from "@prisma/client";
-import { addMonths, isWithinInterval } from "date-fns";
+import { addMonths, isWithinInterval, startOfMonth, endOfMonth } from "date-fns";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
@@ -11,20 +11,23 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 interface OperationalItem {
   id: string;
   title: string;
-  type: 'Project' | 'Task' | 'Timeline Event' | 'Invoice' | 'Client Contract';
+  type: 'Project' | 'Task' | 'Timeline Event' | 'Invoice' | 'Client Contract' | 'Feature Request';
+  dueDate: Date;
   link: string;
   projectName?: string;
   clientName?: string;
+  priority?: string;
+  status?: string;
+  submittedBy?: string;
 }
 
 // --- Helper Functions ---
-const getDayBounds = (date: Date) => {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
-  const start = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-  return { start, end };
+
+// FIX: Use the EXACT same helper function as Operations page
+const isSameDayUTC = (date1: Date, date2: Date): boolean => {
+  const d1 = new Date(date1).toLocaleDateString('en-US', { timeZone: 'UTC' });
+  const d2 = new Date(date2).toLocaleDateString('en-US', { timeZone: 'UTC' });
+  return d1 === d2;
 };
 
 const getMonthsFromTerm = (term: ContractTerm): number => {
@@ -54,46 +57,153 @@ const getBaseUrl = (): string => {
   return url;
 };
 
-// --- Data Fetching Logic ---
-async function getTodaysOperationalData(userId: string) {
-  const todayBounds = getDayBounds(new Date());
+// --- Data Fetching Logic (Matches Operations Page Exactly) ---
+async function getTodaysOperationalData() {
+  // FIX: Create dates that represent the LOCAL calendar date at midnight UTC
+  // This matches how the dates are stored in the database
+  const now = new Date();
+  
+  // Get the local date components
+  const localYear = now.getFullYear();
+  const localMonth = now.getMonth();
+  const localDay = now.getDate();
+  
+  // Create date at midnight UTC for the LOCAL calendar date
+  const today = new Date(Date.UTC(localYear, localMonth, localDay, 0, 0, 0));
 
+  // Fetch data for the entire current month (for recurring clients calculation)
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+
+  // Fetch ALL data without owner filtering (collaborative model)
   const [
     projects,
     tasks,
     timelineEvents,
     invoices,
-    recurringClients
+    recurringClients,
+    featureRequests // Added feature requests
   ] = await Promise.all([
-    prisma.project.findMany({ where: { ownerId: userId, endDate: { gte: todayBounds.start, lte: todayBounds.end } }, select: { id: true, name: true } }),
-    prisma.task.findMany({ where: { project: { ownerId: userId }, dueDate: { gte: todayBounds.start, lte: todayBounds.end } }, select: { id: true, title: true, projectId: true, project: { select: { name: true } } } }),
-    prisma.timelineEvent.findMany({ where: { project: { ownerId: userId }, eventDate: { gte: todayBounds.start, lte: todayBounds.end }, isCompleted: false }, select: { id: true, title: true, projectId: true, project: { select: { name: true } } } }),
-    prisma.invoice.findMany({ where: { userId: userId, dueDate: { gte: todayBounds.start, lte: todayBounds.end } }, select: { id: true, invoiceNumber: true, client: { select: { name: true } } } }),
-    prisma.client.findMany({ where: { userId, contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' }, select: { id: true, name: true, contractStartDate: true, contractTerm: true } })
+    prisma.project.findMany({
+      where: { endDate: { gte: monthStart, lte: monthEnd } },
+      select: { id: true, name: true, endDate: true }
+    }),
+    prisma.task.findMany({
+      where: { dueDate: { gte: monthStart, lte: monthEnd } },
+      select: { id: true, title: true, dueDate: true, projectId: true, project: { select: { name: true } } }
+    }),
+    prisma.timelineEvent.findMany({
+      where: { eventDate: { gte: monthStart, lte: monthEnd }, isCompleted: false },
+      select: { id: true, title: true, eventDate: true, projectId: true, project: { select: { name: true } } }
+    }),
+    prisma.invoice.findMany({
+      where: { dueDate: { gte: monthStart, lte: monthEnd } },
+      select: { id: true, invoiceNumber: true, dueDate: true, client: { select: { name: true } } }
+    }),
+    prisma.client.findMany({
+      where: { contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' },
+      select: { id: true, name: true, contractStartDate: true, contractTerm: true }
+    }),
+    // New: Fetch feature requests with due dates
+    prisma.featureRequest.findMany({
+      where: { 
+        dueDate: { 
+          not: null,
+          gte: monthStart, 
+          lte: monthEnd 
+        },
+        status: { 
+          notIn: ['Done', 'Canceled'] // Only show active feature requests
+        }
+      },
+      select: { 
+        id: true, 
+        title: true, 
+        dueDate: true, 
+        status: true, 
+        priority: true,
+        submittedBy: true 
+      }
+    })
   ]);
 
-  const clientContractItems: OperationalItem[] = [];
+  const allItems: OperationalItem[] = [];
+
+  // Process recurring clients
   recurringClients.forEach(client => {
       if (!client.contractStartDate) return;
       const startDate = new Date(client.contractStartDate);
       const termInMonths = getMonthsFromTerm(client.contractTerm);
-      for (let i = 0; i < termInMonths; i++) {
+      for (let i = 0; i < termInMonths * 4; i++) { // Extend recurring items for visibility
           const paymentDate = addMonths(startDate, i);
-          if (isWithinInterval(paymentDate, { start: todayBounds.start, end: todayBounds.end })) {
-              clientContractItems.push({ id: `${client.id}-month-${i}`, title: `Recurring Payment`, type: 'Client Contract' as const, link: `/dashboard/financials`, clientName: client.name });
+          if (isWithinInterval(paymentDate, { start: monthStart, end: addMonths(monthEnd, 12) })) { // Look ahead 12 months
+              allItems.push({
+                  id: `${client.id}-month-${i}`,
+                  title: `Recurring Payment`,
+                  type: 'Client Contract' as const,
+                  dueDate: paymentDate,
+                  link: `/dashboard/financials`,
+                  clientName: client.name
+              });
           }
       }
   });
 
-  const allItems: OperationalItem[] = [
-    ...projects.map(p => ({ id: p.id, title: p.name, type: 'Project' as const, link: `/dashboard/projects/${p.id}` })),
-    ...tasks.map(t => ({ id: t.id, title: t.title, type: 'Task' as const, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
-    ...timelineEvents.map(te => ({ id: te.id, title: te.title, type: 'Timeline Event' as const, link: `/dashboard/projects/${te.projectId}`, projectName: te.project.name })),
-    ...invoices.map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, link: `/dashboard/financials`, clientName: i.client.name })),
-    ...clientContractItems
-  ];
+  // Add all items
+  allItems.push(
+    ...projects.filter(p => p.endDate).map(p => ({ 
+      id: p.id, 
+      title: p.name, 
+      type: 'Project' as const, 
+      dueDate: p.endDate!, 
+      link: `/dashboard/projects/${p.id}` 
+    })),
+    ...tasks.filter(t => t.dueDate).map(t => ({ 
+      id: t.id, 
+      title: t.title, 
+      type: 'Task' as const, 
+      dueDate: t.dueDate!, 
+      link: `/dashboard/projects/${t.projectId}`, 
+      projectName: t.project.name 
+    })),
+    ...timelineEvents.filter(te => te.eventDate).map(te => ({ 
+      id: te.id, 
+      title: te.title, 
+      type: 'Timeline Event' as const, 
+      dueDate: te.eventDate!, 
+      link: `/dashboard/projects/${te.projectId}`, 
+      projectName: te.project.name 
+    })),
+    ...invoices.filter(i => i.dueDate).map(i => ({ 
+      id: i.id, 
+      title: `Invoice #${i.invoiceNumber}`, 
+      type: 'Invoice' as const, 
+      dueDate: i.dueDate!, 
+      link: `/dashboard/financials`, 
+      clientName: i.client.name 
+    })),
+    // Add feature requests
+    ...featureRequests
+      .filter(fr => fr.dueDate !== null)
+      .map(fr => ({
+        id: `feature-${fr.id}`, 
+        title: fr.title, 
+        type: 'Feature Request' as const, 
+        dueDate: new Date(fr.dueDate!),
+        link: `/dashboard/settings/feature-requests`,
+        priority: fr.priority,
+        status: fr.status,
+        submittedBy: fr.submittedBy
+      }))
+  );
+
+  // Filter for today's items using the same UTC comparison
+  const todayItems = allItems.filter(item => isSameDayUTC(item.dueDate, today));
   
-  return allItems;
+  // Sort by due date
+  todayItems.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+
+  return todayItems;
 }
 
 // --- HTML Email Template ---
@@ -102,6 +212,7 @@ function createManifestEmailHtml(userName: string, items: OperationalItem[], app
 
   const projectItems = items.filter(item => ['Project', 'Task', 'Timeline Event'].includes(item.type));
   const financialItems = items.filter(item => ['Invoice', 'Client Contract'].includes(item.type));
+  const featureItems = items.filter(item => item.type === 'Feature Request');
 
   const renderItems = (itemList: OperationalItem[]) => {
     if (itemList.length === 0) return '<li>No items due today.</li>';
@@ -109,8 +220,11 @@ function createManifestEmailHtml(userName: string, items: OperationalItem[], app
       <li style="margin-bottom: 15px; padding: 10px; border-left: 3px solid #7c3aed; background-color: #f3f4f6;">
         <strong>${item.title}</strong> (${item.type})<br>
         <span style="font-size: 12px; color: #6b7280;">
-          ${item.projectName ? `Project: ${item.projectName}` : ''}
-          ${item.clientName ? `Client: ${item.clientName}` : ''}
+          ${item.projectName ? `Project: ${item.projectName}<br>` : ''}
+          ${item.clientName ? `Client: ${item.clientName}<br>` : ''}
+          ${item.priority ? `Priority: ${item.priority}<br>` : ''}
+          ${item.status ? `Status: ${item.status}<br>` : ''}
+          ${item.submittedBy ? `Submitted by: ${item.submittedBy}` : ''}
         </span><br>
         <a href="${appUrl}${item.link}" style="font-size: 12px; color: #4f46e5;">View Details</a>
       </li>
@@ -120,7 +234,7 @@ function createManifestEmailHtml(userName: string, items: OperationalItem[], app
   return `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
       <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
-        <h1 style="font-size: 24px; color: #111827;">Your Daily Manifest for ${today}</h1>
+        <h1 style="font-size: 24px; color: #111827;">Your Morning Manifest for ${today}</h1>
         <p>Hi ${userName}, here is a summary of your items due today:</p>
         
         ${projectItems.length > 0 ? `
@@ -137,6 +251,13 @@ function createManifestEmailHtml(userName: string, items: OperationalItem[], app
           </ul>
         ` : ''}
 
+        ${featureItems.length > 0 ? `
+          <h2 style="font-size: 18px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; margin-top: 20px;">Feature Requests</h2>
+          <ul style="list-style-type: none; padding: 0;">
+            ${renderItems(featureItems)}
+          </ul>
+        ` : ''}
+
         ${items.length === 0 ? `<p>You have no items due today. Great job staying on top of things!</p>` : ''}
 
         <p style="margin-top: 30px;">
@@ -145,7 +266,7 @@ function createManifestEmailHtml(userName: string, items: OperationalItem[], app
           </a>
         </p>
         <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
-          This is an automated daily manifest email.
+          This is an automated morning manifest email.
         </p>
       </div>
     </div>
@@ -181,18 +302,17 @@ export async function GET(request: Request) {
     });
 
     const appUrl = getBaseUrl();
+    const items = await getTodaysOperationalData(); // Get items once for all users
     let emailsSent = 0;
 
     for (const user of usersToSend) {
       if (user.email) {
-        const items = await getTodaysOperationalData(user.id);
-        
         // Send email even if no items (to confirm the service is working)
         const emailHtml = createManifestEmailHtml(user.name || 'User', items, appUrl);
         await transporter.sendMail({
           from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
           to: user.email,
-          subject: `Your Daily Manifest for ${new Date().toLocaleDateString()}`,
+          subject: `Your Morning Manifest for ${new Date().toLocaleDateString()}`,
           html: emailHtml,
         });
         emailsSent++;
@@ -216,10 +336,9 @@ export async function POST(request: Request) {
     }
 
     const userEmail = session.user.email;
-    const userId = session.user.id;
     const userName = session.user.name || 'User';
 
-    const items = await getTodaysOperationalData(userId);
+    const items = await getTodaysOperationalData();
 
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com', 
@@ -237,7 +356,7 @@ export async function POST(request: Request) {
     await transporter.sendMail({
       from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
       to: userEmail,
-      subject: `Your Daily Manifest for ${new Date().toLocaleDateString()}`,
+      subject: `Your Morning Manifest for ${new Date().toLocaleDateString()}`,
       html: emailHtml,
     });
 

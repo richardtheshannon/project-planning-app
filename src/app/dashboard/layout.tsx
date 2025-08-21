@@ -140,7 +140,7 @@ function AppearanceProvider({ children }: { children: React.ReactNode }) {
 }
 
 // --- CUSTOM HOOK (No changes) ---
-export const useAppearance = () => {
+const useAppearance = () => {
   const context = useContext(AppearanceContext);
   if (context === undefined) {
     throw new Error('useAppearance must be used within an AppearanceProvider');
