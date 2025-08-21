@@ -128,7 +128,7 @@ async function getOperationalData() {
     ...tasks.filter(t => t.dueDate).map(t => ({ id: t.id, title: t.title, type: 'Task' as const, dueDate: t.dueDate!, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
     ...timelineEvents.filter(te => te.eventDate).map(te => ({ id: te.id, title: te.title, type: 'Timeline Event' as const, dueDate: te.eventDate!, link: `/dashboard/projects/${te.projectId}`, projectName: te.project.name })),
     ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials`, clientName: i.client.name })),
-    // FIX: Handle feature request dates the same as other dates
+    // UPDATED: Feature requests now link to their individual pages
     ...featureRequests
       .filter(fr => fr.dueDate !== null)
       .map(fr => ({
@@ -136,7 +136,7 @@ async function getOperationalData() {
         title: fr.title, 
         type: 'Feature Request' as const, 
         dueDate: new Date(fr.dueDate!),
-        link: `/dashboard/settings/feature-requests`,
+        link: `/dashboard/settings/feature-requests/${fr.id}`, // CHANGED: Now links to individual feature request page
         priority: fr.priority,
         status: fr.status,
         submittedBy: fr.submittedBy

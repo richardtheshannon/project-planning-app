@@ -74,7 +74,7 @@ const MonthlyTimeline: React.FC<MonthlyTimelineProps> = ({ overdueItems, thisMon
       case 'Invoice':
         return `/dashboard/financials/income`;  // Fixed: was /dashboard/financials/invoices
       case 'FeatureRequest':
-        return `/dashboard/settings/feature-requests`;  // Fixed: was /dashboard/feature-requests
+        return `/dashboard/settings/feature-requests/${item.id}`;  // UPDATED: Now links to individual feature request page
       default:
         return '#';
     }

@@ -182,7 +182,7 @@ async function getTodaysOperationalData() {
       link: `/dashboard/financials`, 
       clientName: i.client.name 
     })),
-    // Add feature requests
+    // UPDATED: Feature requests now link to their individual pages
     ...featureRequests
       .filter(fr => fr.dueDate !== null)
       .map(fr => ({
@@ -190,7 +190,7 @@ async function getTodaysOperationalData() {
         title: fr.title, 
         type: 'Feature Request' as const, 
         dueDate: new Date(fr.dueDate!),
-        link: `/dashboard/settings/feature-requests`,
+        link: `/dashboard/settings/feature-requests/${fr.id}`, // CHANGED: Now links to individual page
         priority: fr.priority,
         status: fr.status,
         submittedBy: fr.submittedBy
