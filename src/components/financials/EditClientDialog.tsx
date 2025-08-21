@@ -75,8 +75,7 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
       email: client.email || "",
       website: client.website || "",
       notes: client.notes || "",
-      contractTerm: client.contractTerm || "ONE_TIME",
-      // ADDED: default value for frequency
+      contractTerm: client.contractTerm || "ONE_TIME", // FIXED: Use valid Prisma enum value
       frequency: client.frequency || "One-Time",
       contractAmount: client.contractAmount ?? null,
       contractStartDate: client.contractStartDate ? new Date(client.contractStartDate) : null,
@@ -220,6 +219,7 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        {/* FIXED: Use the EXACT enum values from your Prisma schema */}
                         <SelectItem value="ONE_MONTH">1 Month</SelectItem>
                         <SelectItem value="THREE_MONTH">3 Month</SelectItem>
                         <SelectItem value="SIX_MONTH">6 Month</SelectItem>

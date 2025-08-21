@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Client, InvoiceStatus } from "@prisma/client";
 
-// REVERTING TO STABLE: Using strings for dates to work with standard HTML5 inputs.
+// Using strings for dates to work with standard HTML5 inputs.
 const formSchema = z.object({
   clientId: z.string().min(1, { message: "Please select a client." }),
   amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
@@ -91,12 +91,12 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
     setIsSubmitting(true);
     setError(null);
 
-    // Convert date strings and amount back to correct types for the API
+    // CORRECT: Convert date strings directly without timezone manipulation
     const payload = {
       ...values,
       amount: parseFloat(values.amount),
-      issuedDate: new Date(values.issuedDate),
-      dueDate: new Date(values.dueDate),
+      issuedDate: values.issuedDate ? new Date(values.issuedDate) : null,
+      dueDate: values.dueDate ? new Date(values.dueDate) : null,
     };
 
     try {

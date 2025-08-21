@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { AddClientDialog } from "@/components/financials/AddClientDialog";
 import { NewInvoiceDialog } from "@/components/financials/NewInvoiceDialog";
-import EditInvoiceDialog from "@/components/financials/EditInvoiceDialog"; // Import the new dialog
+import EditInvoiceDialog from "@/components/financials/EditInvoiceDialog";
 import { Client, Invoice } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { format } from "date-fns";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -79,7 +78,15 @@ function InvoiceList({ invoices, onInvoiceSelect }: InvoiceListProps) {
                 currency: "USD",
               }).format(invoice.amount)}
             </TableCell>
-            <TableCell>{format(new Date(invoice.dueDate), "MMM d, yyyy")}</TableCell>
+            <TableCell>
+              {/* FIXED: Use UTC timezone for consistent date display */}
+              {new Date(invoice.dueDate).toLocaleDateString('en-US', { 
+                timeZone: 'UTC',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

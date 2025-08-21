@@ -53,13 +53,8 @@ const formSchema = z.object({
 
 type InvoiceFormValues = z.infer<typeof formSchema>;
 
-// ✅ NEW: Helper function to correct for timezone offset from date inputs
-const adjustDateForTimezone = (dateString: string): Date => {
-  const date = new Date(dateString);
-  const timezoneOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
-  // Add the offset to counteract the browser's automatic conversion to UTC
-  return new Date(date.getTime() + timezoneOffset);
-};
+// ✅ REMOVED: The adjustDateForTimezone function was causing the issue
+// Following the proven pattern from Feature Requests: save dates directly without manipulation
 
 export default function EditInvoiceDialog({
   invoice,
@@ -84,6 +79,7 @@ export default function EditInvoiceDialog({
       form.reset({
         amount: invoice.amount,
         status: invoice.status,
+        // ✅ CORRECT: Use UTC date string for form inputs
         issuedDate: new Date(invoice.issuedDate).toISOString().split("T")[0],
         dueDate: new Date(invoice.dueDate).toISOString().split("T")[0],
       });
@@ -101,12 +97,12 @@ export default function EditInvoiceDialog({
     if (!invoice) return;
 
     try {
-      // ✅ MODIFIED: Use the timezone adjustment helper for both dates
+      // ✅ FIXED: Save dates directly without timezone manipulation
       const bodyPayload = {
         amount: parseFloat(values.amount),
         status: values.status,
-        issuedDate: adjustDateForTimezone(values.issuedDate),
-        dueDate: adjustDateForTimezone(values.dueDate),
+        issuedDate: values.issuedDate ? new Date(values.issuedDate) : null,
+        dueDate: values.dueDate ? new Date(values.dueDate) : null,
       };
 
       const response = await fetch(`/api/financials/invoices/${invoice.id}`, {

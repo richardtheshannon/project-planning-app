@@ -5,7 +5,7 @@ import * as z from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { ContractTerm } from "@prisma/client";
 
-// Zod schema for UPDATING a client.
+// Zod schema for UPDATING a client - FIXED to match Prisma enum
 const clientUpdateSchema = z.object({
   name: z.string().min(2, {
     message: "Client name must be at least 2 characters.",
@@ -13,8 +13,8 @@ const clientUpdateSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   contractStartDate: z.coerce.date().optional().nullable(),
-  // contractTerm now validates against the actual enum values
-  contractTerm: z.enum(['MONTHLY', 'QUARTERLY', 'ANNUAL', 'PROJECT_BASED', 'CUSTOM']).optional(),
+  // FIXED: Use the actual Prisma enum values
+  contractTerm: z.enum(['ONE_MONTH', 'ONE_TIME', 'THREE_MONTH', 'SIX_MONTH', 'ONE_YEAR']).optional(),
   frequency: z.string().optional(),
   contractAmount: z.number().positive("Amount must be a positive number.").optional().nullable(),
   notes: z.string().optional(),
