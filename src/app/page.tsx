@@ -3,9 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "next-themes";
-import { Switch } from "@/components/ui/switch";
-import { Moon, Sun } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useEffect, useState } from "react";
 
 // Define a type for the settings to ensure type safety
@@ -15,14 +13,10 @@ type AppearanceSettings = {
 };
 
 export default function LandingPage() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState<AppearanceSettings>({});
 
   // Fetch appearance settings when the component mounts
   useEffect(() => {
-    setMounted(true);
-    
     const fetchAppearanceSettings = async () => {
       try {
         const response = await fetch('/api/appearance');
@@ -82,19 +76,7 @@ export default function LandingPage() {
         </h1>
         
         <div className="mt-8 flex items-center justify-center gap-4">
-          {mounted && (
-            <div className="flex items-center space-x-2">
-              {/* Sizes are now controlled by globals.css */}
-              <Sun />
-              <Switch
-                id="theme-toggle"
-                checked={theme === "dark"}
-                onCheckedChange={() => setTheme(theme === "dark" ? "light" : "dark")}
-                aria-label="Toggle theme"
-              />
-              <Moon />
-            </div>
-          )}
+          <ThemeToggle />
 
           <Link href="/auth/signup">
             <Button size="lg">Get Started</Button>

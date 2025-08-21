@@ -130,6 +130,17 @@ export default async function Dashboard() {
   const now = new Date();
   const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
 
+  // --- FETCH APPEARANCE SETTINGS FOR BUSINESS NAME AND MISSION STATEMENT ---
+  const appearanceSettings = await prisma.appearanceSettings.findFirst({
+    select: {
+      businessName: true,
+      missionStatement: true,  // Fixed: using correct field name
+    }
+  });
+
+  const businessName = appearanceSettings?.businessName || 'Dashboard';
+  const missionStatement = appearanceSettings?.missionStatement || "Welcome back! Here's what's happening across the application.";  // Fixed: using correct field name
+
   // --- MODIFICATION START ---
   // The 'userId' and 'ownerId' filters have been removed from all queries below
   // to fetch data for the entire application.
@@ -185,10 +196,10 @@ export default async function Dashboard() {
     <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8 p-4 md:p-6">
       {/* Main Content Area */}
       <div className="lg:col-span-2 flex flex-col space-y-8">
-        {/* Title Section */}
+        {/* Title Section - Updated to show Business Name and Mission Statement */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-2 mb-8">Welcome back! Here's what's happening across the application.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{businessName}</h1>
+          <p className="text-muted-foreground mt-2 mb-8">{missionStatement}</p>
         </div>
         
         {/* Financial Overview Chart */}
@@ -227,34 +238,35 @@ export default async function Dashboard() {
         <ContactForm />
       </div>
       
-      {/* Sidebar - Hidden on mobile, shown on lg screens */}
-      <div className="lg:col-span-1 flex flex-col space-y-8 lg:sticky lg:top-6 lg:self-start">
-        {/* Quick Actions Card - Hidden on mobile, shows on lg screens */}
-        <div className="hidden lg:block">
-          <QuickActionsCard />
+      <div className="lg:col-span-1 lg:h-screen lg:sticky lg:top-0 flex flex-col lg:justify-center lg:py-6">
+        <div className="space-y-8">
+          {/* Quick Actions Card - Hidden on mobile, shows on lg screens */}
+          <div className="hidden lg:block">
+            <QuickActionsCard />
+          </div>
+          
+          {/* Recent Activity Card */}
+          <Card>
+            <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
+            <CardContent>
+              {recentActivity.length > 0 ? (
+                <ul className="space-y-4">
+                  {recentActivity.map(activity => (
+                    <li key={`${activity.type}-${activity.id}`} className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">{activity.type === 'Project' ? <FolderKanban className="h-5 w-5 text-blue-500" /> : <CheckCircle2 className="h-5 w-5 text-green-500" />}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{activity.type === 'Project' ? 'New Project:' : 'New Task:'} {activity.title}</p>
+                        <p className="text-sm text-muted-foreground">{new Date(activity.date).toLocaleDateString()}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center text-muted-foreground py-8"><p>No recent activity</p><p className="text-sm">Start by creating your first project!</p></div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-        
-        {/* Recent Activity Card */}
-        <Card>
-          <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
-          <CardContent>
-            {recentActivity.length > 0 ? (
-              <ul className="space-y-4">
-                {recentActivity.map(activity => (
-                  <li key={`${activity.type}-${activity.id}`} className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">{activity.type === 'Project' ? <FolderKanban className="h-5 w-5 text-blue-500" /> : <CheckCircle2 className="h-5 w-5 text-green-500" />}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{activity.type === 'Project' ? 'New Project:' : 'New Task:'} {activity.title}</p>
-                      <p className="text-sm text-muted-foreground">{new Date(activity.date).toLocaleDateString()}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="text-center text-muted-foreground py-8"><p>No recent activity</p><p className="text-sm">Start by creating your first project!</p></div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

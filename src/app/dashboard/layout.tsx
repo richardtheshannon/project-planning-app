@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // --- APPEARANCE SETTINGS CONTEXT (No changes) ---
 type AppearanceSettings = {
@@ -233,7 +234,7 @@ function DynamicGlobalStyles() {
     return <style dangerouslySetInnerHTML={{ __html: styles }} />;
 }
 
-// --- LAYOUT RENDERER (No changes) ---
+// --- LAYOUT RENDERER (UPDATED WITH THEME TOGGLE) ---
 function LayoutRenderer({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const { isRightHanded } = useLayoutPreference();
@@ -251,32 +252,37 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
-          <header className={cn("border-b px-4 py-3 flex items-center gap-4", { "flex-row-reverse": isRightHanded })}>
-            <div className="md:hidden">
-              <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
-                <SheetTrigger asChild>
-                  <SidebarTrigger />
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[260px] p-0">
-                  <SheetTitle className="sr-only">Mobile Navigation Menu</SheetTitle>
-                  <SheetDescription className="sr-only">
-                    A list of links to navigate through the application sections.
-                  </SheetDescription>
-                  <Sidebar isMobileSheet={true}>
-                    <SidebarItems isMobileSheet={true} onLinkClick={() => setIsMobileSheetOpen(false)} />
-                  </Sidebar>
-                </SheetContent>
-              </Sheet>
-            </div>
-            
-            <SidebarTrigger 
-              className="hidden md:flex" 
-              onClick={() => setOpen((prev: boolean) => !prev)}
-            />
+          <header className={cn("border-b px-4 py-3 flex items-center justify-between", { "flex-row-reverse": isRightHanded })}>
+            <div className={cn("flex items-center gap-4", { "flex-row-reverse": isRightHanded })}>
+              <div className="md:hidden">
+                <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
+                  <SheetTrigger asChild>
+                    <SidebarTrigger />
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[260px] p-0">
+                    <SheetTitle className="sr-only">Mobile Navigation Menu</SheetTitle>
+                    <SheetDescription className="sr-only">
+                      A list of links to navigate through the application sections.
+                    </SheetDescription>
+                    <Sidebar isMobileSheet={true}>
+                      <SidebarItems isMobileSheet={true} onLinkClick={() => setIsMobileSheetOpen(false)} />
+                    </Sidebar>
+                  </SheetContent>
+                </Sheet>
+              </div>
+              
+              <SidebarTrigger 
+                className="hidden md:flex" 
+                onClick={() => setOpen((prev: boolean) => !prev)}
+              />
 
-            <h1 className="text-xl font-semibold">
-              {session?.user?.name || session?.user?.email}
-            </h1>
+              <h1 className="text-xl font-semibold">
+                {session?.user?.name || session?.user?.email}
+              </h1>
+            </div>
+
+            {/* Theme Toggle in top-right corner */}
+            <ThemeToggle />
           </header>
           <main className="p-4 md:p-6">
             {children}
@@ -287,7 +293,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH SETTINGS SUB-ITEMS) ---
+// --- SIDEBAR ITEMS COMPONENT (NO CHANGES) ---
 function SidebarItems({ 
   isMobileSheet = false,
   onLinkClick,
@@ -519,7 +525,7 @@ function SidebarItems({
   );
 }
 
-// --- DEFAULT EXPORT (UPDATED WITH TOOLTIP PROVIDER) ---
+// --- DEFAULT EXPORT (NO CHANGES) ---
 export default function DashboardLayout({
   children,
 }: {

@@ -121,3 +121,12 @@
     @apply h-6 w-6; /* Sets icon size to 1.5rem x 1.5rem */
   }
 }
+
+/* Custom override for space-x-2 utility class */
+@layer utilities {
+  .space-x-2 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 0;
+    margin-right: calc(0.5rem * var(--tw-space-x-reverse));
+    margin-left: calc(0.9rem * calc(1 - var(--tw-space-x-reverse)));
+  }
+}
