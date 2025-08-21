@@ -1,0 +1,177 @@
+PPAV02
+
+
+production
+Architecture
+Observability
+Logs
+Settings
+
+Share
+
+
+
+
+
+
+
+
+
+
+
+
+Activity
+
+
+PPAV02
+Deployments
+Variables
+Metrics
+Settings
+app.salesfield.net
+us-west2
+1 Replica
+
+
+
+
+History
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PPAV02
+/
+74affd1
+Aug 20, 2025, 1:14 AM
+Failed
+
+app.salesfield.net
+Get Help
+
+Details
+Build Logs
+Deploy Logs
+HTTP Logs
+
+Filter
+Filter logs using "", (), AND, OR, -
+
+
+
+
+Load More
+
+173 packages are looking for funding
+  run `npm fund` for details
+
+
+3 vulnerabilities (2 low, 1 critical)
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+[stage-0  6/10] RUN --mount=type=cache,id=s/caa6c7da-c398-41c5-9f07-28a90f4a4c86-/root/npm,target=/root/.npm npm ci  ✔ 18 sec
+
+[stage-0  7/10] COPY . /app/.
+
+[stage-0  7/10] COPY . /app/.  ✔ 210 ms
+
+[stage-0  8/10] RUN --mount=type=cache,id=s/caa6c7da-c398-41c5-9f07-28a90f4a4c86-next/cache,target=/app/.next/cache --mount=type=cache,id=s/caa6c7da-c398-41c5-9f07-28a90f4a4c86-node_modules/cache,target=/app/node_modules/.cache npm run build
+
+npm warn config production Use `--omit=dev` instead.
+
+
+> project-planning-app@0.1.0 build
+> prisma generate && prisma migrate deploy && next build
+
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 248ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Easily identify and fix slow SQL queries in your app. Optimize helps you enhance your visibility: https://pris.ly/--optimize
+
+
+┌─────────────────────────────────────────────────────────┐
+│  Update available 5.22.0 -> 6.14.0                      │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+
+Prisma schema loaded from prisma/schema.prisma
+
+Datasource "db": PostgreSQL database "railway", schema "public" at "postgres.railway.internal:5432"
+
+
+
+Error: P1001: Can't reach database server at `postgres.railway.internal:5432`
+
+Please make sure your database server is running at `postgres.railway.internal:5432`.
+
+✕ [stage-0  8/10] RUN --mount=type=cache,id=s/caa6c7da-c398-41c5-9f07-28a90f4a4c86-next/cache,target=/app/.next/cache --mount=type=cache,id=s/caa6c7da-c398-41c5-9f07-28a90f4a4c86-node_modules/cache,target=/app/node_modules/.cache npm run build 
+process "/bin/bash -ol pipefail -c npm run build" did not complete successfully: exit code: 1
+ 
+
+Dockerfile:24
+
+-------------------
+
+22 |     # build phase
+
+23 |     COPY . /app/.
+
+24 | >>> RUN --mount=type=cache,id=s/caa6c7da-c398-41c5-9f07-28a90f4a4c86-next/cache,target=/app/.next/cache --mount=type=cache,id=s/caa6c7da-c398-41c5-9f07-28a90f4a4c86-node_modules/cache,target=/app/node_modules/.cache npm run build
+
+25 |
+
+26 |
+
+-------------------
+
+ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c npm run build" did not complete successfully: exit code: 1
+
+Error: Docker build failed
+
+Load More
+
+
+PPAV02 | Railway

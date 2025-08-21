@@ -541,3 +541,21 @@ model AppearanceSettings {
   darkInput               String? @default("#27272a") // zinc-800
   darkRing                String? @default("#d4d4d8") // zinc-300
 }
+
+// --- LAYOUT TEMPLATES ---
+
+model LayoutTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String   @default("dashboard") // dashboard, report, email, invoice, etc.
+  htmlContent String   @db.Text // Stores the HTML template
+  thumbnail   String?  // Optional screenshot/preview URL
+  isActive    Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  metadata    String?  @db.Text // JSON string for additional template metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("layout_templates")
+}

@@ -1,0 +1,25 @@
+{
+  "templates": [
+    {
+      "id": "full-app",
+      "name": "Full Application Layout",
+      "description": "Complete application template with main navigation, content area, and right sidebar",
+      "category": "application",
+      "file": "application/full-app.html",
+      "isDefault": true,
+      "isActive": true,
+      "variables": [
+        "businessName",
+        "businessTagline",
+        "userName",
+        "totalForecast",
+        "totalProjects",
+        "activeTasks",
+        "completedTasks",
+        "overdueCount",
+        "thisMonthCount",
+        "nextMonthCount"
+      ]
+    }
+  ]
+}

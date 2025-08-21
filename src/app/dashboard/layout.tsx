@@ -48,7 +48,8 @@ import {
   ClipboardList,
   Bell,
   Palette,
-  Lightbulb
+  Lightbulb,
+  Layout
 } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
@@ -293,7 +294,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- SIDEBAR ITEMS COMPONENT (NO CHANGES) ---
+// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH LAYOUTS) ---
 function SidebarItems({ 
   isMobileSheet = false,
   onLinkClick,
@@ -330,6 +331,7 @@ function SidebarItems({
       label: "Settings", 
       href: "/dashboard/settings",
       subItems: [
+        { label: "Layouts", href: "/dashboard/settings/layouts", icon: Layout },
         { label: "Notifications", href: "/dashboard/settings/notifications", icon: Bell },
         { label: "Branding", href: "/dashboard/settings/branding", icon: Palette },
         { label: "Feature Requests", href: "/dashboard/settings/feature-requests", icon: Lightbulb },

@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-08-20T07:37:59.481Z",
+  "timestamp": "2025-08-21T18:23:15.725Z",
   "issues": [
     "Build artifacts found that should be gitignored"
   ],
   "suggestions": [
-    "Add to .gitignore: .next/cache/webpack, prisma/src, .next/cache/images"
+    "Add to .gitignore: .next/cache/webpack, prisma/src"
   ],
   "stats": {
     "totalIssues": 1,
