@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/lib/prisma"; // Corrected import
+import { prisma } from "@/lib/prisma";
 import * as z from "zod";
 import { InvoiceStatus } from "@prisma/client";
 
@@ -33,10 +33,13 @@ export async function GET(
   const { id } = params;
 
   try {
+    // MODIFIED: Removed userId filter to match collaborative model
     const invoice = await prisma.invoice.findUnique({
       where: {
         id: id,
-        userId: session.user.id, // Security check: ensures user owns the invoice
+      },
+      include: {
+        client: true, // Include client information for display
       },
     });
 
@@ -82,11 +85,10 @@ export async function PATCH(
   }
 
   try {
-    // The 'where' clause ensures a user can only update their own invoice.
+    // MODIFIED: Removed userId filter to allow any authenticated user to update
     const updatedInvoice = await prisma.invoice.update({
       where: {
         id: id,
-        userId: session.user.id,
       },
       data: validation.data,
     });
@@ -123,11 +125,10 @@ export async function DELETE(
     const { id } = params;
 
     try {
-        // The 'where' clause ensures a user can only delete their own invoice.
+        // MODIFIED: Removed userId filter to allow any authenticated user to delete
         await prisma.invoice.delete({
             where: {
                 id: id,
-                userId: session.user.id,
             },
         });
 
