@@ -2,7 +2,7 @@
 
 // Imports for server-side data fetching
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from '@/lib/auth';
 import { prisma } from "@/lib/prisma";
 import { type Invoice, type Expense, type Subscription, type Prisma, ExpenseCategory, type Client, ContractTerm } from "@prisma/client";
 import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfYear, getMonth, getYear, parseISO, isBefore, isAfter, isEqual } from "date-fns";

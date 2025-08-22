@@ -5,7 +5,7 @@ import nodemailer from 'nodemailer';
 import { ContractTerm } from "@prisma/client";
 import { addMonths, isWithinInterval, startOfMonth, endOfMonth } from "date-fns";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from '@/lib/auth';
 
 // --- Types for our operational data ---
 interface OperationalItem {

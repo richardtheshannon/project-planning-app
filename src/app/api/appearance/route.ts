@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { AppearanceSettingsSchema } from '@/lib/schemas/appearance';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 
 /**
  * @description Fetches the global appearance settings for the application.
