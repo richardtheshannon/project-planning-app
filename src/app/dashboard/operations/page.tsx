@@ -165,23 +165,25 @@ export default async function OperationsPage() {
   const { allItems, todayItems, tomorrowItems } = await getOperationalData();
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Operations Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          A daily overview of all time-sensitive items across your projects and financials.
-        </p>
-      </div>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="space-y-6 p-4 md:p-6 lg:p-8">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Operations Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-2">
+            A daily overview of all time-sensitive items across your projects and financials.
+          </p>
+        </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <DailyItemsCard title="Today" items={todayItems} />
-        <DailyItemsCard title="Tomorrow" items={tomorrowItems} />
-      </div>
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
+          <DailyItemsCard title="Today" items={todayItems} />
+          <DailyItemsCard title="Tomorrow" items={tomorrowItems} />
+        </div>
 
-      {/* --- NEW: Interactive Calendar Section --- */}
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4">Activity Calendar</h2>
-        <InteractiveCalendar allItems={allItems} />
+        {/* --- Interactive Calendar Section --- */}
+        <div className="mt-6 md:mt-8">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mb-4">Activity Calendar</h2>
+          <InteractiveCalendar allItems={allItems} />
+        </div>
       </div>
     </div>
   );

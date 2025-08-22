@@ -13,7 +13,7 @@ import {
   Lightbulb, // Added for Feature Request icon
 } from "lucide-react";
 
-// âœ… MODIFIED: Added 'Feature Request' to the list of possible types
+// ✅ MODIFIED: Added 'Feature Request' to the list of possible types
 export interface OperationalItem {
   id: string;
   title: string;
@@ -27,7 +27,7 @@ export interface OperationalItem {
   submittedBy?: string; // Added for Feature Requests
 }
 
-// âœ… MODIFIED: Added 'Feature Request' to itemTypeDetails
+// ✅ MODIFIED: Added 'Feature Request' to itemTypeDetails
 const itemTypeDetails: { [key in OperationalItem['type']]: { icon: LucideIcon, color: string } } = {
   'Project': { icon: Briefcase, color: 'bg-blue-500' },
   'Task': { icon: CheckCircle2, color: 'bg-green-500' },
@@ -45,38 +45,56 @@ interface DailyItemsCardProps {
 
 // A helper component to render a list of items
 const ItemList = ({ items }: { items: OperationalItem[] }) => (
-  <ul className="space-y-4">
+  <ul className="space-y-3 sm:space-y-4">
     {items.map((item) => {
       const { icon: Icon, color } = itemTypeDetails[item.type];
       return (
         <li key={`${item.type}-${item.id}`}>
-          <Link href={item.link} className="block p-3 rounded-lg hover:bg-muted/50 transition-colors">
-            <div className="flex items-start gap-4">
-              <div className={`mt-1 flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-white ${color}`}>
-                <Icon size={16} />
+          <Link href={item.link} className="block p-2 sm:p-3 rounded-lg hover:bg-muted/50 transition-colors">
+            <div className="flex items-start gap-2 sm:gap-4">
+              <div className={`mt-0.5 sm:mt-1 flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center text-white ${color}`}>
+                <Icon size={14} className="sm:w-4 sm:h-4" />
               </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center">
-                  <p className="font-semibold">{item.title}</p>
-                  <div className="flex gap-2 items-center">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-2">
+                  <p className="font-semibold text-sm sm:text-base truncate pr-2">{item.title}</p>
+                  <div className="flex flex-wrap gap-1 sm:gap-2 items-center">
                     {/* Show priority badge for Feature Requests */}
                     {item.type === 'Feature Request' && item.priority && (
                       <Badge variant={
                         item.priority === 'High' ? 'destructive' : 
                         item.priority === 'Medium' ? 'default' : 
                         'secondary'
-                      } className="text-xs">
+                      } className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 sm:py-0.5">
                         {item.priority}
                       </Badge>
                     )}
-                    <Badge variant="outline">{item.type}</Badge>
+                    <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 sm:py-0.5">
+                      <span className="hidden sm:inline">{item.type}</span>
+                      <span className="sm:hidden">
+                        {item.type === 'Timeline Event' ? 'Event' : 
+                         item.type === 'Client Contract' ? 'Contract' :
+                         item.type === 'Feature Request' ? 'Feature' :
+                         item.type}
+                      </span>
+                    </Badge>
                   </div>
                 </div>
-                {item.projectName && <p className="text-sm text-muted-foreground">Project: {item.projectName}</p>}
-                {item.clientName && <p className="text-sm text-muted-foreground">Client: {item.clientName}</p>}
+                {item.projectName && (
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                    Project: {item.projectName}
+                  </p>
+                )}
+                {item.clientName && (
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                    Client: {item.clientName}
+                  </p>
+                )}
                 {/* Show submitter for Feature Requests */}
                 {item.type === 'Feature Request' && item.submittedBy && (
-                  <p className="text-sm text-muted-foreground">Submitted by: {item.submittedBy}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                    Submitted by: {item.submittedBy}
+                  </p>
                 )}
               </div>
             </div>
@@ -89,32 +107,32 @@ const ItemList = ({ items }: { items: OperationalItem[] }) => (
 
 export default function DailyItemsCard({ title, items }: DailyItemsCardProps) {
   const projectItems = items.filter(item => ['Project', 'Task', 'Timeline Event', 'Feature Request'].includes(item.type));
-  // âœ… MODIFIED: Added 'Client Contract' to the financials section
+  // ✅ MODIFIED: Added 'Client Contract' to the financials section
   const financialItems = items.filter(item => ['Invoice', 'Subscription', 'Client Contract'].includes(item.type));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+    <Card className="w-full">
+      <CardHeader className="pb-3 sm:pb-6">
+        <CardTitle className="text-lg sm:text-xl">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4 sm:space-y-6">
         {items.length > 0 ? (
           <>
             {projectItems.length > 0 && (
               <div>
-                <h3 className="mb-4 text-lg font-medium">Projects & Tasks</h3>
+                <h3 className="mb-3 sm:mb-4 text-base sm:text-lg font-medium">Projects & Tasks</h3>
                 <ItemList items={projectItems} />
               </div>
             )}
             {financialItems.length > 0 && (
               <div>
-                <h3 className="mb-4 text-lg font-medium">Financials</h3>
+                <h3 className="mb-3 sm:mb-4 text-base sm:text-lg font-medium">Financials</h3>
                 <ItemList items={financialItems} />
               </div>
             )}
           </>
         ) : (
-          <p className="text-center text-muted-foreground py-8">No items due.</p>
+          <p className="text-center text-muted-foreground py-6 sm:py-8 text-sm sm:text-base">No items due.</p>
         )}
       </CardContent>
     </Card>
