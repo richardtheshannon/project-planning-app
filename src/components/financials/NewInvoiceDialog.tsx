@@ -1,6 +1,9 @@
+// src/components/financials/NewInvoiceDialog.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -34,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Client, InvoiceStatus } from "@prisma/client";
+import { toast } from "sonner";
 
 // Using strings for dates to work with standard HTML5 inputs.
 const formSchema = z.object({
@@ -57,6 +61,7 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
+  const router = useRouter();
 
   const defaultFormValues: Partial<InvoiceFormValues> = {
     clientId: "",
@@ -111,9 +116,16 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
         throw new Error(errorData.error || 'Failed to create invoice');
       }
 
+      const newInvoice = await response.json();
+      
       form.reset(defaultFormValues);
       onInvoiceAdded();
       setIsOpen(false);
+      
+      // Navigate to the new invoice detail page
+      toast.success("Invoice created successfully!");
+      router.push(`/dashboard/financials/invoices/${newInvoice.id}`);
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
     } finally {
@@ -229,7 +241,7 @@ export function NewInvoiceDialog({ onInvoiceAdded }: NewInvoiceDialogProps) {
             {error && <p className="text-sm font-medium text-destructive">{error}</p>}
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Invoice"}
+                {isSubmitting ? "Creating..." : "Create Invoice"}
               </Button>
             </DialogFooter>
           </form>

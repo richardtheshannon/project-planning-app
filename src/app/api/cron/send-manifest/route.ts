@@ -174,14 +174,14 @@ async function getTodaysOperationalData() {
       link: `/dashboard/projects/${te.projectId}`, 
       projectName: te.project.name 
     })),
-    ...invoices.filter(i => i.dueDate).map(i => ({ 
-      id: i.id, 
-      title: `Invoice #${i.invoiceNumber}`, 
-      type: 'Invoice' as const, 
-      dueDate: i.dueDate!, 
-      link: `/dashboard/financials`, 
-      clientName: i.client.name 
-    })),
+...invoices.filter(i => i.dueDate).map(i => ({ 
+  id: i.id, 
+  title: `Invoice #${i.invoiceNumber}`, 
+  type: 'Invoice' as const, 
+  dueDate: i.dueDate!, 
+  link: `/dashboard/financials/invoices/${i.id}`, // UPDATED: Link to individual invoice
+  clientName: i.client.name 
+})),
     // UPDATED: Feature requests now link to their individual pages
     ...featureRequests
       .filter(fr => fr.dueDate !== null)

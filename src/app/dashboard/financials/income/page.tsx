@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -13,7 +14,6 @@ import {
 } from "@/components/ui/card";
 import { AddClientDialog } from "@/components/financials/AddClientDialog";
 import { NewInvoiceDialog } from "@/components/financials/NewInvoiceDialog";
-import EditInvoiceDialog from "@/components/financials/EditInvoiceDialog";
 import { Client, Invoice } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,14 +30,14 @@ import { toast } from "sonner";
 // Define a more specific type for invoices that include the client relationship
 type InvoiceWithClient = Invoice & { client: Client };
 
-// Props for the InvoiceList component now include a selection handler
+// Updated InvoiceList component to use navigation
 interface InvoiceListProps {
   invoices: InvoiceWithClient[];
-  onInvoiceSelect: (invoice: Invoice) => void;
 }
 
-// A component to display the list of invoices
-function InvoiceList({ invoices, onInvoiceSelect }: InvoiceListProps) {
+function InvoiceList({ invoices }: InvoiceListProps) {
+  const router = useRouter();
+
   if (invoices.length === 0) {
     return (
       <p className="py-4 text-center text-sm text-muted-foreground">
@@ -45,6 +45,10 @@ function InvoiceList({ invoices, onInvoiceSelect }: InvoiceListProps) {
       </p>
     );
   }
+
+  const handleInvoiceClick = (invoiceId: string) => {
+    router.push(`/dashboard/financials/invoices/${invoiceId}`);
+  };
 
   return (
     <Table>
@@ -55,14 +59,14 @@ function InvoiceList({ invoices, onInvoiceSelect }: InvoiceListProps) {
           <TableHead>Client</TableHead>
           <TableHead className="text-right">Amount</TableHead>
           <TableHead>Due Date</TableHead>
+          <TableHead></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {invoices.map((invoice) => (
-          // The TableRow is now clickable to trigger the dialog
           <TableRow
             key={invoice.id}
-            onClick={() => onInvoiceSelect(invoice)}
+            onClick={() => handleInvoiceClick(invoice.id)}
             className="cursor-pointer hover:bg-muted/50"
           >
             <TableCell>
@@ -79,13 +83,15 @@ function InvoiceList({ invoices, onInvoiceSelect }: InvoiceListProps) {
               }).format(invoice.amount)}
             </TableCell>
             <TableCell>
-              {/* FIXED: Use UTC timezone for consistent date display */}
               {new Date(invoice.dueDate).toLocaleDateString('en-US', { 
                 timeZone: 'UTC',
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric'
               })}
+            </TableCell>
+            <TableCell>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </TableCell>
           </TableRow>
         ))}
@@ -133,16 +139,6 @@ export default function IncomePage() {
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // State for managing the Edit Invoice Dialog
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-
-  // Handler to open the dialog with the selected invoice's data
-  const handleInvoiceSelect = (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
-    setIsEditDialogOpen(true);
-  };
 
   const fetchClients = useCallback(async () => {
     setIsLoadingClients(true);
@@ -199,7 +195,7 @@ export default function IncomePage() {
           {isLoadingInvoices && <p className="text-muted-foreground">Loading invoices...</p>}
           {error && <p className="text-destructive">Failed to fetch invoices.</p>}
           {!isLoadingInvoices && !error && (
-            <InvoiceList invoices={invoices} onInvoiceSelect={handleInvoiceSelect} />
+            <InvoiceList invoices={invoices} />
           )}
         </CardContent>
       </Card>
@@ -221,14 +217,6 @@ export default function IncomePage() {
           {!isLoadingClients && !error && <ClientList clients={clients} />}
         </CardContent>
       </Card>
-
-      {/* The Edit Invoice Dialog is now rendered here */}
-      <EditInvoiceDialog
-        invoice={selectedInvoice}
-        isOpen={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        onInvoiceUpdated={fetchInvoices}
-      />
     </div>
   );
 }
