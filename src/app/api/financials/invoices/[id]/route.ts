@@ -7,12 +7,21 @@ import { prisma } from "@/lib/prisma";
 import * as z from "zod";
 import { InvoiceStatus } from "@prisma/client";
 
+// Zod schema for line items
+const lineItemSchema = z.object({
+  id: z.string().optional(),
+  date: z.string().datetime("Invalid date format."),
+  description: z.string().min(1, "Description is required"),
+  amount: z.number().nonnegative("Amount must be non-negative"),
+});
+
 // Zod schema for validating the PATCH request body
 const invoiceUpdateSchema = z.object({
   amount: z.number().positive("Amount must be a positive number.").optional(),
   status: z.nativeEnum(InvoiceStatus).optional(),
   issuedDate: z.string().datetime("Invalid date format.").optional(),
   dueDate: z.string().datetime("Invalid date format.").optional(),
+  lineItems: z.array(lineItemSchema).optional(),
 });
 
 /**
@@ -33,13 +42,18 @@ export async function GET(
   const { id } = params;
 
   try {
-    // MODIFIED: Removed userId filter to match collaborative model
+    // Fetch invoice with client and line items
     const invoice = await prisma.invoice.findUnique({
       where: {
         id: id,
       },
       include: {
-        client: true, // Include client information for display
+        client: true,
+        lineItems: {
+          orderBy: {
+            date: 'asc',
+          },
+        },
       },
     });
 
@@ -85,15 +99,76 @@ export async function PATCH(
   }
 
   try {
-    // MODIFIED: Removed userId filter to allow any authenticated user to update
-    const updatedInvoice = await prisma.invoice.update({
-      where: {
-        id: id,
-      },
-      data: validation.data,
+    // Start a transaction to handle line items and invoice update together
+    const result = await prisma.$transaction(async (tx) => {
+      // Handle line items if provided
+      if (validation.data.lineItems !== undefined) {
+        // Get existing line items
+        const existingLineItems = await tx.lineItem.findMany({
+          where: { invoiceId: id },
+        });
+
+        const existingIds = existingLineItems.map(item => item.id);
+        const updatedIds = validation.data.lineItems
+          .filter(item => item.id)
+          .map(item => item.id!);
+
+        // Delete removed line items
+        const idsToDelete = existingIds.filter(id => !updatedIds.includes(id));
+        if (idsToDelete.length > 0) {
+          await tx.lineItem.deleteMany({
+            where: {
+              id: { in: idsToDelete },
+              invoiceId: id,
+            },
+          });
+        }
+
+        // Update or create line items
+        for (const item of validation.data.lineItems) {
+          if (item.id) {
+            // Update existing item
+            await tx.lineItem.update({
+              where: { id: item.id },
+              data: {
+                date: new Date(item.date),
+                description: item.description,
+                amount: item.amount,
+              },
+            });
+          } else {
+            // Create new item
+            await tx.lineItem.create({
+              data: {
+                date: new Date(item.date),
+                description: item.description,
+                amount: item.amount,
+                invoiceId: id,
+              },
+            });
+          }
+        }
+      }
+
+      // Update the invoice
+      const { lineItems, ...invoiceData } = validation.data;
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: id },
+        data: invoiceData,
+        include: {
+          client: true,
+          lineItems: {
+            orderBy: {
+              date: 'asc',
+            },
+          },
+        },
+      });
+
+      return updatedInvoice;
     });
 
-    return NextResponse.json(updatedInvoice);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Error updating invoice:", error);
     // Handle cases where the invoice might not exist
@@ -125,7 +200,7 @@ export async function DELETE(
     const { id } = params;
 
     try {
-        // MODIFIED: Removed userId filter to allow any authenticated user to delete
+        // Line items will be automatically deleted due to cascade delete in schema
         await prisma.invoice.delete({
             where: {
                 id: id,

@@ -406,6 +406,7 @@ model Invoice {
   userId        String
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents     FinancialDocument[]
+  lineItems     LineItem[]    // ADDED: Relation to line items
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @default(now()) @updatedAt
 }
@@ -415,6 +416,20 @@ enum InvoiceStatus {
   PENDING
   PAID
   OVERDUE
+}
+
+// ADDED: New LineItem model
+model LineItem {
+  id          String   @id @default(cuid())
+  date        DateTime
+  description String
+  amount      Float
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("invoice_line_items")
 }
 
 model Expense {
