@@ -8,10 +8,12 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with increased memory and timeout
+RUN npm ci --maxsockets 1 --fetch-retries 5 --fetch-retry-mintimeout 20000
+
+# Copy prisma schema
+COPY prisma ./prisma/
 
 # Generate Prisma client
 RUN npx prisma generate
