@@ -1,4 +1,4 @@
-dockerfile# Dockerfile
+# Dockerfile
 FROM node:18-alpine AS builder
 
 # Install dependencies for Prisma
@@ -41,5 +41,3 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 3000
 
 CMD ["npm", "start"]
-
-# test
