@@ -5,11 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { type Client, type ClientContact } from "@prisma/client";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -29,12 +26,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Edit, Loader2, CalendarIcon } from "lucide-react";
+import { Edit, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ContactsField, { ContactItem } from "@/components/financials/ContactsField";
 
@@ -49,7 +41,7 @@ const formSchema = z.object({
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
   zipCode: z.string().optional().nullable(),
-  contractStartDate: z.date().optional().nullable(),
+  contractStartDate: z.string().optional(),
   notes: z.string().optional().nullable(),
   contacts: z.array(z.object({
     id: z.string().optional(),
@@ -72,6 +64,14 @@ interface EditClientDialogProps {
 // Helper function to convert null to empty string
 const nullToEmpty = (value: string | null | undefined): string => {
   return value ?? "";
+};
+
+// Helper function to format date for HTML date input
+const formatDateForInput = (date: Date | string | null | undefined): string => {
+  if (!date) return "";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString().split('T')[0];
 };
 
 // Helper function to convert contacts from Prisma to form format
@@ -104,7 +104,7 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
       state: nullToEmpty(client.state),
       zipCode: nullToEmpty(client.zipCode),
       notes: nullToEmpty(client.notes),
-      contractStartDate: client.contractStartDate ? new Date(client.contractStartDate) : null,
+      contractStartDate: formatDateForInput(client.contractStartDate),
       contacts: convertContactsToFormFormat(client.contacts),
     },
   });
@@ -124,6 +124,7 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
         state: values.state || null,
         zipCode: values.zipCode || null,
         notes: values.notes || null,
+        contractStartDate: values.contractStartDate ? new Date(values.contractStartDate) : null,
       };
 
       const response = await fetch(`/api/financials/clients/${client.id}`, {
@@ -243,36 +244,16 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
                   control={form.control}
                   name="contractStartDate"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
+                    <FormItem>
                       <FormLabel>Client Start Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(new Date(field.value), "PPP")
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={field.onChange}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <Input 
+                          type="date"
+                          {...field}
+                          value={field.value || ''}
+                          className="w-full"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

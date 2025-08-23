@@ -4,11 +4,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -28,20 +25,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Plus, Loader2, CalendarIcon } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ContactsField, { ContactItem } from "@/components/financials/ContactsField";
-
-// Helper function to correct for timezone offset from date inputs
-const adjustDateForTimezone = (date: Date): Date => {
-  const timezoneOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
-  return new Date(date.getTime() + timezoneOffset);
-};
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -56,7 +42,7 @@ const formSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   zipCode: z.string().optional(),
-  contractStartDate: z.date().optional().nullable(),
+  contractStartDate: z.string().optional(),
   notes: z.string().optional(),
   contacts: z.array(z.object({
     name: z.string(),
@@ -90,17 +76,16 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
       state: "",
       zipCode: "",
       notes: "",
-      contractStartDate: null,
+      contractStartDate: "",
       contacts: [],
     },
   });
 
   async function onSubmit(values: FormData) {
     try {
-      // Adjust the date for timezone if it exists
       const bodyPayload = {
         ...values,
-        contractStartDate: values.contractStartDate ? adjustDateForTimezone(values.contractStartDate) : null,
+        contractStartDate: values.contractStartDate ? new Date(values.contractStartDate) : null,
       };
 
       const response = await fetch('/api/financials/clients', {
@@ -251,36 +236,16 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                   control={form.control}
                   name="contractStartDate"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
+                    <FormItem>
                       <FormLabel>Client Start Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value || undefined}
-                            onSelect={field.onChange}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <Input 
+                          type="date"
+                          {...field}
+                          value={field.value || ''}
+                          className="w-full"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -358,8 +323,8 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                           />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
-                    )}
+                    </FormItem>
+                  )}
                   />
                   
                   <FormField
@@ -376,8 +341,8 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                           />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
-                    )}
+                    </FormItem>
+                  )}
                   />
                   
                   <FormField
@@ -394,8 +359,8 @@ export function AddClientDialog({ onClientAdded }: AddClientDialogProps) {
                           />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
-                    )}
+                    </FormItem>
+                  )}
                   />
                 </div>
               </TabsContent>
