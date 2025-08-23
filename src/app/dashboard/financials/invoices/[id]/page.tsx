@@ -504,21 +504,6 @@ export default function InvoiceDetailPage() {
   </div>
 )}
 
-{/* Sender Information */}
-<div className="space-y-1">
-  {appearanceSettings?.businessName && (
-    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-      {appearanceSettings.businessName}
-    </h2>
-  )}
-  <div className="text-sm text-slate-600 dark:text-slate-400">
-    <p className="font-semibold text-slate-700 dark:text-slate-300">Richard Shannon</p>
-    <p>263 Dairyland Rd</p>
-    <p>Buellton, CA 93427</p>
-    <p>richard@salesfield.net</p>
-    <p>P: 805-720-8554</p>
-  </div>
-</div>
               
               {/* Sender Information */}
               <div className="space-y-1">
