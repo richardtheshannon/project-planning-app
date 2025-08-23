@@ -26,6 +26,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Invoice, Client, InvoiceStatus } from "@prisma/client";
 
@@ -52,6 +60,8 @@ export default function InvoiceDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Form state for editing
   const [editForm, setEditForm] = useState({
@@ -63,6 +73,16 @@ export default function InvoiceDetailPage() {
 
   // Line items state
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+
+  // Check if mobile view
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Fetch invoice data
   const fetchInvoice = async () => {
@@ -213,10 +233,6 @@ export default function InvoiceDetailPage() {
   const handleDelete = async () => {
     if (!invoice) return;
 
-    if (!confirm("Are you sure you want to delete this invoice? This action cannot be undone.")) {
-      return;
-    }
-
     try {
       setIsDeleting(true);
       
@@ -235,6 +251,7 @@ export default function InvoiceDetailPage() {
       toast.error("Failed to delete invoice");
     } finally {
       setIsDeleting(false);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -295,10 +312,12 @@ export default function InvoiceDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+      <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+            <p className="mt-4 text-muted-foreground">Loading invoice...</p>
+          </div>
         </div>
       </div>
     );
@@ -306,91 +325,175 @@ export default function InvoiceDetailPage() {
 
   if (!invoice) {
     return (
-      <div className="container mx-auto p-6">
-        <p className="text-center text-muted-foreground">Invoice not found</p>
+      <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-center text-red-600 font-semibold mb-4">Invoice not found</p>
+            <div className="text-center">
+              <Link href="/dashboard/financials/income">
+                <Button variant="outline">Back to Invoices</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-6xl">
-      {/* Header */}
-      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/financials/income">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold">Invoice {invoice.invoiceNumber}</h1>
-            <Badge variant={getStatusColor(invoice.status)}>
-              {invoice.status}
-            </Badge>
-          </div>
+  // Mobile Line Item Card Component
+  const MobileLineItemCard = ({ item, index }: { item: LineItem; index: number }) => (
+    <Card className="mb-3">
+      <CardContent className="pt-4 space-y-3">
+        <div className="flex justify-between items-start">
+          <span className="text-sm font-medium text-muted-foreground">Item #{index + 1}</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleRemoveLineItem(index)}
+            className="h-8 w-8 p-0"
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
         </div>
         
-        <div className="flex gap-2">
-          {!isEditing ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(true)}
-              >
-                <Edit2 className="h-4 w-4 mr-2" />
-                Edit
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Date</Label>
+            <Input
+              type="date"
+              value={item.date}
+              onChange={(e) => handleUpdateLineItem(index, 'date', e.target.value)}
+              className="w-full mt-1"
+            />
+          </div>
+          
+          <div>
+            <Label className="text-xs">Description</Label>
+            <Input
+              type="text"
+              value={item.description}
+              onChange={(e) => handleUpdateLineItem(index, 'description', e.target.value)}
+              placeholder="Enter description"
+              className="w-full mt-1"
+            />
+          </div>
+          
+          <div>
+            <Label className="text-xs">Amount</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={item.amount}
+              onChange={(e) => handleUpdateLineItem(index, 'amount', e.target.value)}
+              className="w-full mt-1"
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex flex-col gap-4">
+          {/* Mobile Back Button */}
+          <div className="sm:hidden">
+            <Link href="/dashboard/financials/income">
+              <Button variant="ghost" size="sm" className="min-h-[44px] -ml-2">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDelete}
-                disabled={isDeleting}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {isDeleting ? "Deleting..." : "Delete"}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCancel}
-                disabled={isSaving}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={isSaving}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
-            </>
-          )}
+            </Link>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex items-start gap-3">
+              {/* Desktop Back Button */}
+              <Link href="/dashboard/financials/income" className="hidden sm:block">
+                <Button variant="ghost" size="icon" className="mt-0.5">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+              <div className="space-y-2">
+                <h1 className="text-xl sm:text-2xl font-bold break-words">
+                  Invoice {invoice.invoiceNumber}
+                </h1>
+                <Badge variant={getStatusColor(invoice.status)} className="text-xs sm:text-sm">
+                  {invoice.status}
+                </Badge>
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-2 w-full sm:w-auto">
+              {!isEditing ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    className="flex-1 sm:flex-initial min-h-[44px]"
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={isDeleting}
+                    className="flex-1 sm:flex-initial min-h-[44px]"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                    className="flex-1 sm:flex-initial min-h-[44px]"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="flex-1 sm:flex-initial min-h-[44px]"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save"}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="grid gap-6">
+      <div className="grid gap-4 sm:gap-6">
         {/* Invoice Details Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Invoice Details</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Invoice Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-muted-foreground">Invoice Number</Label>
-                <p className="font-medium">{invoice.invoiceNumber}</p>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Invoice Number</Label>
+                <p className="font-medium text-sm sm:text-base">{invoice.invoiceNumber}</p>
               </div>
               
-              <div>
-                <Label className="text-muted-foreground">Status</Label>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Status</Label>
                 {isEditing ? (
                   <Select
                     value={editForm.status}
@@ -411,7 +514,7 @@ export default function InvoiceDetailPage() {
                   </Select>
                 ) : (
                   <div>
-                    <Badge variant={getStatusColor(invoice.status)}>
+                    <Badge variant={getStatusColor(invoice.status)} className="text-xs sm:text-sm">
                       {invoice.status}
                     </Badge>
                   </div>
@@ -420,10 +523,10 @@ export default function InvoiceDetailPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-muted-foreground">Total Amount</Label>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Total Amount</Label>
                 {isEditing ? (
-                  <div className="flex items-center gap-2">
+                  <div className="space-y-1">
                     <Input
                       type="number"
                       step="0.01"
@@ -432,30 +535,35 @@ export default function InvoiceDetailPage() {
                         setEditForm({ ...editForm, amount: parseFloat(e.target.value) || 0 })
                       }
                       disabled={lineItems.length > 0}
+                      className="w-full"
                     />
                     {lineItems.length > 0 && (
-                      <span className="text-xs text-muted-foreground">Auto-calculated from line items</span>
+                      <p className="text-xs text-muted-foreground">Auto-calculated from line items</p>
                     )}
                   </div>
                 ) : (
-                  <p className="font-medium text-lg">{formatCurrency(invoice.amount)}</p>
+                  <p className="font-medium text-base sm:text-lg">{formatCurrency(invoice.amount)}</p>
                 )}
               </div>
               
-              <div>
-                <Label className="text-muted-foreground">Client</Label>
-                <p className="font-medium">
-                  {invoice.client?.name || "Unknown Client"}
-                </p>
-                {invoice.client?.email && (
-                  <p className="text-sm text-muted-foreground">{invoice.client.email}</p>
-                )}
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Client</Label>
+                <div>
+                  <p className="font-medium text-sm sm:text-base break-words">
+                    {invoice.client?.name || "Unknown Client"}
+                  </p>
+                  {invoice.client?.email && (
+                    <p className="text-xs sm:text-sm text-muted-foreground break-all">
+                      {invoice.client.email}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-muted-foreground">Issued Date</Label>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Issued Date</Label>
                 {isEditing ? (
                   <Input
                     type="date"
@@ -463,14 +571,15 @@ export default function InvoiceDetailPage() {
                     onChange={(e) => 
                       setEditForm({ ...editForm, issuedDate: e.target.value })
                     }
+                    className="w-full"
                   />
                 ) : (
-                  <p className="font-medium">{formatDate(invoice.issuedDate)}</p>
+                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.issuedDate)}</p>
                 )}
               </div>
               
-              <div>
-                <Label className="text-muted-foreground">Due Date</Label>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Due Date</Label>
                 {isEditing ? (
                   <Input
                     type="date"
@@ -478,140 +587,175 @@ export default function InvoiceDetailPage() {
                     onChange={(e) => 
                       setEditForm({ ...editForm, dueDate: e.target.value })
                     }
+                    className="w-full"
                   />
                 ) : (
-                  <p className="font-medium">{formatDate(invoice.dueDate)}</p>
+                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.dueDate)}</p>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Line Items Card - Only show when editing */}
+        {/* Line Items Card - Edit Mode */}
         {isEditing && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Line Items</CardTitle>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-lg sm:text-xl">Line Items</CardTitle>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleAddLineItem}
+                className="w-full sm:w-auto min-h-[44px]"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
               </Button>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[140px]">Date</TableHead>
-                      <TableHead className="min-w-[200px]">Description</TableHead>
-                      <TableHead className="w-[120px]">Amount</TableHead>
-                      <TableHead className="w-[60px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lineItems.length === 0 ? (
+            <CardContent className="px-3 sm:px-6">
+              {/* Mobile View - Cards */}
+              {isMobile ? (
+                <div>
+                  {lineItems.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No line items. Click "Add Item" to create one.
+                    </div>
+                  ) : (
+                    <>
+                      {lineItems.map((item, index) => (
+                        <MobileLineItemCard 
+                          key={item.id || item.tempId} 
+                          item={item} 
+                          index={index} 
+                        />
+                      ))}
+                      <Card className="mt-4 bg-muted/50">
+                        <CardContent className="pt-4">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold">Total:</span>
+                            <span className="font-semibold text-lg">
+                              {formatCurrency(lineItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  )}
+                </div>
+              ) : (
+                /* Desktop View - Table */
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                          No line items. Click "Add Item" to create one.
-                        </TableCell>
+                        <TableHead className="min-w-[120px]">Date</TableHead>
+                        <TableHead className="min-w-[200px]">Description</TableHead>
+                        <TableHead className="min-w-[100px]">Amount</TableHead>
+                        <TableHead className="w-[60px]">Actions</TableHead>
                       </TableRow>
-                    ) : (
-                      lineItems.map((item, index) => (
-                        <TableRow key={item.id || item.tempId}>
-                          <TableCell>
-                            <Input
-                              type="date"
-                              value={item.date}
-                              onChange={(e) => 
-                                handleUpdateLineItem(index, 'date', e.target.value)
-                              }
-                              className="w-full"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              value={item.description}
-                              onChange={(e) => 
-                                handleUpdateLineItem(index, 'description', e.target.value)
-                              }
-                              placeholder="Enter description"
-                              className="w-full"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={item.amount}
-                              onChange={(e) => 
-                                handleUpdateLineItem(index, 'amount', e.target.value)
-                              }
-                              className="w-full"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRemoveLineItem(index)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                    </TableHeader>
+                    <TableBody>
+                      {lineItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                            No line items. Click "Add Item" to create one.
                           </TableCell>
                         </TableRow>
-                      ))
+                      ) : (
+                        lineItems.map((item, index) => (
+                          <TableRow key={item.id || item.tempId}>
+                            <TableCell>
+                              <Input
+                                type="date"
+                                value={item.date}
+                                onChange={(e) => 
+                                  handleUpdateLineItem(index, 'date', e.target.value)
+                                }
+                                className="w-full min-w-[120px]"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                value={item.description}
+                                onChange={(e) => 
+                                  handleUpdateLineItem(index, 'description', e.target.value)
+                                }
+                                placeholder="Enter description"
+                                className="w-full min-w-[150px]"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={item.amount}
+                                onChange={(e) => 
+                                  handleUpdateLineItem(index, 'amount', e.target.value)
+                                }
+                                className="w-full min-w-[80px]"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRemoveLineItem(index)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                    {lineItems.length > 0 && (
+                      <TableRow className="font-semibold bg-muted/50">
+                        <TableCell colSpan={2} className="text-right">
+                          Total:
+                        </TableCell>
+                        <TableCell>
+                          {formatCurrency(lineItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
                     )}
-                  </TableBody>
-                  {lineItems.length > 0 && (
-                    <TableRow className="font-semibold">
-                      <TableCell colSpan={2} className="text-right">
-                        Total:
-                      </TableCell>
-                      <TableCell>
-                        {formatCurrency(lineItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  )}
-                </Table>
-              </div>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {/* Line Items Display - Only show when NOT editing and has items */}
+        {/* Line Items Display - View Mode */}
         {!isEditing && invoice.lineItems && invoice.lineItems.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Line Items</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">Line Items</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
+            <CardContent className="px-3 sm:px-6">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="min-w-[100px]">Date</TableHead>
+                      <TableHead className="min-w-[150px]">Description</TableHead>
+                      <TableHead className="text-right min-w-[100px]">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {invoice.lineItems.map((item: any) => (
                       <TableRow key={item.id}>
-                        <TableCell>{formatDate(item.date)}</TableCell>
-                        <TableCell>{item.description}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-sm">{formatDate(item.date)}</TableCell>
+                        <TableCell className="text-sm">{item.description}</TableCell>
+                        <TableCell className="text-right text-sm">
                           {formatCurrency(item.amount)}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
-                  <TableRow className="font-semibold">
+                  <TableRow className="font-semibold bg-muted/50">
                     <TableCell colSpan={2} className="text-right">
                       Total:
                     </TableCell>
@@ -628,23 +772,52 @@ export default function InvoiceDetailPage() {
         {/* Additional Information Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Additional Information</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Additional Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-muted-foreground">Created</Label>
-                <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Created</Label>
+                <p className="font-medium text-sm sm:text-base">{formatDate(invoice.createdAt)}</p>
               </div>
               
-              <div>
-                <Label className="text-muted-foreground">Last Updated</Label>
-                <p className="font-medium">{formatDate(invoice.updatedAt)}</p>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Last Updated</Label>
+                <p className="font-medium text-sm sm:text-base">{formatDate(invoice.updatedAt)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="w-[95vw] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Invoice</DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to delete invoice {invoice.invoiceNumber}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

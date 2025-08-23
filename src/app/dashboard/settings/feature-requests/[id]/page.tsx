@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Calendar, User, Clock } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Calendar, User, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FeatureRequest {
@@ -171,111 +171,159 @@ export default function FeatureRequestDetailPage() {
         }
     };
 
+    // Loading state
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                Loading feature request...
+            <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <div className="text-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+                        <p className="mt-4 text-muted-foreground">Loading feature request...</p>
+                    </div>
+                </div>
             </div>
         );
     }
 
+    // Error state
     if (error || !request) {
         return (
-            <div className="text-red-600 p-4">
-                {error || "Feature request not found"}
-                <div className="mt-4">
-                    <Link href="/dashboard/settings/feature-requests">
-                        <Button variant="outline">Back to Feature Requests</Button>
-                    </Link>
-                </div>
+            <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+                <Card className="border-red-200 bg-red-50">
+                    <CardContent className="pt-6">
+                        <div className="flex items-center gap-2 text-red-600 mb-4">
+                            <AlertCircle className="h-5 w-5" />
+                            <p className="font-semibold">{error || "Feature request not found"}</p>
+                        </div>
+                        <Link href="/dashboard/settings/feature-requests">
+                            <Button variant="outline" className="min-h-[44px]">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back to Feature Requests
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
 
     return (
-        <div className="p-4 md:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
             {/* Header Section */}
             <div className="mb-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold">{request.title}</h1>
-                        <div className="flex items-center gap-2 mt-2">
-                            <Badge className={getStatusColor(request.status)}>{request.status}</Badge>
-                            <Badge className={getPriorityColor(request.priority)}>{request.priority}</Badge>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
+                <div className="flex flex-col gap-4">
+                    {/* Back button for mobile */}
+                    <div className="sm:hidden">
                         <Link href="/dashboard/settings/feature-requests">
-                            <Button variant="outline">Back to Requests</Button>
+                            <Button variant="ghost" size="sm" className="min-h-[44px] -ml-2">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back
+                            </Button>
                         </Link>
-                        <Button onClick={handleEditClick}>
-                            <Pencil size={16} className="mr-2" />
-                            Edit
-                        </Button>
-                        <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-                            <Trash2 size={16} className="mr-2" />
-                            Delete
-                        </Button>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div className="space-y-2">
+                            <h1 className="text-2xl sm:text-3xl font-bold break-words">{request.title}</h1>
+                            <div className="flex flex-wrap gap-2">
+                                <Badge className={`${getStatusColor(request.status)} text-xs sm:text-sm`}>
+                                    {request.status}
+                                </Badge>
+                                <Badge className={`${getPriorityColor(request.priority)} text-xs sm:text-sm`}>
+                                    {request.priority}
+                                </Badge>
+                            </div>
+                        </div>
+                        
+                        {/* Desktop actions */}
+                        <div className="hidden sm:flex gap-2 flex-shrink-0">
+                            <Link href="/dashboard/settings/feature-requests">
+                                <Button variant="outline" className="min-h-[44px]">
+                                    <ArrowLeft className="mr-2 h-4 w-4" />
+                                    Back
+                                </Button>
+                            </Link>
+                            <Button onClick={handleEditClick} className="min-h-[44px]">
+                                <Pencil size={16} className="mr-2" />
+                                Edit
+                            </Button>
+                            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} className="min-h-[44px]">
+                                <Trash2 size={16} className="mr-2" />
+                                Delete
+                            </Button>
+                        </div>
+
+                        {/* Mobile actions */}
+                        <div className="flex sm:hidden gap-2 w-full">
+                            <Button onClick={handleEditClick} className="flex-1 min-h-[44px]">
+                                <Pencil size={16} className="mr-2" />
+                                Edit
+                            </Button>
+                            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} className="flex-1 min-h-[44px]">
+                                <Trash2 size={16} className="mr-2" />
+                                Delete
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Main Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                 {/* Left Column - Main Details */}
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 order-2 lg:order-1">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Description</CardTitle>
+                            <CardTitle className="text-lg sm:text-xl">Description</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="whitespace-pre-wrap break-words text-muted-foreground">
-                                {request.description}
+                            <p className="whitespace-pre-wrap break-words text-sm sm:text-base text-muted-foreground leading-relaxed">
+                                {request.description || "No description provided."}
                             </p>
                         </CardContent>
                     </Card>
                 </div>
 
                 {/* Right Column - Metadata */}
-                <div className="space-y-4">
+                <div className="order-1 lg:order-2">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Details</CardTitle>
+                            <CardTitle className="text-lg sm:text-xl">Details</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <User size={16} className="text-muted-foreground" />
-                                <div>
+                            <div className="flex items-start gap-3">
+                                <User size={18} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
                                     <p className="text-sm text-muted-foreground">Submitted by</p>
-                                    <p className="font-medium">{request.submittedBy}</p>
+                                    <p className="font-medium text-sm sm:text-base break-words">{request.submittedBy}</p>
                                 </div>
                             </div>
                             
-                            <div className="flex items-center gap-2">
-                                <Clock size={16} className="text-muted-foreground" />
-                                <div>
+                            <div className="flex items-start gap-3">
+                                <Clock size={18} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
                                     <p className="text-sm text-muted-foreground">Created</p>
-                                    <p className="font-medium">
+                                    <p className="font-medium text-sm sm:text-base">
                                         {new Date(request.createdAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}
                                     </p>
                                 </div>
                             </div>
 
                             {request.dueDate && (
-                                <div className="flex items-center gap-2">
-                                    <Calendar size={16} className="text-muted-foreground" />
-                                    <div>
+                                <div className="flex items-start gap-3">
+                                    <Calendar size={18} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+                                    <div className="min-w-0 flex-1">
                                         <p className="text-sm text-muted-foreground">Due Date</p>
-                                        <p className="font-medium">
+                                        <p className="font-medium text-sm sm:text-base">
                                             {new Date(request.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' })}
                                         </p>
                                     </div>
                                 </div>
                             )}
 
-                            <div>
+                            <div className="pt-2 border-t">
                                 <p className="text-sm text-muted-foreground mb-1">Last Updated</p>
-                                <p className="font-medium">
+                                <p className="font-medium text-sm sm:text-base">
                                     {new Date(request.updatedAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}
                                 </p>
                             </div>
@@ -284,16 +332,16 @@ export default function FeatureRequestDetailPage() {
                 </div>
             </div>
 
-            {/* Edit Dialog */}
+            {/* Edit Dialog - Now responsive with full-screen on mobile */}
             <Dialog open={isEditing} onOpenChange={setIsEditing}>
-                <DialogContent className="w-[90vw] max-w-2xl max-h-[85vh] flex flex-col">
-                    <DialogHeader className="flex-shrink-0">
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
                         <DialogTitle>Edit Feature Request</DialogTitle>
                         <DialogDescription>
                             Update the details of this feature request.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="flex-1 overflow-y-auto px-1 space-y-4">
+                    <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label htmlFor="edit-title">Title</Label>
                             <Input
@@ -301,6 +349,7 @@ export default function FeatureRequestDetailPage() {
                                 value={editTitle}
                                 onChange={(e) => setEditTitle(e.target.value)}
                                 required
+                                className="w-full"
                             />
                         </div>
                         <div className="space-y-2">
@@ -309,7 +358,7 @@ export default function FeatureRequestDetailPage() {
                                 id="edit-description"
                                 value={editDescription}
                                 onChange={(e) => setEditDescription(e.target.value)}
-                                className="min-h-[200px]"
+                                className="min-h-[150px] sm:min-h-[200px] w-full resize-y"
                                 required
                             />
                         </div>
@@ -349,14 +398,15 @@ export default function FeatureRequestDetailPage() {
                                 type="date"
                                 value={editDueDate}
                                 onChange={(e) => setEditDueDate(e.target.value)}
+                                className="w-full"
                             />
                         </div>
                     </div>
-                    <DialogFooter className="flex-shrink-0 mt-4">
-                        <Button type="button" variant="secondary" onClick={() => setIsEditing(false)}>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button type="button" variant="outline" onClick={() => setIsEditing(false)} className="w-full sm:w-auto min-h-[44px]">
                             Cancel
                         </Button>
-                        <Button onClick={handleUpdate}>
+                        <Button onClick={handleUpdate} className="w-full sm:w-auto min-h-[44px]">
                             Save changes
                         </Button>
                     </DialogFooter>
@@ -365,18 +415,18 @@ export default function FeatureRequestDetailPage() {
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <DialogContent>
+                <DialogContent className="w-[95vw] max-w-md">
                     <DialogHeader>
                         <DialogTitle>Delete Feature Request</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete this feature request? This action cannot be undone.
+                        <DialogDescription className="pt-2">
+                            Are you sure you want to delete "{request.title}"? This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="w-full sm:w-auto min-h-[44px]">
                             Cancel
                         </Button>
-                        <Button variant="destructive" onClick={handleDelete}>
+                        <Button variant="destructive" onClick={handleDelete} className="w-full sm:w-auto min-h-[44px]">
                             Delete
                         </Button>
                     </DialogFooter>
