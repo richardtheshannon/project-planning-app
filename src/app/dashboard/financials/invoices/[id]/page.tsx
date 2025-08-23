@@ -487,7 +487,6 @@ export default function InvoiceDetailPage() {
           <div className="flex justify-between items-start mb-8">
             {/* Left side - Logo and Sender Info */}
             <div className="flex flex-col gap-4">
-// In the Invoice Header section, update the logo display to this:
 
 {/* Logo - Light Mode Logo with 80px height */}
 {appearanceSettings?.lightModeLogoUrl && (
