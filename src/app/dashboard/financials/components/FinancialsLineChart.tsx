@@ -27,6 +27,7 @@ export type FinancialsChartDataPoint = {
   netIncome: number;
   taxesDue: number;
   upcomingPayments: number;
+  forecast: number; // ADD THIS LINE
 };
 
 interface FinancialsLineChartProps {
@@ -102,6 +103,7 @@ export default function FinancialsLineChart({ data }: FinancialsLineChartProps) 
             <Line name="Net Income" type="monotone" dataKey="netIncome" stroke="#3b82f6" strokeWidth={2} />
             <Line name="Taxes Due" type="monotone" dataKey="taxesDue" stroke="#eab308" strokeWidth={2} strokeDasharray="5 5" />
             <Line name="Upcoming" type="monotone" dataKey="upcomingPayments" stroke="#a855f7" strokeWidth={2} strokeDasharray="5 5" />
+            <Line name="Forecast" type="monotone" dataKey="forecast" stroke="#06b6d4" strokeWidth={2} strokeDasharray="3 3" />
           </LineChart>
         </ResponsiveContainer>
       </CardContent>

@@ -45,9 +45,11 @@ const processDataForChart = (
   clients: ClientWithContracts[]
 ): FinancialsChartDataPoint[] => {
   const now = new Date();
+  const currentYear = getYear(now);
   const currentMonthIndex = getMonth(now);
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+  // Initialize monthly data (NOT cumulative)
   const monthlyData = Array.from({ length: 12 }, (_, i) => ({
     month: monthNames[i],
     totalRevenue: 0,
@@ -56,70 +58,100 @@ const processDataForChart = (
     netIncome: 0,
     taxesDue: 0,
     upcomingPayments: 0,
+    forecast: 0,
   }));
 
+  // 1. REVENUE: Sum of PAID invoices for each month
   invoices.forEach(inv => {
-    if (inv.status === 'PAID' && getYear(inv.issuedDate) === getYear(now)) {
+    if (inv.status === 'PAID' && getYear(inv.issuedDate) === currentYear) {
       const monthIndex = getMonth(inv.issuedDate);
       monthlyData[monthIndex].totalRevenue += inv.amount;
     }
   });
 
+  // 2. FORECAST REVENUE: Sum of DRAFT, PENDING, and OVERDUE invoices for each month
+  invoices.forEach(inv => {
+    if ((inv.status === 'DRAFT' || inv.status === 'PENDING' || inv.status === 'OVERDUE') 
+        && getYear(inv.issuedDate) === currentYear) {
+      const monthIndex = getMonth(inv.issuedDate);
+      monthlyData[monthIndex].forecast += inv.amount; // Start with unpaid invoice revenue
+    }
+  });
+
+  // 3. ONE-TIME EXPENSES: Process expenses for each month
   expenses.forEach(exp => {
-    if (getYear(exp.date) === getYear(now)) {
+    if (getYear(exp.date) === currentYear) {
       const monthIndex = getMonth(exp.date);
       monthlyData[monthIndex].expenses += exp.amount;
     }
   });
 
+  // 4. SUBSCRIPTIONS: Calculate monthly subscription total
   const monthlySubscriptionTotal = subscriptions
     .filter(s => s.billingCycle === 'MONTHLY')
     .reduce((sum, s) => sum + s.amount, 0);
 
+  // Add annual subscriptions to their due month
   subscriptions.forEach(sub => {
-    if (sub.billingCycle === 'ANNUALLY' && getYear(sub.createdAt) === getYear(now)) {
-      const monthIndex = getMonth(sub.createdAt);
+    if (sub.billingCycle === 'ANNUALLY' && sub.dueDate && getYear(sub.dueDate) === currentYear) {
+      const monthIndex = getMonth(sub.dueDate);
+      // Add to both expenses and subscriptions for the month it's due
+      monthlyData[monthIndex].expenses += sub.amount;
       monthlyData[monthIndex].subscriptions += sub.amount;
     }
   });
 
+  // 5. Process each month
   for (let i = 0; i < 12; i++) {
-    monthlyData[i].subscriptions += monthlySubscriptionTotal;
-
-    let forecastedClientIncome = 0;
-    const forecastMonthStart = new Date(getYear(now), i, 1);
-    const forecastMonthEnd = endOfMonth(forecastMonthStart);
-
-    clients.forEach(client => {
-      if (client.contractStartDate && client.contractAmount && client.contractTerm && client.frequency === '1 Month') {
-        const startDate = parseISO(client.contractStartDate.toString());
-        const termsInMonths = getMonthsFromTerm(client.contractTerm);
-        const endDate = addMonths(startDate, termsInMonths);
-
-        if (!isAfter(forecastMonthStart, endDate) && !isBefore(forecastMonthEnd, startDate)) {
-          forecastedClientIncome += client.contractAmount;
-        }
-      }
-    });
-    
-    if (i >= currentMonthIndex) {
-      monthlyData[i].totalRevenue += forecastedClientIncome;
+    // Add monthly subscriptions to every month up to and including current month
+    if (i <= currentMonthIndex) {
+      monthlyData[i].expenses += monthlySubscriptionTotal;
+      monthlyData[i].subscriptions += monthlySubscriptionTotal;
     }
 
-    const totalExpensesForMonth = monthlyData[i].expenses + monthlyData[i].subscriptions;
+    // For current and future months, add forecasted revenue from contracts
+    if (i >= currentMonthIndex) {
+      let forecastedClientIncome = 0;
+      const forecastMonthStart = new Date(currentYear, i, 1);
+      const forecastMonthEnd = endOfMonth(forecastMonthStart);
+
+      clients.forEach(client => {
+        if (client.contractStartDate && client.contractAmount && client.contractTerm && client.frequency === '1 Month') {
+          const startDate = parseISO(client.contractStartDate.toString());
+          const termsInMonths = getMonthsFromTerm(client.contractTerm);
+          const endDate = addMonths(startDate, termsInMonths);
+
+          if (!isAfter(forecastMonthStart, endDate) && !isBefore(forecastMonthEnd, startDate)) {
+            forecastedClientIncome += client.contractAmount;
+          }
+        }
+      });
+      
+      monthlyData[i].totalRevenue += forecastedClientIncome;
+
+      // Add monthly subscriptions to future months as well
+      if (i > currentMonthIndex) {
+        monthlyData[i].expenses += monthlySubscriptionTotal;
+        monthlyData[i].subscriptions += monthlySubscriptionTotal;
+      }
+    }
+
+    // 6. TAXES DUE: 20% of revenue for that month
     monthlyData[i].taxesDue = monthlyData[i].totalRevenue * 0.20;
-    monthlyData[i].netIncome = monthlyData[i].totalRevenue - totalExpensesForMonth - monthlyData[i].taxesDue;
+
+    // 7. NET INCOME: Revenue - taxes - expenses (expenses already includes all subscriptions)
+    monthlyData[i].netIncome = monthlyData[i].totalRevenue - monthlyData[i].taxesDue - monthlyData[i].expenses;
+
+    // 8. UPCOMING PAYMENTS: Same as subscriptions (monthly + annual due that month)
+    monthlyData[i].upcomingPayments = monthlyData[i].subscriptions;
+
+    // 9. FORECAST: Unpaid invoices minus all expenses
+    // Forecast = (DRAFT + PENDING + OVERDUE invoices) - one-time expenses - subscriptions
+    monthlyData[i].forecast = monthlyData[i].forecast - monthlyData[i].expenses;
   }
 
-  for (let i = 1; i < 12; i++) {
-    monthlyData[i].totalRevenue += monthlyData[i - 1].totalRevenue;
-    monthlyData[i].expenses += monthlyData[i - 1].expenses;
-    monthlyData[i].subscriptions += monthlyData[i - 1].subscriptions;
-    monthlyData[i].netIncome += monthlyData[i - 1].netIncome;
-    monthlyData[i].taxesDue += monthlyData[i - 1].taxesDue;
-  }
-
-  return monthlyData.slice(0, currentMonthIndex + 4);
+  // Return data up to current month + 3 months forecast
+  return monthlyData.slice(0, Math.min(currentMonthIndex + 4, 12));
 };
 
 
