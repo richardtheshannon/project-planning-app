@@ -19,7 +19,51 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { useEffect, useState } from "react";
 import { AppearanceSettings, AppearanceSettingsSchema } from "@/lib/schemas/appearance";
-import { Loader2, XCircle } from "lucide-react";
+import { Loader2, XCircle, RotateCcw } from "lucide-react";
+
+// Default color values from the database schema
+const DEFAULT_COLORS = {
+  // Light Theme Defaults
+  lightBackground: "#ffffff",
+  lightForeground: "#020817",
+  lightCard: "#ffffff",
+  lightCardForeground: "#020817",
+  lightPopover: "#ffffff",
+  lightPopoverForeground: "#020817",
+  lightPrimary: "#18181b",
+  lightPrimaryForeground: "#fafafa",
+  lightSecondary: "#f4f4f5",
+  lightSecondaryForeground: "#18181b",
+  lightMuted: "#f4f4f5",
+  lightMutedForeground: "#71717a",
+  lightAccent: "#f4f4f5",
+  lightAccentForeground: "#18181b",
+  lightDestructive: "#ef4444",
+  lightDestructiveForeground: "#fafafa",
+  lightBorder: "#e4e4e7",
+  lightInput: "#e4e4e7",
+  lightRing: "#18181b",
+  // Dark Theme Defaults
+  darkBackground: "#09090b",
+  darkForeground: "#fafafa",
+  darkCard: "#09090b",
+  darkCardForeground: "#fafafa",
+  darkPopover: "#09090b",
+  darkPopoverForeground: "#fafafa",
+  darkPrimary: "#fafafa",
+  darkPrimaryForeground: "#18181b",
+  darkSecondary: "#27272a",
+  darkSecondaryForeground: "#fafafa",
+  darkMuted: "#27272a",
+  darkMutedForeground: "#a1a1aa",
+  darkAccent: "#27272a",
+  darkAccentForeground: "#fafafa",
+  darkDestructive: "#7f1d1d",
+  darkDestructiveForeground: "#fafafa",
+  darkBorder: "#27272a",
+  darkInput: "#27272a",
+  darkRing: "#d4d4d8",
+};
 
 // The form schema now includes all fields, including colors, from the lib schema.
 const formSchema = AppearanceSettingsSchema.extend({
@@ -117,6 +161,22 @@ export default function AppearanceSettingsForm() {
   const handleClearImage = (urlField: ImageUrlField) => {
     setValue(urlField, null, { shouldDirty: true, shouldValidate: true });
     toast({ title: "Image Cleared", description: `The image for ${labelFromFileField(urlField.replace('Url', 'File') as ImageFileField)} has been removed.` });
+  };
+
+  // Reset colors to defaults
+  const handleResetColors = () => {
+    // Set all color fields to their default values
+    Object.entries(DEFAULT_COLORS).forEach(([key, value]) => {
+      setValue(key as keyof typeof DEFAULT_COLORS, value, { 
+        shouldDirty: true, 
+        shouldValidate: true 
+      });
+    });
+    
+    toast({ 
+      title: "Colors Reset", 
+      description: "All theme colors have been reset to default values." 
+    });
   };
 
   const onSubmit = async (data: AppearanceSettingsFormData) => {
@@ -241,11 +301,24 @@ export default function AppearanceSettingsForm() {
           {renderImageUpload('darkModeIconFile', 'darkModeIconUrl', 'Dark Mode Icon', 30, 30)}
         </div>
 
-        {/* *** NEW SECTION ***: Theme Colors */}
+        {/* Theme Colors Section with Reset Button */}
         <div className="space-y-6 p-4 border rounded-lg">
-          <div>
-            <h3 className="text-lg font-medium">Theme Colors</h3>
-            <p className="text-sm text-muted-foreground">Customize the color scheme for light and dark modes.</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-lg font-medium">Theme Colors</h3>
+              <p className="text-sm text-muted-foreground">Customize the color scheme for light and dark modes.</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResetColors}
+              disabled={isSubmitting || isUploading}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset Colors
+            </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">

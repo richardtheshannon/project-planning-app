@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Edit2, Trash2, Save, X, Plus, Calendar } from "lucide-react";
+import { ArrowLeft, Edit2, Trash2, Save, X, Plus, Calendar, Building2, Mail, Globe, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Invoice, Client, InvoiceStatus } from "@prisma/client";
+import Image from "next/image";
 
 type LineItem = {
   id?: string;
@@ -50,12 +51,19 @@ type InvoiceWithClientAndLineItems = Invoice & {
   lineItems?: LineItem[];
 };
 
+type AppearanceSettings = {
+  businessName?: string | null;
+  lightModeLogoUrl?: string | null;
+  lightModeIconUrl?: string | null;
+};
+
 export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const invoiceId = params.id as string;
 
   const [invoice, setInvoice] = useState<InvoiceWithClientAndLineItems | null>(null);
+  const [appearanceSettings, setAppearanceSettings] = useState<AppearanceSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -83,6 +91,19 @@ export default function InvoiceDetailPage() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Fetch appearance settings
+  const fetchAppearanceSettings = async () => {
+    try {
+      const response = await fetch('/api/appearance');
+      if (response.ok) {
+        const data = await response.json();
+        setAppearanceSettings(data);
+      }
+    } catch (error) {
+      console.error("Error fetching appearance settings:", error);
+    }
+  };
 
   // Fetch invoice data
   const fetchInvoice = async () => {
@@ -141,6 +162,7 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     if (invoiceId) {
       fetchInvoice();
+      fetchAppearanceSettings();
     }
   }, [invoiceId]);
 
@@ -340,7 +362,7 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  // Mobile Line Item Card Component
+  // Mobile Line Item Card Component for Edit Mode
   const MobileLineItemCard = ({ item, index }: { item: LineItem; index: number }) => (
     <Card className="mb-3">
       <CardContent className="pt-4 space-y-3">
@@ -395,46 +417,29 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
-      {/* Header */}
+      {/* Header with Action Buttons */}
       <div className="mb-6">
         <div className="flex flex-col gap-4">
-          {/* Mobile Back Button */}
-          <div className="sm:hidden">
-            <Link href="/dashboard/financials/income">
-              <Button variant="ghost" size="sm" className="min-h-[44px] -ml-2">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-            </Link>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div className="flex items-start gap-3">
-              {/* Desktop Back Button */}
-              <Link href="/dashboard/financials/income" className="hidden sm:block">
-                <Button variant="ghost" size="icon" className="mt-0.5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Link href="/dashboard/financials/income">
+                <Button variant="ghost" size="icon">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
-              <div className="space-y-2">
-                <h1 className="text-xl sm:text-2xl font-bold break-words">
-                  Invoice {invoice.invoiceNumber}
-                </h1>
-                <Badge variant={getStatusColor(invoice.status)} className="text-xs sm:text-sm">
-                  {invoice.status}
-                </Badge>
-              </div>
+              <h1 className="text-xl sm:text-2xl font-bold">
+                Invoice {invoice.invoiceNumber}
+              </h1>
             </div>
             
             {/* Action Buttons */}
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex gap-2">
               {!isEditing ? (
                 <>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsEditing(true)}
-                    className="flex-1 sm:flex-initial min-h-[44px]"
                   >
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit
@@ -444,10 +449,9 @@ export default function InvoiceDetailPage() {
                     size="sm"
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={isDeleting}
-                    className="flex-1 sm:flex-initial min-h-[44px]"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    {isDeleting ? "Deleting..." : "Delete"}
+                    Delete
                   </Button>
                 </>
               ) : (
@@ -457,7 +461,6 @@ export default function InvoiceDetailPage() {
                     size="sm"
                     onClick={handleCancel}
                     disabled={isSaving}
-                    className="flex-1 sm:flex-initial min-h-[44px]"
                   >
                     <X className="h-4 w-4 mr-2" />
                     Cancel
@@ -466,7 +469,6 @@ export default function InvoiceDetailPage() {
                     size="sm"
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex-1 sm:flex-initial min-h-[44px]"
                   >
                     <Save className="h-4 w-4 mr-2" />
                     {isSaving ? "Saving..." : "Save"}
@@ -478,143 +480,216 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid gap-4 sm:gap-6">
-        {/* Invoice Details Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Invoice Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Invoice Number</Label>
-                <p className="font-medium text-sm sm:text-base">{invoice.invoiceNumber}</p>
-              </div>
-              
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Status</Label>
-                {isEditing ? (
-                  <Select
-                    value={editForm.status}
-                    onValueChange={(value) => 
-                      setEditForm({ ...editForm, status: value as InvoiceStatus })
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(InvoiceStatus).map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div>
-                    <Badge variant={getStatusColor(invoice.status)} className="text-xs sm:text-sm">
-                      {invoice.status}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* Professional Invoice Layout */}
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-8 border-b">
+          {/* Invoice Header with Logo and Company Info */}
+          <div className="flex justify-between items-start mb-8">
+            {/* Left side - Logo and Sender Info */}
+            <div className="flex flex-col gap-4">
+// In the Invoice Header section, update the logo display to this:
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Total Amount</Label>
-                {isEditing ? (
-                  <div className="space-y-1">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={editForm.amount}
-                      onChange={(e) => 
-                        setEditForm({ ...editForm, amount: parseFloat(e.target.value) || 0 })
-                      }
-                      disabled={lineItems.length > 0}
-                      className="w-full"
-                    />
-                    {lineItems.length > 0 && (
-                      <p className="text-xs text-muted-foreground">Auto-calculated from line items</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="font-medium text-base sm:text-lg">{formatCurrency(invoice.amount)}</p>
-                )}
-              </div>
+{/* Logo - Light Mode Logo with 80px height */}
+{appearanceSettings?.lightModeLogoUrl && (
+  <div className="mb-4">
+    <div className="relative h-20 w-auto max-w-xs">
+      <Image
+        src={appearanceSettings.lightModeLogoUrl}
+        alt={appearanceSettings.businessName || "Company Logo"}
+        width={240}
+        height={80}
+        className="object-contain object-left h-20 w-auto"
+        priority
+      />
+    </div>
+  </div>
+)}
+
+{/* Sender Information */}
+<div className="space-y-1">
+  {appearanceSettings?.businessName && (
+    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+      {appearanceSettings.businessName}
+    </h2>
+  )}
+  <div className="text-sm text-slate-600 dark:text-slate-400">
+    <p className="font-semibold text-slate-700 dark:text-slate-300">Richard Shannon</p>
+    <p>263 Dairyland Rd</p>
+    <p>Buellton, CA 93427</p>
+    <p>richard@salesfield.net</p>
+    <p>P: 805-720-8554</p>
+  </div>
+</div>
               
+              {/* Sender Information */}
               <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Client</Label>
-                <div>
-                  <p className="font-medium text-sm sm:text-base break-words">
-                    {invoice.client?.name || "Unknown Client"}
-                  </p>
-                  {invoice.client?.email && (
-                    <p className="text-xs sm:text-sm text-muted-foreground break-all">
-                      {invoice.client.email}
-                    </p>
-                  )}
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  {appearanceSettings?.businessName || "SalesField Network"}
+                </h2>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  <p className="font-semibold text-slate-700 dark:text-slate-300">Richard Shannon</p>
+                  <p>263 Dairyland Rd</p>
+                  <p>Buellton, CA 93427</p>
+                  <p>richard@salesfield.net</p>
+                  <p>P: 805-720-8554</p>
                 </div>
               </div>
             </div>
+            
+            {/* Right side - Invoice label and details */}
+            <div className="text-right">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">INVOICE</h1>
+              <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                {invoice.invoiceNumber}
+              </p>
+              {isEditing ? (
+                <Select
+                  value={editForm.status}
+                  onValueChange={(value) => 
+                    setEditForm({ ...editForm, status: value as InvoiceStatus })
+                  }
+                >
+                  <SelectTrigger className="w-[140px] mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(InvoiceStatus).map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Badge 
+                  variant={getStatusColor(invoice.status)} 
+                  className="mt-2 text-sm px-3 py-1"
+                >
+                  {invoice.status}
+                </Badge>
+              )}
+            </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Issued Date</Label>
-                {isEditing ? (
-                  <Input
-                    type="date"
-                    value={editForm.issuedDate}
-                    onChange={(e) => 
-                      setEditForm({ ...editForm, issuedDate: e.target.value })
-                    }
-                    className="w-full"
-                  />
-                ) : (
-                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.issuedDate)}</p>
+          {/* Bill To and Invoice Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Bill To Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3 uppercase tracking-wider">
+                Bill To
+              </h3>
+              <div className="space-y-2">
+                <p className="font-semibold text-lg text-slate-900 dark:text-slate-100">
+                  {invoice.client?.name || "Unknown Client"}
+                </p>
+                {invoice.client?.billTo && (
+                  <p className="text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-slate-400" />
+                    {invoice.client.billTo}
+                  </p>
                 )}
-              </div>
-              
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Due Date</Label>
-                {isEditing ? (
-                  <Input
-                    type="date"
-                    value={editForm.dueDate}
-                    onChange={(e) => 
-                      setEditForm({ ...editForm, dueDate: e.target.value })
-                    }
-                    className="w-full"
-                  />
-                ) : (
-                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.dueDate)}</p>
+                {invoice.client?.email && (
+                  <p className="text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-slate-400" />
+                    {invoice.client.email}
+                  </p>
+                )}
+                {invoice.client?.phone && (
+                  <p className="text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-slate-400" />
+                    {invoice.client.phone}
+                  </p>
+                )}
+                {(invoice.client?.address1 || invoice.client?.city || invoice.client?.state) && (
+                  <div className="text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-slate-400 mt-0.5" />
+                    <div>
+                      {invoice.client.address1 && <p>{invoice.client.address1}</p>}
+                      {invoice.client.address2 && <p>{invoice.client.address2}</p>}
+                      {(invoice.client.city || invoice.client.state || invoice.client.zipCode) && (
+                        <p>
+                          {invoice.client.city}{invoice.client.city && invoice.client.state && ", "}
+                          {invoice.client.state} {invoice.client.zipCode}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Line Items Card - Edit Mode */}
-        {isEditing && (
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <CardTitle className="text-lg sm:text-xl">Line Items</CardTitle>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleAddLineItem}
-                className="w-full sm:w-auto min-h-[44px]"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Item
-              </Button>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              {/* Mobile View - Cards */}
+            {/* Invoice Details */}
+            <div className="md:text-right">
+              <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3 uppercase tracking-wider">
+                Invoice Details
+              </h3>
+              <div className="space-y-2">
+                <div className="flex justify-between md:justify-end gap-8">
+                  <span className="text-slate-600 dark:text-slate-400">Issue Date:</span>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={editForm.issuedDate}
+                      onChange={(e) => 
+                        setEditForm({ ...editForm, issuedDate: e.target.value })
+                      }
+                      className="w-36"
+                    />
+                  ) : (
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {formatDate(invoice.issuedDate)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-between md:justify-end gap-8">
+                  <span className="text-slate-600 dark:text-slate-400">Due Date:</span>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={editForm.dueDate}
+                      onChange={(e) => 
+                        setEditForm({ ...editForm, dueDate: e.target.value })
+                      }
+                      className="w-36"
+                    />
+                  ) : (
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {formatDate(invoice.dueDate)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-between md:justify-end gap-8 pt-2">
+                  <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    Total Due:
+                  </span>
+                  <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {formatCurrency(invoice.amount)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <CardContent className="p-8">
+          {/* Line Items Section */}
+          {isEditing ? (
+            // Edit Mode
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Line Items</h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAddLineItem}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </div>
+
               {isMobile ? (
+                // Mobile Edit View
                 <div>
                   {lineItems.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
@@ -629,181 +704,215 @@ export default function InvoiceDetailPage() {
                           index={index} 
                         />
                       ))}
-                      <Card className="mt-4 bg-muted/50">
-                        <CardContent className="pt-4">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold">Total:</span>
-                            <span className="font-semibold text-lg">
-                              {formatCurrency(lineItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
                     </>
                   )}
                 </div>
               ) : (
-                /* Desktop View - Table */
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[120px]">Date</TableHead>
-                        <TableHead className="min-w-[200px]">Description</TableHead>
-                        <TableHead className="min-w-[100px]">Amount</TableHead>
-                        <TableHead className="w-[60px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {lineItems.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                            No line items. Click "Add Item" to create one.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        lineItems.map((item, index) => (
-                          <TableRow key={item.id || item.tempId}>
-                            <TableCell>
-                              <Input
-                                type="date"
-                                value={item.date}
-                                onChange={(e) => 
-                                  handleUpdateLineItem(index, 'date', e.target.value)
-                                }
-                                className="w-full min-w-[120px]"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="text"
-                                value={item.description}
-                                onChange={(e) => 
-                                  handleUpdateLineItem(index, 'description', e.target.value)
-                                }
-                                placeholder="Enter description"
-                                className="w-full min-w-[150px]"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={item.amount}
-                                onChange={(e) => 
-                                  handleUpdateLineItem(index, 'amount', e.target.value)
-                                }
-                                className="w-full min-w-[80px]"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleRemoveLineItem(index)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                    {lineItems.length > 0 && (
-                      <TableRow className="font-semibold bg-muted/50">
-                        <TableCell colSpan={2} className="text-right">
-                          Total:
-                        </TableCell>
-                        <TableCell>
-                          {formatCurrency(lineItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
-                        </TableCell>
-                        <TableCell></TableCell>
-                      </TableRow>
-                    )}
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Line Items Display - View Mode */}
-        {!isEditing && invoice.lineItems && invoice.lineItems.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Line Items</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              <div className="overflow-x-auto">
+                // Desktop Edit View
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[100px]">Date</TableHead>
-                      <TableHead className="min-w-[150px]">Description</TableHead>
-                      <TableHead className="text-right min-w-[100px]">Amount</TableHead>
+                      <TableHead className="w-32">Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="w-32 text-right">Amount</TableHead>
+                      <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoice.lineItems.map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="text-sm">{formatDate(item.date)}</TableCell>
-                        <TableCell className="text-sm">{item.description}</TableCell>
-                        <TableCell className="text-right text-sm">
-                          {formatCurrency(item.amount)}
+                    {lineItems.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                          No line items. Click "Add Item" to create one.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      lineItems.map((item, index) => (
+                        <TableRow key={item.id || item.tempId}>
+                          <TableCell>
+                            <Input
+                              type="date"
+                              value={item.date}
+                              onChange={(e) => 
+                                handleUpdateLineItem(index, 'date', e.target.value)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              value={item.description}
+                              onChange={(e) => 
+                                handleUpdateLineItem(index, 'description', e.target.value)
+                              }
+                              placeholder="Enter description"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={item.amount}
+                              onChange={(e) => 
+                                handleUpdateLineItem(index, 'amount', e.target.value)
+                              }
+                              className="text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleRemoveLineItem(index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
-                  <TableRow className="font-semibold bg-muted/50">
-                    <TableCell colSpan={2} className="text-right">
-                      Total:
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(invoice.lineItems.reduce((sum: number, item: any) => sum + item.amount, 0))}
-                    </TableCell>
-                  </TableRow>
                 </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              )}
 
-        {/* Additional Information Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Additional Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Created</Label>
-                <p className="font-medium text-sm sm:text-base">{formatDate(invoice.createdAt)}</p>
-              </div>
-              
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Last Updated</Label>
-                <p className="font-medium text-sm sm:text-base">{formatDate(invoice.updatedAt)}</p>
+              {/* Total in Edit Mode */}
+              <div className="flex justify-end mt-6 pt-6 border-t">
+                <div className="space-y-2">
+                  <div className="flex justify-between gap-8">
+                    <span className="font-semibold">Subtotal:</span>
+                    <span className="font-semibold">
+                      {formatCurrency(lineItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-8 text-lg">
+                    <span className="font-bold">Total:</span>
+                    <span className="font-bold">
+                      {formatCurrency(lineItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            // View Mode
+            <div>
+              {invoice.lineItems && invoice.lineItems.length > 0 ? (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b-2">
+                        <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                          Date
+                        </TableHead>
+                        <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                          Description
+                        </TableHead>
+                        <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">
+                          Amount
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invoice.lineItems.map((item: any) => (
+                        <TableRow key={item.id} className="border-b">
+                          <TableCell className="text-slate-600 dark:text-slate-400">
+                            {formatDate(item.date)}
+                          </TableCell>
+                          <TableCell className="text-slate-900 dark:text-slate-100">
+                            {item.description}
+                          </TableCell>
+                          <TableCell className="text-right font-medium text-slate-900 dark:text-slate-100">
+                            {formatCurrency(item.amount)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {/* Invoice Totals */}
+                  <div className="flex justify-end mt-8">
+                    <div className="w-72">
+                      <div className="space-y-2 border-t-2 pt-4">
+                        <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                          <span>Subtotal:</span>
+                          <span className="font-medium">
+                            {formatCurrency(invoice.lineItems.reduce((sum: number, item: any) => sum + item.amount, 0))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-lg font-bold text-slate-900 dark:text-slate-100 pt-2 border-t">
+                          <span>Total Due:</span>
+                          <span>{formatCurrency(invoice.amount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+{/* Payment Instructions Footer */}
+<div className="mt-12 pt-8 border-t-2 border-slate-200 dark:border-slate-700">
+  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-6">
+    <div className="flex justify-between items-start">
+      {/* Payment Instructions - Left Side */}
+      <div>
+        <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
+          Payment Instructions
+        </h4>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Please make all checks payable to:
+        </p>
+        <div className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <p>Richard Shannon</p>
+          <p>263 Dairyland Rd</p>
+          <p>Buellton, CA 93427</p>
+        </div>
       </div>
+      
+      {/* Icon Logo - Right Side */}
+      {appearanceSettings?.lightModeIconUrl && (
+        <div className="relative h-16 w-16 opacity-60">
+          <Image
+            src={appearanceSettings.lightModeIconUrl}
+            alt={appearanceSettings.businessName || "Company Icon"}
+            fill
+            className="object-contain"
+          />
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+                </>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>No line items for this invoice.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    className="mt-4"
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Add Line Items
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="w-[95vw] max-w-md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Invoice</DialogTitle>
-            <DialogDescription className="pt-2">
-              Are you sure you want to delete invoice {invoice.invoiceNumber}? This action cannot be undone.
+            <DialogDescription>
+              Are you sure you want to delete invoice {invoice.invoiceNumber}? 
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
+          <DialogFooter>
             <Button 
               variant="outline" 
               onClick={() => setShowDeleteDialog(false)}
-              className="w-full sm:w-auto min-h-[44px]"
             >
               Cancel
             </Button>
@@ -811,7 +920,6 @@ export default function InvoiceDetailPage() {
               variant="destructive" 
               onClick={handleDelete}
               disabled={isDeleting}
-              className="w-full sm:w-auto min-h-[44px]"
             >
               {isDeleting ? "Deleting..." : "Delete"}
             </Button>
