@@ -5,7 +5,7 @@ import * as z from "zod";
 import { authOptions } from "@/lib/auth";
 import { ContractTerm } from "@prisma/client";
 
-// Zod schema for UPDATING a client - FIXED to match Prisma enum
+// Updated schema for client with new fields
 const clientUpdateSchema = z.object({
   name: z.string().min(2, {
     message: "Client name must be at least 2 characters.",
@@ -13,20 +13,33 @@ const clientUpdateSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   contractStartDate: z.coerce.date().optional().nullable(),
-  // FIXED: Use the actual Prisma enum values
   contractTerm: z.enum(['ONE_MONTH', 'ONE_TIME', 'THREE_MONTH', 'SIX_MONTH', 'ONE_YEAR']).optional(),
   frequency: z.string().optional(),
   contractAmount: z.number().positive("Amount must be a positive number.").optional().nullable(),
+  
+  // New fields
+  billTo: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  address1: z.string().optional().nullable(),
+  address2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
+  zipCode: z.string().optional().nullable(),
   notes: z.string().optional(),
+  
+  // Contacts array
+  contacts: z.array(z.object({
+    id: z.string().optional(), // For existing contacts
+    name: z.string().min(1, "Contact name is required"),
+    email: z.string().email().optional().or(z.literal('')).nullable(),
+    phone: z.string().optional().or(z.literal('')).nullable(),
+    note: z.string().optional().or(z.literal('')).nullable(),
+    _action: z.enum(['create', 'update', 'delete']).optional(),
+  })).optional(),
 }).partial();
 
-
 /**
- * GET handler for fetching a SINGLE client by its ID, including related invoices.
- * @param request - The incoming NextRequest.
- * @param context - The context containing URL parameters.
- * @param context.params - The URL parameters, expecting `id`.
- * @returns A NextResponse with the client data or an error.
+ * GET handler for fetching a SINGLE client by its ID, including related invoices and contacts.
  */
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -40,13 +53,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const client = await prisma.client.findUnique({
       where: {
         id: id,
-        // Security check: Ensure the client belongs to the logged-in user.
         userId: session.user.id,
       },
       include: {
         invoices: {
           orderBy: {
-            issuedDate: 'desc' // Sort invoices with the newest first
+            issuedDate: 'desc'
+          }
+        },
+        contacts: {
+          orderBy: {
+            createdAt: 'asc'
           }
         }
       }
@@ -65,10 +82,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 /**
  * PATCH handler for updating a SINGLE client by its ID.
- * @param request - The incoming NextRequest with the update payload.
- * @param context - The context containing URL parameters.
- * @param context.params - The URL parameters, expecting `id`.
- * @returns A NextResponse with the updated client data or an error.
  */
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
     const session = await getServerSession(authOptions);
@@ -90,15 +103,60 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
             return NextResponse.json({ error: "Client not found or you do not have permission to edit it." }, { status: 404 });
         }
 
+        // Extract contacts for separate handling
+        const { contacts, ...clientData } = validatedData;
+
         // Ensure contractTerm is cast to the correct enum type if it exists
-        const updateData: any = { ...validatedData };
+        const updateData: any = { ...clientData };
         if (updateData.contractTerm) {
             updateData.contractTerm = updateData.contractTerm as ContractTerm;
         }
 
-        const updatedClient = await prisma.client.update({
-            where: { id: id },
-            data: updateData,
+        // Update client with transaction to handle contacts
+        const updatedClient = await prisma.$transaction(async (tx) => {
+            // Update client data
+            const client = await tx.client.update({
+                where: { id: id },
+                data: updateData,
+            });
+
+            // Handle contacts if provided
+            if (contacts && contacts.length > 0) {
+                for (const contact of contacts) {
+                    const { _action, id: contactId, ...contactData } = contact;
+                    
+                    if (_action === 'delete' && contactId) {
+                        await tx.clientContact.delete({
+                            where: { id: contactId }
+                        });
+                    } else if (_action === 'update' && contactId) {
+                        await tx.clientContact.update({
+                            where: { id: contactId },
+                            data: contactData as any
+                        });
+                    } else if (_action === 'create' || !contactId) {
+                        await tx.clientContact.create({
+                            data: {
+                                ...contactData as any,
+                                clientId: id
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Return updated client with contacts
+            return await tx.client.findUnique({
+                where: { id: id },
+                include: { 
+                    contacts: true,
+                    invoices: {
+                        orderBy: {
+                            issuedDate: 'desc'
+                        }
+                    }
+                }
+            });
         });
 
         return NextResponse.json(updatedClient);
@@ -112,13 +170,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 }
 
-
 /**
  * DELETE handler for deleting a SINGLE client by its ID.
- * @param request - The incoming NextRequest.
- * @param context - The context containing URL parameters.
- * @param context.params - The URL parameters, expecting `id`.
- * @returns A NextResponse with a success message or an error.
  */
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
     const session = await getServerSession(authOptions);
@@ -137,6 +190,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
             return NextResponse.json({ error: "Client not found or you do not have permission to delete it." }, { status: 404 });
         }
 
+        // Delete will cascade to contacts due to onDelete: Cascade in schema
         await prisma.client.delete({
             where: { id: id },
         });

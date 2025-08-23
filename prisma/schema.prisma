@@ -377,21 +377,50 @@ enum ContractTerm {
   ONE_YEAR
 }
 
+// Update the existing Client model
 model Client {
-  id                String       @id @default(cuid())
+  id                String          @id @default(cuid())
   name              String
   email             String?
   website           String?
+  
+  // New fields
+  billTo            String?         // Billing contact name
+  phone             String?         // Main phone number
+  address1          String?
+  address2          String?
+  city              String?
+  state             String?
+  zipCode           String?
+  
   notes             String?
-  contractTerm      ContractTerm @default(ONE_TIME)
+  contractTerm      ContractTerm    @default(ONE_TIME)
   contractAmount    Float?
   contractStartDate DateTime?
   frequency         String?
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  invoices  Invoice[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices          Invoice[]
+  contacts          ClientContact[] // New relation
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+// Add this new model for Client Contacts
+model ClientContact {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  note        String?
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("client_contacts")
 }
 
 model Invoice {

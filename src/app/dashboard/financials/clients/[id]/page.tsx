@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { type Client, type Invoice } from "@prisma/client";
+import { type Client, type Invoice, type ClientContact } from "@prisma/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -26,23 +26,24 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
-import { ArrowLeft, Trash2, Loader2, AlertCircle, ExternalLink } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Trash2, 
+  Loader2, 
+  AlertCircle, 
+  ExternalLink,
+  Phone,
+  Mail,
+  MapPin,
+  User,
+  FileText
+} from "lucide-react";
 
 import EditClientDialog from "@/components/financials/EditClientDialog";
 
 type ClientWithInvoices = Client & {
   invoices: Invoice[];
-};
-
-const formatContractTerm = (term: string) => {
-    const terms: Record<string, string> = {
-        ONE_MONTH: "1 Month",
-        ONE_TIME: "One-Time",
-        THREE_MONTH: "3 Month",
-        SIX_MONTH: "6 Month",
-        ONE_YEAR: "1 Year",
-    };
-    return terms[term] || "N/A";
+  contacts: ClientContact[];
 };
 
 const getStatusBadgeClass = (status: string) => {
@@ -112,14 +113,19 @@ export default function ClientDetailPage() {
     }
   };
 
-  const handleClientUpdated = (updatedClient: Client) => {
-    setClient(prevClient => {
-        if (!prevClient) return null;
-        return {
-            ...prevClient,
-            ...updatedClient,
-        };
-    });
+  const handleClientUpdated = (updatedClient: ClientWithInvoices) => {
+    setClient(updatedClient);
+  };
+
+  const formatAddress = () => {
+    if (!client) return null;
+    const parts = [
+      client.address1,
+      client.address2,
+      client.city && client.state ? `${client.city}, ${client.state}` : client.city || client.state,
+      client.zipCode
+    ].filter(Boolean);
+    return parts.length > 0 ? parts : null;
   };
 
   if (isLoading) {
@@ -151,6 +157,8 @@ export default function ClientDetailPage() {
         </div>
     );
   }
+
+  const addressParts = formatAddress();
 
   return (
     <div className="space-y-6">
@@ -197,33 +205,57 @@ export default function ClientDetailPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Contact Email</span>
-                    <span>{client.email || 'N/A'}</span>
+                {client.billTo && (
+                    <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Bill To:</span>
+                        <span className="font-medium">{client.billTo}</span>
+                    </div>
+                )}
+                
+                <div className="flex items-center gap-3">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Email:</span>
+                    <span>{client.email || 'Not provided'}</span>
                 </div>
-                 <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Website</span>
+                
+                {client.phone && (
+                    <div className="flex items-center gap-3">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Phone:</span>
+                        <span>{client.phone}</span>
+                    </div>
+                )}
+                
+                <div className="flex items-center gap-3">
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Website:</span>
                     {client.website ? (
-                        <a href={client.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-500 hover:underline">
+                        <a href={client.website} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
                             {client.website}
-                            <ExternalLink className="h-4 w-4" />
                         </a>
                     ) : (
-                        <span>N/A</span>
+                        <span>Not provided</span>
                     )}
                 </div>
-                 <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Contract Start Date</span>
-                    <span>{client.contractStartDate ? format(new Date(client.contractStartDate), "PPP") : 'N/A'}</span>
-                </div>
+                
+                {addressParts && (
+                    <div className="flex items-start gap-3">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <span className="text-muted-foreground">Address:</span>
+                        <div className="flex-1">
+                            {addressParts.map((part, index) => (
+                                <div key={index}>{part}</div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                
                 <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Contract Terms</span>
-                    <span>{formatContractTerm(client.contractTerm)}</span>
+                    <span className="text-muted-foreground">Client Start Date</span>
+                    <span>{client.contractStartDate ? format(new Date(client.contractStartDate), "PPP") : 'Not set'}</span>
                 </div>
-                 <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Contract Amount</span>
-                    <span>{client.contractAmount ? `$${client.contractAmount.toFixed(2)}` : 'N/A'}</span>
-                </div>
+                
                 {client.notes && (
                     <div className="space-y-2 pt-2">
                         <span className="text-muted-foreground">Notes</span>
@@ -232,6 +264,48 @@ export default function ClientDetailPage() {
                 )}
             </CardContent>
         </Card>
+
+        {client.contacts && client.contacts.length > 0 && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Contacts</CardTitle>
+                    <CardDescription>
+                        People associated with this client
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-3">
+                        {client.contacts.map((contact) => (
+                            <div key={contact.id} className="flex items-start justify-between p-3 border rounded-lg">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <User className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium">{contact.name}</span>
+                                    </div>
+                                    <div className="flex gap-4 text-sm text-muted-foreground">
+                                        {contact.email && (
+                                            <span className="flex items-center gap-1">
+                                                <Mail className="h-3 w-3" />
+                                                {contact.email}
+                                            </span>
+                                        )}
+                                        {contact.phone && (
+                                            <span className="flex items-center gap-1">
+                                                <Phone className="h-3 w-3" />
+                                                {contact.phone}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {contact.note && (
+                                        <p className="text-sm text-muted-foreground mt-1">{contact.note}</p>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        )}
 
         <Card>
             <CardHeader>

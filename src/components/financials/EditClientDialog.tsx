@@ -4,11 +4,10 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { type Client } from "@prisma/client";
+import { type Client, type ClientContact } from "@prisma/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
-
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -31,39 +30,62 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Edit, Loader2, CalendarIcon } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ContactsField, { ContactItem } from "@/components/financials/ContactsField";
 
-// ADDED: frequency to the form schema
 const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Client name must be at least 2 characters.",
-  }),
-  email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
-  website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
+  name: z.string().min(2, "Client name must be at least 2 characters."),
+  email: z.string().email().optional().or(z.literal('')).nullable(),
+  website: z.string().url().optional().or(z.literal('')).nullable(),
+  billTo: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  address1: z.string().optional().nullable(),
+  address2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
+  zipCode: z.string().optional().nullable(),
   contractStartDate: z.date().optional().nullable(),
-  contractTerm: z.string(),
-  frequency: z.string().optional(),
-  contractAmount: z.number().positive("Amount must be a positive number.").nullable(),
-  notes: z.string().optional(),
+  notes: z.string().optional().nullable(),
+  contacts: z.array(z.object({
+    id: z.string().optional(),
+    name: z.string(),
+    email: z.string().optional().nullable(),
+    phone: z.string().optional().nullable(),
+    note: z.string().optional().nullable(),
+    _action: z.enum(['create', 'update', 'delete']).optional(),
+  })).optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
+type ClientWithContacts = Client & { contacts?: ClientContact[] };
 
 interface EditClientDialogProps {
-  client: Client;
-  onClientUpdated: (updatedClient: Client) => void;
+  client: ClientWithContacts;
+  onClientUpdated: (updatedClient: any) => void;
 }
+
+// Helper function to convert null to empty string
+const nullToEmpty = (value: string | null | undefined): string => {
+  return value ?? "";
+};
+
+// Helper function to convert contacts from Prisma to form format
+const convertContactsToFormFormat = (contacts: ClientContact[] | undefined): ContactItem[] => {
+  if (!contacts || contacts.length === 0) return [];
+  
+  return contacts.map(contact => ({
+    id: contact.id,
+    name: contact.name,
+    email: contact.email ?? undefined,
+    phone: contact.phone ?? undefined,
+    note: contact.note ?? undefined,
+  }));
+};
 
 export default function EditClientDialog({ client, onClientUpdated }: EditClientDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -71,42 +93,61 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: client.name || "",
-      email: client.email || "",
-      website: client.website || "",
-      notes: client.notes || "",
-      contractTerm: client.contractTerm || "ONE_TIME", // FIXED: Use valid Prisma enum value
-      frequency: client.frequency || "One-Time",
-      contractAmount: client.contractAmount ?? null,
+      name: client.name,
+      email: nullToEmpty(client.email),
+      website: nullToEmpty(client.website),
+      billTo: nullToEmpty(client.billTo),
+      phone: nullToEmpty(client.phone),
+      address1: nullToEmpty(client.address1),
+      address2: nullToEmpty(client.address2),
+      city: nullToEmpty(client.city),
+      state: nullToEmpty(client.state),
+      zipCode: nullToEmpty(client.zipCode),
+      notes: nullToEmpty(client.notes),
       contractStartDate: client.contractStartDate ? new Date(client.contractStartDate) : null,
+      contacts: convertContactsToFormFormat(client.contacts),
     },
   });
 
   async function onSubmit(values: FormData) {
     try {
+      // Convert empty strings back to null for database
+      const processedValues = {
+        ...values,
+        email: values.email || null,
+        website: values.website || null,
+        billTo: values.billTo || null,
+        phone: values.phone || null,
+        address1: values.address1 || null,
+        address2: values.address2 || null,
+        city: values.city || null,
+        state: values.state || null,
+        zipCode: values.zipCode || null,
+        notes: values.notes || null,
+      };
+
       const response = await fetch(`/api/financials/clients/${client.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(processedValues),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        const errorMessage = errorData.error || (errorData.issues ? JSON.stringify(errorData.issues, null, 2) : 'Failed to update client');
+        const errorMessage = errorData.error || 'Failed to update client';
         throw new Error(errorMessage);
       }
 
-      const updatedClient = await response.json();
-      onClientUpdated(updatedClient);
+      const updated = await response.json();
+      onClientUpdated(updated);
       setIsOpen(false);
       toast({ title: "Success", description: "Client details updated." });
-
     } catch (err) {
-       console.error("Error submitting form:", err);
+      console.error("Error submitting form:", err);
       toast({
         title: "Error",
         description: err instanceof Error ? err.message : "Could not update client.",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   }
@@ -118,7 +159,7 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
           <Edit className="mr-2 h-4 w-4" /> Edit
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Client</DialogTitle>
           <DialogDescription>
@@ -126,178 +167,216 @@ export default function EditClientDialog({ client, onClientUpdated }: EditClient
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Acme Corporation" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., contact@acme.com" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="website"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Website (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://acme.com" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="contractStartDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Contract Start Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                <TabsTrigger value="address">Address</TabsTrigger>
+                <TabsTrigger value="contacts">Contacts</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="basic" className="space-y-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Client Name</FormLabel>
                       <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(new Date(field.value), "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
+                        <Input {...field} />
                       </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {/* UPDATED: Changed to a 3-column grid to accommodate the new field */}
-            <div className="grid grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="contractTerm"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contract Terms</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="billTo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bill To</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select..." />
-                        </SelectTrigger>
+                        <Input {...field} value={field.value || ''} />
                       </FormControl>
-                      <SelectContent>
-                        {/* FIXED: Use the EXACT enum values from your Prisma schema */}
-                        <SelectItem value="ONE_MONTH">1 Month</SelectItem>
-                        <SelectItem value="THREE_MONTH">3 Month</SelectItem>
-                        <SelectItem value="SIX_MONTH">6 Month</SelectItem>
-                        <SelectItem value="ONE_YEAR">1 Year</SelectItem>
-                        <SelectItem value="ONE_TIME">One-Time</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {/* ADDED: New FormField for Frequency */}
-              <FormField
-                control={form.control}
-                name="frequency"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Frequency</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ''} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ''} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="website"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Website</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select..." />
-                        </SelectTrigger>
+                        <Input {...field} value={field.value || ''} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="One-Time">One-Time</SelectItem>
-                        <SelectItem value="1 Month">1 Month</SelectItem>
-                        <SelectItem value="3 Month">3 Month</SelectItem>
-                        <SelectItem value="6 Month">6 Month</SelectItem>
-                        <SelectItem value="Annually">Annually</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="contractAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contract Amount</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="e.g., 1500"
-                        {...field}
-                        value={field.value ?? ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          field.onChange(value === '' ? null : parseFloat(value));
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Any relevant notes about this client..."
-                      className="resize-none"
-                      {...field}
-                      value={field.value || ''}
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contractStartDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Client Start Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(new Date(field.value), "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? new Date(field.value) : undefined}
+                            onSelect={field.onChange}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="resize-none"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+              
+              <TabsContent value="address" className="space-y-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name="address1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 1</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ''} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 2</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ''} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ''} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ''} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="zipCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP Code</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ''} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="contacts" className="mt-4">
+                <FormField
+                  control={form.control}
+                  name="contacts"
+                  render={({ field }) => (
+                    <ContactsField 
+                      contacts={field.value || []} 
+                      onChange={field.onChange}
+                      disabled={form.formState.isSubmitting}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
+                  )}
+                />
+              </TabsContent>
+            </Tabs>
+            
+            <DialogFooter className="pt-4">
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Changes
