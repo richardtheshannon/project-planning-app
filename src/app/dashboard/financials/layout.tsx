@@ -7,7 +7,7 @@ import React from 'react';
 // Define the navigation items based on the feature outline
 const navItems = [
   { name: 'Overview', href: '/dashboard/financials' },
-  { name: 'Income', href: '/dashboard/financials/income' },
+  { name: 'Income', href: '/dashboard/financials/income/invoices' },  // UPDATED
   { name: 'Expenses', href: '/dashboard/financials/expenses' },
   { name: 'Reports', href: '/dashboard/financials/reports' },
   { name: 'Documents', href: '/dashboard/financials/documents' },
@@ -32,19 +32,26 @@ export default function FinancialsLayout({
 
       {/* Horizontal Navigation - always horizontal and wraps on smaller screens */}
       <nav className="flex flex-wrap items-center gap-2 border-b pb-4">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`inline-flex items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
-              pathname === item.href
-                ? 'bg-muted font-bold text-primary'
-                : 'text-muted-foreground'
-            }`}
-          >
-            {item.name}
-          </Link>
-        ))}
+        {navItems.map((item) => {
+          // Check if current path starts with the nav item href (for nested routes)
+          const isActive = item.name === 'Income' 
+            ? pathname.startsWith('/dashboard/financials/income')  // UPDATED logic
+            : pathname === item.href;
+          
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`inline-flex items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
+                isActive
+                  ? 'bg-muted font-bold text-primary'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              {item.name}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* Page Content */}

@@ -114,7 +114,7 @@ export default function InvoiceDetailPage() {
       if (!response.ok) {
         if (response.status === 404) {
           toast.error("Invoice not found");
-          router.push("/dashboard/financials/income");
+          router.push("/dashboard/financials/income/invoices");  // UPDATED
           return;
         }
         throw new Error("Failed to fetch invoice");
@@ -267,7 +267,7 @@ export default function InvoiceDetailPage() {
       }
 
       toast.success("Invoice deleted successfully");
-      router.push("/dashboard/financials/income");
+      router.push("/dashboard/financials/income/invoices");  // UPDATED
     } catch (error) {
       console.error("Error deleting invoice:", error);
       toast.error("Failed to delete invoice");
@@ -352,7 +352,7 @@ export default function InvoiceDetailPage() {
           <CardContent className="pt-6">
             <p className="text-center text-red-600 font-semibold mb-4">Invoice not found</p>
             <div className="text-center">
-              <Link href="/dashboard/financials/income">
+              <Link href="/dashboard/financials/income/invoices">  {/* UPDATED */}
                 <Button variant="outline">Back to Invoices</Button>
               </Link>
             </div>
@@ -422,7 +422,7 @@ export default function InvoiceDetailPage() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Link href="/dashboard/financials/income">
+              <Link href="/dashboard/financials/income/invoices">  {/* UPDATED */}
                 <Button variant="ghost" size="icon">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>

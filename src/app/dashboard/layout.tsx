@@ -49,7 +49,10 @@ import {
   Bell,
   Palette,
   Lightbulb,
-  Layout
+  Layout,
+  DollarSign,
+  Receipt,
+  UserCheck
 } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
@@ -235,7 +238,7 @@ function DynamicGlobalStyles() {
     return <style dangerouslySetInnerHTML={{ __html: styles }} />;
 }
 
-// --- LAYOUT RENDERER (UPDATED WITH THEME TOGGLE) ---
+// --- LAYOUT RENDERER (No changes) ---
 function LayoutRenderer({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const { isRightHanded } = useLayoutPreference();
@@ -294,7 +297,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH LAYOUTS) ---
+// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH INCOME SUB-NAVIGATION) ---
 function SidebarItems({ 
   isMobileSheet = false,
   onLinkClick,
@@ -318,7 +321,14 @@ function SidebarItems({
       href: "/dashboard/financials",
       subItems: [
         { label: "Overview", href: "/dashboard/financials" },
-        { label: "Income", href: "/dashboard/financials/income" },
+        { 
+          label: "Income", 
+          href: "/dashboard/financials/income",
+          subItems: [
+            { label: "Invoices", href: "/dashboard/financials/income/invoices", icon: Receipt },
+            { label: "Clients", href: "/dashboard/financials/income/clients", icon: UserCheck },
+          ]
+        },
         { label: "Expenses", href: "/dashboard/financials/expenses" },
         { label: "Reports", href: "/dashboard/financials/reports" },
         { label: "Documents", href: "/dashboard/financials/documents" },
@@ -348,6 +358,47 @@ function SidebarItems({
   const displayIconUrl = originalIconUrl 
     ? `/logos/${originalIconUrl.split('/').pop()}`
     : null;
+
+  // Helper function to render sub-menu items recursively
+  const renderSubItems = (subItems: any[], level = 1) => {
+    return (
+      <ul className={cn("space-y-1", level > 1 ? "pl-4" : "")}>
+        {subItems.map((subItem) => {
+          if (subItem.subItems) {
+            // Nested sub-items (Income -> Invoices/Clients)
+            return (
+              <li key={subItem.href}>
+                <div className="py-1">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
+                    {subItem.label}
+                  </div>
+                  {renderSubItems(subItem.subItems, level + 1)}
+                </div>
+              </li>
+            );
+          }
+          return (
+            <li key={subItem.href}>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === subItem.href}
+                className="w-full justify-start h-8"
+              >
+                <Link 
+                  href={subItem.href} 
+                  className={cn("flex items-center gap-2 w-full text-sm", { "justify-end": isRightHanded })}
+                  onClick={onLinkClick}
+                >
+                  {subItem.icon && <subItem.icon className="h-3 w-3" />}
+                  <span className="truncate">{subItem.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -402,20 +453,9 @@ function SidebarItems({
                           </TooltipContent>
                         </Tooltip>
                         <PopoverContent side={isRightHanded ? "left" : "right"} align="start" className="w-[200px] p-2">
-                           <div className="space-y-1">
-                              {item.subItems?.map((subItem) => (
-                                <SidebarMenuButton
-                                  key={subItem.href}
-                                  asChild
-                                  isActive={pathname === subItem.href}
-                                  className="w-full justify-start h-8"
-                                >
-                                  <Link href={subItem.href} onClick={onLinkClick}>
-                                    {subItem.label}
-                                  </Link>
-                                </SidebarMenuButton>
-                              ))}
-                           </div>
+                          <div className="space-y-1">
+                            {renderSubItems(item.subItems)}
+                          </div>
                         </PopoverContent>
                       </Popover>
                     );
@@ -460,25 +500,7 @@ function SidebarItems({
                          </div>
                       </AccordionTrigger>
                       <AccordionContent className="pl-6 pr-2 pb-0 pt-1">
-                        <ul className="space-y-1">
-                          {item.subItems.map((subItem) => (
-                             <li key={subItem.href}>
-                               <SidebarMenuButton
-                                 asChild
-                                 isActive={pathname === subItem.href}
-                                 className="w-full justify-start h-8"
-                               >
-                                 <Link 
-                                   href={subItem.href} 
-                                   className={cn("flex items-center gap-2 w-full text-sm", { "justify-end": isRightHanded })}
-                                   onClick={onLinkClick}
-                                 >
-                                   <span className="truncate">{subItem.label}</span>
-                                 </Link>
-                               </SidebarMenuButton>
-                             </li>
-                          ))}
-                        </ul>
+                        {renderSubItems(item.subItems)}
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>

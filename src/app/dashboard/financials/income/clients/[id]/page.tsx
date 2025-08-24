@@ -36,7 +36,14 @@ import {
   Mail,
   MapPin,
   User,
-  FileText
+  FileText,
+  Calendar,
+  DollarSign,
+  Building2,
+  Globe,
+  StickyNote,
+  Users,
+  ChevronRight
 } from "lucide-react";
 
 import EditClientDialog from "@/components/financials/EditClientDialog";
@@ -102,7 +109,7 @@ export default function ClientDetailPage() {
         }
 
         toast({ title: "Success", description: "Client has been deleted." });
-        router.push('/dashboard/financials/income');
+        router.push('/dashboard/financials/income/clients');
 
     } catch (err) {
         toast({
@@ -117,6 +124,10 @@ export default function ClientDetailPage() {
     setClient(updatedClient);
   };
 
+  const handleInvoiceClick = (invoiceId: string) => {
+    router.push(`/dashboard/financials/invoices/${invoiceId}`);
+  };
+
   const formatAddress = () => {
     if (!client) return null;
     const parts = [
@@ -126,6 +137,22 @@ export default function ClientDetailPage() {
       client.zipCode
     ].filter(Boolean);
     return parts.length > 0 ? parts : null;
+  };
+
+  // Calculate client statistics
+  const calculateStats = () => {
+    if (!client || !client.invoices) return { totalBilled: 0, totalPaid: 0, totalPending: 0, invoiceCount: 0 };
+    
+    return client.invoices.reduce((acc, invoice) => {
+      acc.totalBilled += invoice.amount;
+      acc.invoiceCount++;
+      if (invoice.status === 'PAID') {
+        acc.totalPaid += invoice.amount;
+      } else if (invoice.status === 'PENDING' || invoice.status === 'OVERDUE') {
+        acc.totalPending += invoice.amount;
+      }
+      return acc;
+    }, { totalBilled: 0, totalPaid: 0, totalPending: 0, invoiceCount: 0 });
   };
 
   if (isLoading) {
@@ -159,16 +186,24 @@ export default function ClientDetailPage() {
   }
 
   const addressParts = formatAddress();
+  const stats = calculateStats();
 
   return (
     <div className="space-y-6">
+        {/* Header with navigation */}
         <div className="flex items-center justify-between gap-4">
-            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/financials/income')}>
-                <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-grow">
-                <h2 className="text-2xl font-bold tracking-tight">{client.name}</h2>
-                <p className="text-muted-foreground">Client details and history.</p>
+            <div className="flex items-center gap-4">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => router.push('/dashboard/financials/income/clients')}
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight">{client.name}</h2>
+                    <p className="text-muted-foreground">Client Profile</p>
+                </div>
             </div>
             <div className="flex gap-2">
                 <EditClientDialog client={client} onClientUpdated={handleClientUpdated} />
@@ -197,17 +232,84 @@ export default function ClientDetailPage() {
             </div>
         </div>
 
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-medium text-muted-foreground">Total Billed</p>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-2xl font-bold">
+                        {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                        }).format(stats.totalBilled)}
+                    </p>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <p className="text-sm font-medium text-muted-foreground">Paid</p>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                        }).format(stats.totalPaid)}
+                    </p>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-yellow-600" />
+                        <p className="text-sm font-medium text-muted-foreground">Outstanding</p>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                        {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                        }).format(stats.totalPending)}
+                    </p>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-medium text-muted-foreground">Total Invoices</p>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-2xl font-bold">{stats.invoiceCount}</p>
+                </CardContent>
+            </Card>
+        </div>
+
+        {/* Client Information */}
         <Card>
             <CardHeader>
                 <CardTitle>Client Information</CardTitle>
                 <CardDescription>
-                    Joined on {new Date(client.createdAt).toLocaleDateString()}
+                    Contact details and billing information
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 {client.billTo && (
                     <div className="flex items-center gap-3">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">Bill To:</span>
                         <span className="font-medium">{client.billTo}</span>
                     </div>
@@ -216,26 +318,35 @@ export default function ClientDetailPage() {
                 <div className="flex items-center gap-3">
                     <Mail className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Email:</span>
-                    <span>{client.email || 'Not provided'}</span>
+                    {client.email ? (
+                        <a href={`mailto:${client.email}`} className="text-blue-500 hover:underline">
+                            {client.email}
+                        </a>
+                    ) : (
+                        <span className="text-muted-foreground">Not provided</span>
+                    )}
                 </div>
                 
                 {client.phone && (
                     <div className="flex items-center gap-3">
                         <Phone className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">Phone:</span>
-                        <span>{client.phone}</span>
+                        <a href={`tel:${client.phone}`} className="text-blue-500 hover:underline">
+                            {client.phone}
+                        </a>
                     </div>
                 )}
                 
                 <div className="flex items-center gap-3">
-                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    <Globe className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Website:</span>
                     {client.website ? (
-                        <a href={client.website} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                        <a href={client.website} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center gap-1">
                             {client.website}
+                            <ExternalLink className="h-3 w-3" />
                         </a>
                     ) : (
-                        <span>Not provided</span>
+                        <span className="text-muted-foreground">Not provided</span>
                     )}
                 </div>
                 
@@ -251,24 +362,40 @@ export default function ClientDetailPage() {
                     </div>
                 )}
                 
-                <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Client Start Date</span>
-                    <span>{client.contractStartDate ? format(new Date(client.contractStartDate), "PPP") : 'Not set'}</span>
+                <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Client Since:</span>
+                    <span>{format(new Date(client.createdAt), "MMMM d, yyyy")}</span>
                 </div>
+
+                {client.contractStartDate && (
+                    <div className="flex items-center gap-3">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Contract Start:</span>
+                        <span>{format(new Date(client.contractStartDate), "MMMM d, yyyy")}</span>
+                    </div>
+                )}
                 
                 {client.notes && (
                     <div className="space-y-2 pt-2">
-                        <span className="text-muted-foreground">Notes</span>
+                        <div className="flex items-center gap-2">
+                            <StickyNote className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">Notes</span>
+                        </div>
                         <p className="text-sm bg-muted/50 p-3 rounded-md whitespace-pre-wrap">{client.notes}</p>
                     </div>
                 )}
             </CardContent>
         </Card>
 
+        {/* Contacts */}
         {client.contacts && client.contacts.length > 0 && (
             <Card>
                 <CardHeader>
-                    <CardTitle>Contacts</CardTitle>
+                    <div className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        <CardTitle>Contacts</CardTitle>
+                    </div>
                     <CardDescription>
                         People associated with this client
                     </CardDescription>
@@ -284,16 +411,16 @@ export default function ClientDetailPage() {
                                     </div>
                                     <div className="flex gap-4 text-sm text-muted-foreground">
                                         {contact.email && (
-                                            <span className="flex items-center gap-1">
+                                            <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-blue-500 hover:underline">
                                                 <Mail className="h-3 w-3" />
                                                 {contact.email}
-                                            </span>
+                                            </a>
                                         )}
                                         {contact.phone && (
-                                            <span className="flex items-center gap-1">
+                                            <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-blue-500 hover:underline">
                                                 <Phone className="h-3 w-3" />
                                                 {contact.phone}
-                                            </span>
+                                            </a>
                                         )}
                                     </div>
                                     {contact.note && (
@@ -307,37 +434,60 @@ export default function ClientDetailPage() {
             </Card>
         )}
 
+        {/* Invoice History */}
         <Card>
             <CardHeader>
-                <CardTitle>Invoice History</CardTitle>
+                <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    <CardTitle>Invoice History</CardTitle>
+                </div>
                 <CardDescription>
-                    A list of all invoices associated with this client.
+                    All invoices associated with this client
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 {client.invoices && client.invoices.length > 0 ? (
                     <div className="border rounded-md">
                         <div className="divide-y">
-                            {client.invoices.map((invoice) => (
-                                <div key={invoice.id} className="flex justify-between items-center p-3 hover:bg-muted/50">
-                                    <div className="grid gap-1">
-                                        <p className="font-semibold">{invoice.invoiceNumber}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Issued: {format(new Date(invoice.issuedDate), "MMM d, yyyy")}
-                                        </p>
-                                    </div>
-                                    <div className="text-right grid gap-1">
-                                        <p className="font-semibold">${invoice.amount.toFixed(2)}</p>
-                                        <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", getStatusBadgeClass(invoice.status))}>
-                                            {invoice.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
+                            {client.invoices
+                                .sort((a, b) => new Date(b.issuedDate).getTime() - new Date(a.issuedDate).getTime())
+                                .map((invoice) => {
+                                    const isOverdue = invoice.status === 'PENDING' && new Date(invoice.dueDate) < new Date();
+                                    return (
+                                        <div 
+                                            key={invoice.id} 
+                                            className="flex justify-between items-center p-3 hover:bg-muted/50 cursor-pointer"
+                                            onClick={() => handleInvoiceClick(invoice.id)}
+                                        >
+                                            <div className="grid gap-1">
+                                                <p className="font-semibold">{invoice.invoiceNumber}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Issued: {format(new Date(invoice.issuedDate), "MMM d, yyyy")}
+                                                </p>
+                                            </div>
+                                            <div className="text-right grid gap-1">
+                                                <p className="font-semibold">
+                                                    {new Intl.NumberFormat("en-US", {
+                                                        style: "currency",
+                                                        currency: "USD",
+                                                    }).format(invoice.amount)}
+                                                </p>
+                                                <span className={cn(
+                                                    "text-xs font-medium px-2 py-0.5 rounded-full", 
+                                                    getStatusBadgeClass(isOverdue ? 'OVERDUE' : invoice.status)
+                                                )}>
+                                                    {isOverdue ? 'OVERDUE' : invoice.status}
+                                                </span>
+                                            </div>
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                    );
+                                })}
                         </div>
                     </div>
                 ) : (
                     <div className="text-center py-8">
+                        <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                         <p className="text-sm text-muted-foreground">
                             No invoices found for this client.
                         </p>

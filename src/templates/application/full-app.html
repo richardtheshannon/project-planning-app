@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SalesField Network - Dashboard</title>
     <style>
+        /*
+        *** REMOVED DEBUG STYLES ***
+        */
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body { 
@@ -23,12 +27,11 @@
         
         /* Main Sidebar Navigation */
         .main-sidebar {
-            width: 220px;
             background: #18181b;
             border-left: 1px solid #27272a;
             display: flex;
             flex-direction: column;
-            padding-top: 20px; /* UPDATED: Removed bottom padding */
+            padding-top: 20px;
         }
         
         /* Logo Area Styles */
@@ -40,6 +43,8 @@
             gap: 12px;
             border-bottom: 1px solid #27272a;
             max-height: 149px;
+            /* NEW: Added flex to align toggle button */
+            position: relative;
         }
 
         .logo-icon {
@@ -57,14 +62,70 @@
             text-align: center;
         }
         
-        .sidebar-spacer {
+        /* NEW: Collapsible container */
+        .collapsible-sidebar-container {
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease-in-out;
+            width: 220px; /* Initial full width */
+            overflow: hidden;
+        }
+
+        .collapsible-sidebar-container.collapsed {
+            width: 60px;
+        }
+
+        /* NEW: Styles for the sidebar toggle button */
+        .sidebar-toggle-container {
+            padding: 12px;
+            display: flex;
+            justify-content: flex-end;
         }
         
+        .sidebar-toggle {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: 1px solid #27272a;
+            border-radius: 6px;
+            color: #a1a1aa;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .sidebar-toggle:hover {
+            background: #27272a;
+            color: #e5e5e7;
+        }
+        
+        .sidebar-toggle-icon {
+            width: 18px;
+            height: 18px;
+            transition: transform 0.3s;
+        }
+
+        .collapsible-sidebar-container.collapsed .sidebar-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        /* OLD: This class is now inside the new container */
+        .sidebar-spacer {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Pushes content to the bottom */
+            padding: 12px;
+        }
+
         .sidebar-bottom {
             display: flex;
             flex-direction: column;
-            padding-bottom: 20px; /* UPDATED: Added padding here */
+            padding-bottom: 20px;
         }
         
         .sidebar-footer {
@@ -75,7 +136,8 @@
             align-items: center;
             gap: 8px;
         }
-        
+
+        /* OLD: This class is now inside the new container */
         .menu-toggle {
             width: 36px;
             height: 36px;
@@ -126,8 +188,16 @@
             flex-shrink: 0;
         }
         
-        .nav-menu {
+        /* UPDATED: Nav menus and their items */
+        .main-nav-menu, .quick-nav-menu {
             padding: 0 12px;
+        }
+
+        .quick-nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: 12px;
         }
         
         .nav-item {
@@ -172,6 +242,18 @@
             flex-shrink: 0;
         }
         
+        /* NEW: Hiding nav item text when collapsed */
+        .nav-item-text {
+            white-space: nowrap;
+            overflow: hidden;
+            transition: opacity 0.3s;
+        }
+
+        .collapsible-sidebar-container.collapsed .nav-item-text {
+            opacity: 0;
+            width: 0;
+        }
+
         .nav-expandable {
             margin-left: auto;
             width: 16px;
@@ -182,7 +264,7 @@
         .nav-expandable.expanded {
             transform: rotate(90deg);
         }
-        
+
         /* Main Content Area */
         .main-content {
             flex: 1;
@@ -793,94 +875,121 @@
                 <div class="logo-text">MAIN<br>LOGO AREA</div>
             </div>
             
-            <!-- ADDED: Spacer to push nav to bottom -->
-            <div class="sidebar-spacer"></div>
-
-            <div class="sidebar-bottom">
-                <nav class="nav-menu">
-                    <a href="#" class="nav-item active">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7"></rect>
-                            <rect x="14" y="3" width="7" height="7"></rect>
-                            <rect x="14" y="14" width="7" height="7"></rect>
-                            <rect x="3" y="14" width="7" height="7"></rect>
-                        </svg>
-                        Dashboard
-                    </a>
-                    
-                    <a href="#" class="nav-item">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
-                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                        </svg>
-                        Projects
-                    </a>
-                    
-                    <a href="#" class="nav-item">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                        </svg>
-                        Operations
-                    </a>
-                    
-                    <a href="#" class="nav-item">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="1" x2="12" y2="23"></line>
-                            <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path>
-                        </svg>
-                        Financials
-                        <svg class="nav-expandable" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- NEW: The collapsible container -->
+            <div id="collapsible-content" class="collapsible-sidebar-container">
+                <div class="sidebar-toggle-container">
+                    <button id="sidebar-toggle" class="sidebar-toggle">
+                        <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="9 18 15 12 9 6"></polyline>
-                        </svg>
-                    </a>
-                    
-                    <a href="#" class="nav-item">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 010 7.75"></path>
-                        </svg>
-                        Team
-                    </a>
-                    
-                    <a href="#" class="nav-item">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                        Documents
-                    </a>
-                    
-                    <a href="#" class="nav-item">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"></path>
-                        </svg>
-                        Settings
-                        <svg class="nav-expandable" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                        </svg>
-                    </a>
-                </nav>
-                
-                <div class="sidebar-footer">
-                    <button class="menu-toggle">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
                         </svg>
                     </button>
-                    <a href="#" class="nav-item logout-item">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path>
-                        </svg>
-                        Logout
-                    </a>
+                </div>
+                <div class="sidebar-spacer">
+                    <nav class="quick-nav-menu">
+                        <a href="#" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                            <span class="nav-item-text">Send Report</span>
+                        </a>
+                        <a href="#" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 14.65c-.06-.5-.3-1-.6-1.3l-5.6-5.6a1.99 1.99 0 00-2.83 0L7.7 7.7a1.99 1.99 0 000 2.83l5.6 5.6c.3.3.8.54 1.3.6"></path>
+                                <path d="M10 13l-4 4-2-2 4-4"></path>
+                                <path d="M14 11l4-4 2-2-4-4"></path>
+                            </svg>
+                            <span class="nav-item-text">Start Call</span>
+                        </a>
+                    </nav>
+                </div>
+
+                <div class="sidebar-bottom">
+                    <nav class="main-nav-menu">
+                        <a href="#" class="nav-item active">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="14" width="7" height="7"></rect>
+                                <rect x="3" y="14" width="7" height="7"></rect>
+                            </svg>
+                            <span class="nav-item-text">Dashboard</span>
+                        </a>
+                        
+                        <a href="#" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                            <span class="nav-item-text">Projects</span>
+                        </a>
+                        
+                        <a href="#" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                            <span class="nav-item-text">Operations</span>
+                        </a>
+                        
+                        <a href="#" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="1" x2="12" y2="23"></line>
+                                <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path>
+                            </svg>
+                            <span class="nav-item-text">Financials</span>
+                            <svg class="nav-expandable" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </a>
+                        
+                        <a href="#" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 010 7.75"></path>
+                            </svg>
+                            <span class="nav-item-text">Team</span>
+                        </a>
+                        
+                        <a href="#" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            <span class="nav-item-text">Documents</span>
+                        </a>
+                        
+                        <a href="#" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"></path>
+                            </svg>
+                            <span class="nav-item-text">Settings</span>
+                            <svg class="nav-expandable" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </a>
+                    </nav>
+                    
+                    <div class="sidebar-footer">
+                        <button class="menu-toggle">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                            </svg>
+                        </button>
+                        <a href="#" class="nav-item logout-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path>
+                            </svg>
+                            <span class="nav-item-text">Logout</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -890,6 +999,17 @@
         // Toggle activity sections
         function toggleSection(section) {
             section.classList.toggle('expanded');
+        }
+        
+        // NEW: Toggle the collapsible sidebar
+        function toggleSidebar() {
+            const collapsibleContent = document.getElementById('collapsible-content');
+            collapsibleContent.classList.toggle('collapsed');
+        }
+
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', toggleSidebar);
         }
 
         // Draw the financial chart
