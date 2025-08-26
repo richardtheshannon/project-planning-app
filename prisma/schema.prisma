@@ -43,6 +43,7 @@ model User {
   subscriptions        Subscription[]
   budgets              Budget[]
   financialDocuments   FinancialDocument[]
+  documentation        Documentation[]      // NEW: Added relation to Documentation
 }
 
 model Account {
@@ -355,16 +356,54 @@ model TimelineEvent {
   @@map("timeline_events")
 }
 
+// UPDATED: FeatureRequest model with conversion tracking
 model FeatureRequest {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  status      String   @default("Pending")
-  priority    String   @default("Medium")
-  submittedBy String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  dueDate     DateTime? // Added this line
+  id                        Int           @id @default(autoincrement())
+  title                     String
+  description               String
+  status                    String        @default("Pending")
+  priority                  String        @default("Medium")
+  submittedBy               String
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  dueDate                   DateTime?
+  
+  // NEW: Conversion tracking fields
+  isConverted               Boolean       @default(false)
+  convertedToDocumentationId String?      @unique  // Added @unique here
+  convertedToDocumentation  Documentation? @relation(fields: [convertedToDocumentationId], references: [id], onDelete: SetNull)
+}
+
+// --- NEW DOCUMENTATION MODEL ---
+
+enum DocumentationCategory {
+  DEVELOPMENT
+  PROJECTS
+  CLIENTS
+  OPERATIONS
+  FINANCIALS
+  SETTINGS
+}
+
+model Documentation {
+  id                    String                @id @default(cuid())
+  title                 String
+  content               String                @db.Text  // Large text field for content
+  category              DocumentationCategory
+  tags                  String[]              // Array of tags for searchability
+  isPublished           Boolean               @default(true)
+  
+  // Relations
+  sourceFeatureRequestId Int?                 @unique  // Optional reference to original feature request
+  sourceFeatureRequest   FeatureRequest?      @relation  // Relation to feature request
+  
+  userId                String
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  
+  @@map("documentation")
 }
 
 // --- FINANCIAL MODELS ---

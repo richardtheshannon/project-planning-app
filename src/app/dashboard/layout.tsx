@@ -297,7 +297,7 @@ function LayoutRenderer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH INCOME SUB-NAVIGATION) ---
+// --- SIDEBAR ITEMS COMPONENT (UPDATED WITH DOCUMENTATION UNDER OPERATIONS) ---
 function SidebarItems({ 
   isMobileSheet = false,
   onLinkClick,
@@ -314,7 +314,15 @@ function SidebarItems({
   const menuItems = [
     { icon: Home, label: "Dashboard", href: "/dashboard" },
     { icon: Briefcase, label: "Projects", href: "/dashboard/projects" },
-    { icon: ClipboardList, label: "Operations", href: "/dashboard/operations" },
+    { 
+      icon: ClipboardList, 
+      label: "Operations", 
+      href: "/dashboard/operations",
+      subItems: [
+        { label: "Overview", href: "/dashboard/operations" },
+        { label: "Documentation", href: "/dashboard/operations/documentation", icon: FileText },
+      ]
+    },
     { 
       icon: Landmark, 
       label: "Financials", 

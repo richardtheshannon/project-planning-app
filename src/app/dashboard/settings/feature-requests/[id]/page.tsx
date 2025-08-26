@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Pencil, Trash2, Calendar, User, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Calendar, User, Clock, AlertCircle, FileText, CheckCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FeatureRequest {
@@ -43,6 +43,8 @@ interface FeatureRequest {
     createdAt: string;
     updatedAt: string;
     dueDate?: string | null;
+    isConverted?: boolean;
+    convertedToDocumentationId?: string | null;
 }
 
 export default function FeatureRequestDetailPage() {
@@ -62,6 +64,22 @@ export default function FeatureRequestDetailPage() {
     const [editDueDate, setEditDueDate] = useState('');
 
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showConvertDialog, setShowConvertDialog] = useState(false);
+    const [convertTitle, setConvertTitle] = useState('');
+    const [convertContent, setConvertContent] = useState('');
+    const [convertCategory, setConvertCategory] = useState('DEVELOPMENT');
+    const [convertTags, setConvertTags] = useState<string[]>([]);
+    const [newTag, setNewTag] = useState('');
+    const [converting, setConverting] = useState(false);
+
+    const categories = [
+        { value: 'DEVELOPMENT', label: 'Development' },
+        { value: 'PROJECTS', label: 'Projects' },
+        { value: 'CLIENTS', label: 'Clients' },
+        { value: 'OPERATIONS', label: 'Operations' },
+        { value: 'FINANCIALS', label: 'Financials' },
+        { value: 'SETTINGS', label: 'Settings' },
+    ];
 
     const fetchRequest = async () => {
         try {
@@ -148,6 +166,60 @@ export default function FeatureRequestDetailPage() {
         setIsEditing(true);
     };
 
+    const handleConvertClick = () => {
+        if (!request) return;
+        setConvertTitle(request.title);
+        setConvertContent(`# ${request.title}\n\n## Description\n${request.description}\n\n## Details\n- **Status**: ${request.status}\n- **Priority**: ${request.priority}\n- **Submitted By**: ${request.submittedBy}\n- **Created**: ${request.createdAt}\n${request.dueDate ? `- **Due Date**: ${request.dueDate}` : ''}`);
+        setConvertTags([]);
+        setShowConvertDialog(true);
+    };
+
+    const handleConvert = async () => {
+        if (!request) return;
+
+        try {
+            setConverting(true);
+            const response = await fetch(`/api/feature-requests/${request.id}/convert-to-documentation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: convertTitle,
+                    content: convertContent,
+                    category: convertCategory,
+                    tags: convertTags,
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to convert to documentation');
+            }
+
+            const result = await response.json();
+            toast.success('Successfully converted to documentation!');
+            setShowConvertDialog(false);
+            
+            // Redirect to the new documentation
+            router.push(`/dashboard/operations/documentation/${result.documentation.id}`);
+        } catch (error) {
+            console.error('Error converting to documentation:', error);
+            toast.error(error instanceof Error ? error.message : 'Failed to convert to documentation.');
+        } finally {
+            setConverting(false);
+        }
+    };
+
+    const addTag = () => {
+        if (newTag.trim() && !convertTags.includes(newTag.trim())) {
+            setConvertTags([...convertTags, newTag.trim()]);
+            setNewTag('');
+        }
+    };
+
+    const removeTag = (tagToRemove: string) => {
+        setConvertTags(convertTags.filter(tag => tag !== tagToRemove));
+    };
+
     useEffect(() => {
         fetchRequest();
     }, [requestId]);
@@ -209,6 +281,28 @@ export default function FeatureRequestDetailPage() {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+            {/* Conversion Status Banner */}
+            {request.isConverted && request.convertedToDocumentationId && (
+                <Card className="mb-4 bg-green-50 border-green-200">
+                    <CardContent className="py-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                <span className="text-green-800 font-medium">
+                                    This feature request has been converted to documentation
+                                </span>
+                            </div>
+                            <Link href={`/dashboard/operations/documentation/${request.convertedToDocumentationId}`}>
+                                <Button variant="outline" size="sm" className="text-green-700 border-green-300 hover:bg-green-100">
+                                    View Documentation
+                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Header Section */}
             <div className="mb-6">
                 <div className="flex flex-col gap-4">
@@ -236,13 +330,19 @@ export default function FeatureRequestDetailPage() {
                         </div>
                         
                         {/* Desktop actions */}
-                        <div className="hidden sm:flex gap-2 flex-shrink-0">
+                        <div className="hidden sm:flex gap-2 flex-shrink-0 flex-wrap">
                             <Link href="/dashboard/settings/feature-requests">
                                 <Button variant="outline" className="min-h-[44px]">
                                     <ArrowLeft className="mr-2 h-4 w-4" />
                                     Back
                                 </Button>
                             </Link>
+                            {!request.isConverted && (
+                                <Button onClick={handleConvertClick} variant="secondary" className="min-h-[44px]">
+                                    <FileText size={16} className="mr-2" />
+                                    Convert to Docs
+                                </Button>
+                            )}
                             <Button onClick={handleEditClick} className="min-h-[44px]">
                                 <Pencil size={16} className="mr-2" />
                                 Edit
@@ -254,7 +354,13 @@ export default function FeatureRequestDetailPage() {
                         </div>
 
                         {/* Mobile actions */}
-                        <div className="flex sm:hidden gap-2 w-full">
+                        <div className="flex sm:hidden gap-2 w-full flex-wrap">
+                            {!request.isConverted && (
+                                <Button onClick={handleConvertClick} variant="secondary" className="flex-1 min-h-[44px]">
+                                    <FileText size={16} className="mr-2" />
+                                    To Docs
+                                </Button>
+                            )}
                             <Button onClick={handleEditClick} className="flex-1 min-h-[44px]">
                                 <Pencil size={16} className="mr-2" />
                                 Edit
@@ -268,7 +374,7 @@ export default function FeatureRequestDetailPage() {
                 </div>
             </div>
 
-            {/* Main Content */}
+            {/* Main Content - Rest stays the same */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                 {/* Left Column - Main Details */}
                 <div className="lg:col-span-2 order-2 lg:order-1">
@@ -332,7 +438,100 @@ export default function FeatureRequestDetailPage() {
                 </div>
             </div>
 
-            {/* Edit Dialog - Now responsive with full-screen on mobile */}
+            {/* Convert to Documentation Dialog */}
+            <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+                <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Convert to Documentation</DialogTitle>
+                        <DialogDescription>
+                            Transform this feature request into permanent documentation.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="convert-title">Title</Label>
+                            <Input
+                                id="convert-title"
+                                value={convertTitle}
+                                onChange={(e) => setConvertTitle(e.target.value)}
+                                placeholder="Documentation title"
+                            />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <Label htmlFor="convert-category">Category</Label>
+                            <Select value={convertCategory} onValueChange={setConvertCategory}>
+                                <SelectTrigger id="convert-category">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {categories.map((cat) => (
+                                        <SelectItem key={cat.value} value={cat.value}>
+                                            {cat.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="convert-content">Content (Markdown supported)</Label>
+                            <Textarea
+                                id="convert-content"
+                                value={convertContent}
+                                onChange={(e) => setConvertContent(e.target.value)}
+                                className="min-h-[300px] font-mono text-sm"
+                                placeholder="Documentation content..."
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Tags</Label>
+                            <div className="flex space-x-2">
+                                <Input
+                                    value={newTag}
+                                    onChange={(e) => setNewTag(e.target.value)}
+                                    placeholder="Add a tag"
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            addTag();
+                                        }
+                                    }}
+                                />
+                                <Button type="button" onClick={addTag} variant="outline">
+                                    Add
+                                </Button>
+                            </div>
+                            {convertTags.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {convertTags.map((tag, index) => (
+                                        <Badge key={index} variant="secondary">
+                                            {tag}
+                                            <button
+                                                onClick={() => removeTag(tag)}
+                                                className="ml-2 hover:text-destructive"
+                                            >
+                                                ×
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowConvertDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleConvert} disabled={converting}>
+                            {converting ? 'Converting...' : 'Convert to Documentation'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Dialog - stays the same */}
             <Dialog open={isEditing} onOpenChange={setIsEditing}>
                 <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
@@ -413,7 +612,7 @@ export default function FeatureRequestDetailPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Confirmation Dialog */}
+            {/* Delete Confirmation Dialog - stays the same */}
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <DialogContent className="w-[95vw] max-w-md">
                     <DialogHeader>
