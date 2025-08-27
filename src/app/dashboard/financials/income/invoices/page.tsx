@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight, FileText, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 
 // Define a more specific type for invoices that include the client relationship
@@ -33,8 +33,115 @@ interface InvoiceListProps {
   invoices: InvoiceWithClient[];
 }
 
+// Define sortable columns and their types
+type SortableColumn = 'status' | 'invoiceNumber' | 'clientName' | 'amount' | 'issuedDate' | 'dueDate';
+type SortDirection = 'asc' | 'desc' | null;
+
+interface SortState {
+  column: SortableColumn | null;
+  direction: SortDirection;
+}
+
 function InvoiceList({ invoices }: InvoiceListProps) {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
+  const [filteredAndSortedInvoices, setFilteredAndSortedInvoices] = useState<InvoiceWithClient[]>(invoices);
+
+  // Filter and sort invoices
+  useEffect(() => {
+    let result = [...invoices];
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(invoice => {
+        const matchesInvoiceNumber = invoice.invoiceNumber.toLowerCase().includes(query);
+        const matchesClientName = invoice.client.name.toLowerCase().includes(query);
+        const matchesStatus = invoice.status.toLowerCase().includes(query);
+        const matchesAmount = invoice.amount.toString().includes(query);
+        const matchesIssuedDate = new Date(invoice.issuedDate).toLocaleDateString('en-US').toLowerCase().includes(query);
+        const matchesDueDate = new Date(invoice.dueDate).toLocaleDateString('en-US').toLowerCase().includes(query);
+        
+        return matchesInvoiceNumber || matchesClientName || matchesStatus || matchesAmount || matchesIssuedDate || matchesDueDate;
+      });
+    }
+
+    // Apply sorting
+    if (sortState.column && sortState.direction) {
+      result.sort((a, b) => {
+        let valueA: any;
+        let valueB: any;
+
+        switch (sortState.column) {
+          case 'status':
+            valueA = a.status;
+            valueB = b.status;
+            break;
+          case 'invoiceNumber':
+            valueA = a.invoiceNumber;
+            valueB = b.invoiceNumber;
+            break;
+          case 'clientName':
+            valueA = a.client.name;
+            valueB = b.client.name;
+            break;
+          case 'amount':
+            valueA = a.amount;
+            valueB = b.amount;
+            break;
+          case 'issuedDate':
+            valueA = new Date(a.issuedDate);
+            valueB = new Date(b.issuedDate);
+            break;
+          case 'dueDate':
+            valueA = new Date(a.dueDate);
+            valueB = new Date(b.dueDate);
+            break;
+          default:
+            return 0;
+        }
+
+        // Handle different data types
+        if (valueA < valueB) {
+          return sortState.direction === 'asc' ? -1 : 1;
+        }
+        if (valueA > valueB) {
+          return sortState.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    setFilteredAndSortedInvoices(result);
+  }, [invoices, searchQuery, sortState]);
+
+  // Handle column sort
+  const handleSort = (column: SortableColumn) => {
+    setSortState(prevState => {
+      if (prevState.column === column) {
+        // Cycle through: asc -> desc -> null
+        const direction = prevState.direction === 'asc' ? 'desc' : prevState.direction === 'desc' ? null : 'asc';
+        return { column: direction ? column : null, direction };
+      }
+      // New column, start with ascending
+      return { column, direction: 'asc' };
+    });
+  };
+
+  // Get sort icon for column
+  const getSortIcon = (column: SortableColumn) => {
+    if (sortState.column !== column) {
+      return <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />;
+    }
+    if (sortState.direction === 'asc') {
+      return <ArrowUp className="h-3 w-3 text-muted-foreground" />;
+    }
+    if (sortState.direction === 'desc') {
+      return <ArrowDown className="h-3 w-3 text-muted-foreground" />;
+    }
+    return <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />;
+  };
 
   if (invoices.length === 0) {
     return (
@@ -48,12 +155,48 @@ function InvoiceList({ invoices }: InvoiceListProps) {
     );
   }
 
+  if (filteredAndSortedInvoices.length === 0 && searchQuery) {
+    return (
+      <div className="space-y-6">
+        {/* Search Input */}
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search invoices..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 w-full border border-input bg-background text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            />
+          </div>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Search className="h-12 w-12 text-muted-foreground/50 mb-4" />
+          <p className="text-lg font-medium text-muted-foreground">No invoices found</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Try adjusting your search terms
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const handleInvoiceClick = (invoiceId: string) => {
     router.push(`/dashboard/financials/invoices/${invoiceId}`);
   };
 
-  // Calculate summary statistics
-  const stats = invoices.reduce((acc, invoice) => {
+  // Calculate summary statistics using filtered data
+  const stats = filteredAndSortedInvoices.reduce((acc, invoice) => {
     acc.total += invoice.amount;
     if (invoice.status === 'PAID') {
       acc.paid += invoice.amount;
@@ -70,6 +213,28 @@ function InvoiceList({ invoices }: InvoiceListProps) {
 
   return (
     <div className="space-y-6">
+      {/* Search Input */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search invoices..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-4 py-2 w-full border border-input bg-background text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+          />
+        </div>
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -84,7 +249,7 @@ function InvoiceList({ invoices }: InvoiceListProps) {
               }).format(stats.total)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {invoices.length} {invoices.length === 1 ? 'invoice' : 'invoices'}
+              {filteredAndSortedInvoices.length} {filteredAndSortedInvoices.length === 1 ? 'invoice' : 'invoices'}{searchQuery && ` (filtered from ${invoices.length})`}
             </p>
           </CardContent>
         </Card>
@@ -146,17 +311,65 @@ function InvoiceList({ invoices }: InvoiceListProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Status</TableHead>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Issue Date</TableHead>
-              <TableHead>Due Date</TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('status')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Status</span>
+                  {getSortIcon('status')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('invoiceNumber')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Invoice #</span>
+                  {getSortIcon('invoiceNumber')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('clientName')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Client</span>
+                  {getSortIcon('clientName')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="text-right cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('amount')}
+              >
+                <div className="flex items-center justify-end space-x-1">
+                  <span>Amount</span>
+                  {getSortIcon('amount')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('issuedDate')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Issue Date</span>
+                  {getSortIcon('issuedDate')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('dueDate')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Due Date</span>
+                  {getSortIcon('dueDate')}
+                </div>
+              </TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.map((invoice) => {
+            {filteredAndSortedInvoices.map((invoice) => {
               const isOverdue = invoice.status === 'PENDING' && new Date(invoice.dueDate) < new Date();
               return (
                 <TableRow
