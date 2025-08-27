@@ -211,7 +211,7 @@ async function getTomorrowsOperationalData(): Promise<OperationalItem[]> {
 
 // --- EMAIL SENDING LOGIC ---
 
-async function createManifestEmailHtml(userName: string, items: OperationalItem[]) {
+function createManifestEmailHtml(userName: string, items: OperationalItem[]) {
     const tomorrow = new Date();
     tomorrow.setDate(new Date().getDate() + 1);
     const tomorrowFormatted = format(tomorrow, 'EEEE, MMMM d, yyyy');

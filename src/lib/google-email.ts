@@ -1,14 +1,13 @@
 // src/lib/google-email.ts
 import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 
 // Initialize OAuth2 client
-let oauth2Client: OAuth2Client | null = null;
+let oauth2Client: InstanceType<typeof google.auth.OAuth2> | null = null;
 
 /**
  * Initialize Google OAuth2 client for Gmail API
  */
-function getOAuth2Client(): OAuth2Client {
+function getOAuth2Client(): InstanceType<typeof google.auth.OAuth2> {
   if (!oauth2Client) {
     oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -178,7 +177,7 @@ export async function sendBatchGoogleEmails(
     html?: string;
   }>
 ): Promise<Array<{ to: string; success: boolean; error?: string }>> {
-  const results = [];
+  const results: Array<{ to: string; success: boolean; error?: string }> = [];
   
   // Process emails in smaller batches to avoid rate limits
   const batchSize = 5;
