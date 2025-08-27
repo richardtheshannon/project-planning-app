@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
+import { useCloseableNotifications } from '@/lib/hooks/useCloseableNotifications';
 
 interface UserSettings {
   sendDailyManifest: boolean;
@@ -19,6 +20,14 @@ export default function NotificationsPage() {
   const [isSendingMorning, setIsSendingMorning] = useState(false);
   const [isSendingAfternoon, setIsSendingAfternoon] = useState(false);
   const { toast } = useToast();
+  
+  const {
+    enableCloseableNotifications,
+    closedNotifications,
+    loading: notificationLoading,
+    updateSettings: updateNotificationSettings,
+    resetNotifications
+  } = useCloseableNotifications();
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -123,7 +132,13 @@ export default function NotificationsPage() {
     }
   };
 
-  if (isLoading) {
+  const handleCloseableNotificationToggle = async () => {
+    await updateNotificationSettings({
+      enableCloseableNotifications: !enableCloseableNotifications
+    });
+  };
+
+  if (isLoading || notificationLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -196,6 +211,41 @@ export default function NotificationsPage() {
             />
           </div>
         </div>
+        
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 rounded-lg border p-4">
+          <div className="space-y-0.5 flex-grow">
+            <Label htmlFor="closeable-notifications" className="text-base">
+              Enable Closeable Notifications
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Show helpful information about graphs and data throughout the application
+            </p>
+          </div>
+          <div className="flex items-center space-x-4 flex-shrink-0">
+            <Switch
+              id="closeable-notifications"
+              checked={enableCloseableNotifications || false}
+              onCheckedChange={handleCloseableNotificationToggle}
+            />
+          </div>
+        </div>
+        
+        {enableCloseableNotifications && closedNotifications.length > 0 && (
+          <div className="rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {closedNotifications.length} notification{closedNotifications.length !== 1 ? 's' : ''} hidden
+              </p>
+              <Button
+                onClick={resetNotifications}
+                size="sm"
+                variant="outline"
+              >
+                Reset all notifications
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

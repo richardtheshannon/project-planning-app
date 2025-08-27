@@ -16,7 +16,9 @@ export async function GET() {
       where: { id: session.user.id },
       select: {
         sendDailyManifest: true,
-        sendAfternoonManifest: true, // <-- ADD THIS LINE
+        sendAfternoonManifest: true,
+        enableCloseableNotifications: true,
+        closedNotifications: true,
       },
     });
 
@@ -40,9 +42,34 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { sendDailyManifest, sendAfternoonManifest } = body;
+    const { sendDailyManifest, sendAfternoonManifest, enableCloseableNotifications, closedNotifications, closedNotification } = body;
 
-    const dataToUpdate: { sendDailyManifest?: boolean; sendAfternoonManifest?: boolean } = {};
+    // Handle adding a closed notification
+    if (closedNotification) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { closedNotifications: true }
+      });
+      
+      const currentClosed = (user?.closedNotifications as string[]) || [];
+      if (!currentClosed.includes(closedNotification)) {
+        currentClosed.push(closedNotification);
+      }
+      
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { closedNotifications: currentClosed }
+      });
+      
+      return NextResponse.json({ success: true });
+    }
+
+    const dataToUpdate: { 
+      sendDailyManifest?: boolean; 
+      sendAfternoonManifest?: boolean;
+      enableCloseableNotifications?: boolean;
+      closedNotifications?: string[];
+    } = {};
 
     // Validate and add sendDailyManifest to the update object if it exists
     if (typeof sendDailyManifest === 'boolean') {
@@ -52,6 +79,16 @@ export async function PATCH(request: Request) {
     // Validate and add sendAfternoonManifest to the update object if it exists
     if (typeof sendAfternoonManifest === 'boolean') {
       dataToUpdate.sendAfternoonManifest = sendAfternoonManifest;
+    }
+
+    // Validate and add enableCloseableNotifications to the update object if it exists
+    if (typeof enableCloseableNotifications === 'boolean') {
+      dataToUpdate.enableCloseableNotifications = enableCloseableNotifications;
+    }
+
+    // Validate and add closedNotifications to the update object if it exists
+    if (Array.isArray(closedNotifications)) {
+      dataToUpdate.closedNotifications = closedNotifications;
     }
 
     // Check if there is anything to update

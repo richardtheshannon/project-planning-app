@@ -23,6 +23,8 @@ model User {
   isActive              Boolean   @default(false)
   sendDailyManifest     Boolean   @default(false)
   sendAfternoonManifest Boolean   @default(false)
+  enableCloseableNotifications Boolean @default(true)
+  closedNotifications         Json?   @default("[]")
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 

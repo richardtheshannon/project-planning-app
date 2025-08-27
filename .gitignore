@@ -53,3 +53,6 @@ desktop.ini
 # Temporary files
 *.tmp
 *.temp
+
+# creation folder
+_TEMP

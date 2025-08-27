@@ -7,6 +7,9 @@ import { prisma } from "@/lib/prisma";
 import { type Invoice, type Expense, type Subscription, type Prisma, ExpenseCategory, type Client, ContractTerm } from "@prisma/client";
 import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfYear, getMonth, getYear, parseISO, isBefore, isAfter, isEqual } from "date-fns";
 
+// Client component for notifications
+import { FinancialsClientWrapper } from "./components/FinancialsClientWrapper";
+
 
 // UI component imports
 import { Button } from "@/components/ui/button";
@@ -291,84 +294,35 @@ export default async function FinancialsOverviewPage() {
     nextMonthNet = nextMonthIncome - (nextMonthIncome * 0.20) - totalNextMonthExpensesForNet;
   }
 
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
-        <Button><Plus className="mr-2 h-4 w-4" /> New Invoice</Button>
-        <Button variant="secondary"><Plus className="mr-2 h-4 w-4" /> Log Expense</Button>
-        <Button variant="outline"><Upload className="mr-2 h-4 w-4" /> Upload Document</Button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <FinancialsLineChart data={chartData} />
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Revenue (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of all invoices with status 'PAID' this year.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Expenses (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalExpensesYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of one-time expenses, annual subs, & monthly subs x12.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Subscriptions (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalSubscriptionsYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Annual subscriptions plus monthly subscriptions x12.</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Net Income (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{netIncomeYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Revenue minus taxes & all YTD expenses (incl. annualized subs).</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Taxes Due (YTD)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalTaxesDue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Calculated as 20% of the Total Revenue (YTD).</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Upcoming Payments</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{upcomingPayments.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div><p className="text-xs text-muted-foreground">Sum of monthly subs + annual subs due in next 30 days.</p></CardContent></Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader><CardTitle>Last Month</CardTitle><CardDescription>Summary of financial activity.</CardDescription></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center"><span className="flex items-center text-sm text-muted-foreground"><ArrowUp className="h-4 w-4 mr-2 text-green-500" />Income</span><span className="font-medium">{lastMonthIncome.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="flex justify-between items-center"><span className="flex items-center text-sm text-muted-foreground"><ArrowDown className="h-4 w-4 mr-2 text-red-500" />Expenses</span><span className="font-medium">{totalLastMonthExpensesForNet.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="flex justify-between items-center pt-2 border-t"><span className="flex items-center text-sm font-bold"><TrendingUp className="h-4 w-4 mr-2" />Net</span><span className="font-bold">{lastMonthNet.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="my-4 border-t"></div>
-            <div className="space-y-2 text-xs">
-              <h4 className="font-semibold">Subscriptions</h4>
-              {lastMonthSubscriptionItems.length > 0 ? lastMonthSubscriptionItems.map(sub => (<div key={sub.id} className="flex justify-between"><span>{sub.name}</span><span>{sub.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No subscriptions.</p>}
-              <h4 className="font-semibold mt-2">Expenses</h4>
-              {lastMonthExpenseItems.length > 0 ? lastMonthExpenseItems.map(exp => (<div key={exp.id} className="flex justify-between"><span>{exp.description}</span><span>{exp.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No expenses.</p>}
-              <h4 className="font-semibold mt-2">Invoices</h4>
-              {lastMonthInvoices.length > 0 ? lastMonthInvoices.map(inv => (<div key={inv.id} className="flex justify-between"><span>{inv.client.name}</span><span>{inv.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No invoices.</p>}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>This Month</CardTitle><CardDescription>Summary of financial activity.</CardDescription></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center"><span className="flex items-center text-sm text-muted-foreground"><ArrowUp className="h-4 w-4 mr-2 text-green-500" />Income</span><span className="font-medium">{thisMonthIncome.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="flex justify-between items-center"><span className="flex items-center text-sm text-muted-foreground"><ArrowDown className="h-4 w-4 mr-2 text-red-500" />Expenses</span><span className="font-medium">{totalThisMonthExpensesForNet.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="flex justify-between items-center pt-2 border-t"><span className="flex items-center text-sm font-bold"><TrendingUp className="h-4 w-4 mr-2" />Net</span><span className="font-bold">{thisMonthNet.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="my-4 border-t"></div>
-            <div className="space-y-2 text-xs">
-              <h4 className="font-semibold">Subscriptions</h4>
-              {thisMonthSubscriptionItems.length > 0 ? thisMonthSubscriptionItems.map(sub => (<div key={sub.id} className="flex justify-between"><span>{sub.name}</span><span>{sub.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No subscriptions.</p>}
-              <h4 className="font-semibold mt-2">Expenses</h4>
-              {thisMonthExpenseItems.length > 0 ? thisMonthExpenseItems.map(exp => (<div key={exp.id} className="flex justify-between"><span>{exp.description}</span><span>{exp.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No expenses.</p>}
-              <h4 className="font-semibold mt-2">Invoices</h4>
-              {thisMonthInvoices.length > 0 ? thisMonthInvoices.map(inv => (<div key={inv.id} className="flex justify-between"><span>{inv.client.name}</span><span>{inv.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No invoices.</p>}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Next Month (Forecast)</CardTitle><CardDescription>Summary of financial activity.</CardDescription></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center"><span className="flex items-center text-sm text-muted-foreground"><ArrowUp className="h-4 w-4 mr-2 text-green-500" />Income</span><span className="font-medium">{nextMonthIncome.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="flex justify-between items-center"><span className="flex items-center text-sm text-muted-foreground"><ArrowDown className="h-4 w-4 mr-2 text-red-500" />Expenses</span><span className="font-medium">{totalNextMonthExpensesForNet.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="flex justify-between items-center pt-2 border-t"><span className="flex items-center text-sm font-bold"><TrendingUp className="h-4 w-4 mr-2" />Net</span><span className="font-bold">{nextMonthNet.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>
-            <div className="my-4 border-t"></div>
-            <div className="space-y-2 text-xs">
-              <h4 className="font-semibold">Forecasted Income</h4>
-              {nextMonthForecastedItems.length > 0 ? nextMonthForecastedItems.map(item => (<div key={item.id} className="flex justify-between"><span>{item.name}</span><span>{item.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No forecasted income.</p>}
-              <h4 className="font-semibold mt-2">Subscriptions</h4>
-              {nextMonthSubscriptionItems.length > 0 ? nextMonthSubscriptionItems.map(sub => (<div key={sub.id} className="flex justify-between"><span>{sub.name}</span><span>{sub.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No subscriptions.</p>}
-              <h4 className="font-semibold mt-2">Expenses</h4>
-              {nextMonthExpenseItems.length > 0 ? nextMonthExpenseItems.map(exp => (<div key={exp.id} className="flex justify-between"><span>{exp.description}</span><span>{exp.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No expenses.</p>}
-              <h4 className="font-semibold mt-2">Invoices</h4>
-              {nextMonthInvoices.length > 0 ? nextMonthInvoices.map(inv => (<div key={inv.id} className="flex justify-between"><span>{inv.client.name}</span><span>{inv.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span></div>)) : <p className="text-muted-foreground">No one-off invoices.</p>}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4"><CardHeader><CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-destructive" />Alerts & Notifications</CardTitle></CardHeader><CardContent><p className="text-muted-foreground">Alerts for overdue invoices and upcoming subscriptions will appear here.</p></CardContent></Card>
-        <Card className="lg:col-span-3"><CardHeader><CardTitle className="flex items-center"><BarChart2 className="h-5 w-5 mr-2 text-primary" />Income vs. Expense</CardTitle></CardHeader><CardContent><p className="text-muted-foreground">A chart comparing monthly income and expenses will be displayed here.</p></CardContent></Card>
-      </div>
-    </div>
+    <FinancialsClientWrapper
+      chartData={chartData}
+      totalRevenue={totalRevenue}
+      totalExpensesYTD={totalExpensesYTD}
+      totalSubscriptionsYTD={totalSubscriptionsYTD}
+      netIncomeYTD={netIncomeYTD}
+      totalTaxesDue={totalTaxesDue}
+      upcomingPayments={upcomingPayments}
+      lastMonthIncome={lastMonthIncome}
+      thisMonthIncome={thisMonthIncome}
+      nextMonthIncome={nextMonthIncome}
+      totalLastMonthExpensesForNet={totalLastMonthExpensesForNet}
+      totalThisMonthExpensesForNet={totalThisMonthExpensesForNet}
+      totalNextMonthExpensesForNet={totalNextMonthExpensesForNet}
+      lastMonthNet={lastMonthNet}
+      thisMonthNet={thisMonthNet}
+      nextMonthNet={nextMonthNet}
+      lastMonthInvoices={lastMonthInvoices}
+      thisMonthInvoices={thisMonthInvoices}
+      nextMonthInvoices={nextMonthInvoices}
+      lastMonthExpenseItems={lastMonthExpenseItems}
+      thisMonthExpenseItems={thisMonthExpenseItems}
+      nextMonthExpenseItems={nextMonthExpenseItems}
+      lastMonthSubscriptionItems={lastMonthSubscriptionItems}
+      thisMonthSubscriptionItems={thisMonthSubscriptionItems}
+      nextMonthSubscriptionItems={nextMonthSubscriptionItems}
+      nextMonthForecastedItems={nextMonthForecastedItems}
+    />
   );
 }

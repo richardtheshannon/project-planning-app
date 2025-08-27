@@ -11,6 +11,7 @@ import { FolderKanban, CheckCircle2, DollarSign, PlusCircle } from 'lucide-react
 import FinancialOverviewChart, { ChartDataPoint } from "./components/FinancialOverviewChart";
 import ContactForm from "./components/ContactForm";
 import QuickActionsCard from "./components/QuickActionsCard";
+import { FinancialChartNotification, MetricCardsNotifications } from "@/components/dashboard/DashboardNotifications";
 
 // --- TYPE DEFINITIONS ---
 export type MonthlyActivity = {
@@ -346,7 +347,10 @@ export default async function Dashboard() {
         </div>
         
         {/* Financial Overview Chart */}
-        <FinancialOverviewChart data={financialChartData} />
+        <div>
+          <FinancialOverviewChart data={financialChartData} />
+          <FinancialChartNotification />
+        </div>
         
         {/* Quick Actions Card - Shows on mobile only, hidden on lg screens */}
         <div className="lg:hidden">
@@ -373,6 +377,9 @@ export default async function Dashboard() {
             <CardContent><div className="text-2xl font-bold">{completedThisWeekCount}</div><p className="text-xs text-muted-foreground">Completed in the last 7 days.</p></CardContent>
           </Card>
         </div>
+        
+        {/* Metric Cards Notifications */}
+        <MetricCardsNotifications />
         
         {/* Monthly Timeline - Now with overdueItems instead of lastMonthActivity */}
         <MonthlyTimeline overdueItems={overdueItems} thisMonthActivity={thisMonthActivity} nextMonthActivity={nextMonthActivity} />
