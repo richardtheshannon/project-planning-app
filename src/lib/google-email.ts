@@ -103,8 +103,15 @@ export async function sendGoogleEmail({
     const auth = getOAuth2Client();
     const gmail = google.gmail({ version: 'v1', auth });
     
-    // Use provided from address or default from env
-    const fromAddress = from || `"Project Planning App" <${process.env.GOOGLE_EMAIL_FROM || process.env.GOOGLE_CLIENT_EMAIL}>`;
+    // IMPORTANT: Gmail API requires the "from" address to be the authenticated user's email
+    // We can only send from the Gmail account that was used to authenticate
+    const authenticatedEmail = process.env.GOOGLE_EMAIL_FROM;
+    if (!authenticatedEmail) {
+      throw new Error('GOOGLE_EMAIL_FROM environment variable is required');
+    }
+    
+    // Use the authenticated email address as the sender
+    const fromAddress = `"Project Planning App" <${authenticatedEmail}>`;
     
     // Create the email message
     const message = createMimeMessage({
