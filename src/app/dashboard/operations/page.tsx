@@ -3,6 +3,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from "@/lib/prisma";
 import DailyItemsCard, { OperationalItem } from "./components/DailyItemsCard";
 import InteractiveCalendar from "./components/InteractiveCalendar"; // Import the new calendar component
+import { OverdueCard } from "@/components/operations/OverdueCard";
+import { getOverdueItems } from "@/lib/operations-data";
 import { ContractTerm } from "@prisma/client";
 import { addMonths, isWithinInterval, startOfMonth, endOfMonth, startOfDay, endOfDay, format } from "date-fns";
 
@@ -163,6 +165,7 @@ export default async function OperationsPage() {
   }
 
   const { allItems, todayItems, tomorrowItems } = await getOperationalData();
+  const overdueItems = await getOverdueItems();
 
   return (
     <div className="w-full max-w-full overflow-x-hidden">
@@ -178,6 +181,14 @@ export default async function OperationsPage() {
           <DailyItemsCard title="Today" items={todayItems} />
           <DailyItemsCard title="Tomorrow" items={tomorrowItems} />
         </div>
+
+        {/* NEW: Overdue Card */}
+        {overdueItems.length > 0 && (
+          <OverdueCard 
+            items={overdueItems}
+            className="w-full"
+          />
+        )}
 
         {/* --- Interactive Calendar Section --- */}
         <div className="mt-6 md:mt-8">

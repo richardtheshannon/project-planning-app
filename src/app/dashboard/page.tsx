@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { redirect } from "next/navigation";
 import MonthlyTimeline from "./MonthlyTimeline";
 import { FolderKanban, CheckCircle2, DollarSign, PlusCircle } from 'lucide-react';
-import FinancialOverviewChart, { ChartDataPoint } from "./components/FinancialOverviewChart";
+import { FinancialTrendsChart } from "@/components/dashboard/FinancialTrendsChart";
+import { getFinancialTrendsData, type FinancialTrendsDataPoint } from "@/lib/financial-data";
 import ContactForm from "./components/ContactForm";
 import QuickActionsCard from "./components/QuickActionsCard";
 import { HelpEnabledTitle } from "@/components/ui/help-enabled-title";
@@ -24,155 +25,11 @@ export type MonthlyActivity = {
   projectName?: string;
 };
 
-export type OverdueItem = {
-  id: string;
-  type: 'Project' | 'TimelineEvent' | 'Invoice' | 'FeatureRequest';
-  title: string;
-  date: Date;
-  status?: string;
-  projectId?: string;
-  projectName?: string;
-  clientName?: string;
-  amount?: number;
-};
 
-type Invoice = { amount: number; updatedAt: Date; status: string; };
-type Expense = { amount: number; date: Date; };
-type Subscription = { amount: number; billingCycle: string; createdAt: Date; };
 type RecentProject = { id: string; name: string; createdAt: Date };
 type RecentTask = { id: string; title: string; createdAt: Date };
 
 // --- DATA FETCHING & PROCESSING FUNCTIONS ---
-// New function to fetch overdue items
-async function getOverdueItems(): Promise<OverdueItem[]> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
-
-  const [overdueProjects, overdueTimelineEvents, overdueInvoices, overdueFeatureRequests] = await Promise.all([
-    // Projects with end date before today
-    prisma.project.findMany({
-      where: {
-        endDate: {
-          lt: today
-        },
-        status: {
-          notIn: ['COMPLETED', 'CANCELLED']
-        }
-      },
-      select: {
-        id: true,
-        name: true,
-        endDate: true
-      }
-    }),
-    
-    // Timeline events before today that are not completed
-    prisma.timelineEvent.findMany({
-      where: {
-        eventDate: {
-          lt: today
-        },
-        isCompleted: false
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
-    }),
-    
-    // Invoices with due date before today marked as DRAFT
-    prisma.invoice.findMany({
-      where: {
-        dueDate: {
-          lt: today
-        },
-        status: 'DRAFT'
-      },
-      include: {
-        client: {
-          select: {
-            name: true
-          }
-        }
-      }
-    }),
-    
-    // Feature requests with due date before today marked as Pending or In Progress
-    prisma.featureRequest.findMany({
-      where: {
-        dueDate: {
-          lt: today
-        },
-        status: {
-          in: ['Pending', 'In Progress']
-        }
-      }
-    })
-  ]);
-
-  const overdueItems: OverdueItem[] = [];
-
-  // Map projects
-  overdueProjects.forEach(project => {
-    if (project.endDate) {
-      overdueItems.push({
-        id: project.id,
-        type: 'Project',
-        title: project.name,
-        date: project.endDate,
-        projectId: project.id,
-        projectName: project.name
-      });
-    }
-  });
-
-  // Map timeline events
-  overdueTimelineEvents.forEach(event => {
-    if (event.eventDate) {
-      overdueItems.push({
-        id: event.id,
-        type: 'TimelineEvent',
-        title: event.title,
-        date: event.eventDate,
-        projectId: event.project.id,
-        projectName: event.project.name
-      });
-    }
-  });
-
-  // Map invoices
-  overdueInvoices.forEach(invoice => {
-    overdueItems.push({
-      id: invoice.id,
-      type: 'Invoice',
-      title: `Invoice ${invoice.invoiceNumber}`,
-      date: invoice.dueDate,
-      clientName: invoice.client.name || 'Unknown Client',
-      amount: invoice.amount,
-      status: invoice.status
-    });
-  });
-
-  // Map feature requests
-  overdueFeatureRequests.forEach(request => {
-    if (request.dueDate) {
-      overdueItems.push({
-        id: request.id.toString(),
-        type: 'FeatureRequest',
-        title: request.title,
-        date: request.dueDate,
-        status: request.status
-      });
-    }
-  });
-
-  // Sort by date (most overdue first)
-  return overdueItems.sort((a, b) => a.date.getTime() - b.date.getTime());
-}
 
 // MODIFIED: Removed the 'userId' parameter to fetch data for all users.
 async function getActivityForPeriod(startDate: Date, endDate: Date): Promise<MonthlyActivity[]> {
@@ -188,82 +45,6 @@ async function getActivityForPeriod(startDate: Date, endDate: Date): Promise<Mon
   return [...mappedProjects, ...mappedEvents].sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
-function processFinancialDataForThreeMonths(invoices: Invoice[], expenses: Expense[], subscriptions: Subscription[], forecastValue: number): ChartDataPoint[] {
-  const now = new Date();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  
-  // Initialize data for 3 months (last month, current month, next month)
-  const monthlyData: ChartDataPoint[] = Array.from({ length: 3 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 1 + i, 1);
-    return { 
-      month: monthNames[d.getMonth()], 
-      revenue: 0, 
-      expenses: 0, 
-      netIncome: 0, 
-      forecast: 0 
-    };
-  });
-
-  // Add revenue from paid invoices
-  invoices.forEach(invoice => {
-    const invoiceDate = new Date(invoice.updatedAt);
-    const monthDiff = (invoiceDate.getFullYear() - now.getFullYear()) * 12 + invoiceDate.getMonth() - now.getMonth();
-    const monthIndex = monthDiff + 1; // +1 because we start from last month
-    
-    if (monthIndex >= 0 && monthIndex < 3) {
-      monthlyData[monthIndex].revenue += invoice.amount;
-    }
-  });
-
-  // Add one-time expenses
-  expenses.forEach(expense => {
-    const expenseDate = new Date(expense.date);
-    const monthDiff = (expenseDate.getFullYear() - now.getFullYear()) * 12 + expenseDate.getMonth() - now.getMonth();
-    const monthIndex = monthDiff + 1; // +1 because we start from last month
-    
-    if (monthIndex >= 0 && monthIndex < 3) {
-      monthlyData[monthIndex].expenses += expense.amount;
-    }
-  });
-  
-  // Add subscription costs to each month
-  subscriptions.forEach(subscription => {
-    // Calculate monthly cost based on billing cycle
-    let monthlyCost = 0;
-    if (subscription.billingCycle === 'MONTHLY') {
-      monthlyCost = subscription.amount;
-    } else if (subscription.billingCycle === 'ANNUALLY') {
-      monthlyCost = subscription.amount / 12; // Distribute annual cost over 12 months
-    } else if (subscription.billingCycle === 'QUARTERLY') {
-      monthlyCost = subscription.amount / 3; // Distribute quarterly cost over 3 months
-    }
-    
-    // Add subscription cost to each month in our 3-month window
-    // Only add if subscription was created before the end of each month
-    const subCreatedDate = new Date(subscription.createdAt);
-    
-    for (let i = 0; i < 3; i++) {
-      const monthDate = new Date(now.getFullYear(), now.getMonth() - 1 + i, 1);
-      const monthEndDate = new Date(now.getFullYear(), now.getMonth() - 1 + i + 1, 0);
-      
-      // If subscription was created before the end of this month, include it
-      if (subCreatedDate <= monthEndDate) {
-        monthlyData[i].expenses += monthlyCost;
-      }
-    }
-  });
-  
-  // Calculate net income for each month
-  monthlyData.forEach(md => {
-    md.netIncome = md.revenue - md.expenses;
-  });
-  
-  // Add forecast to the last month (future month)
-  monthlyData[2].forecast = forecastValue;
-  monthlyData[2].revenue = Math.max(monthlyData[2].revenue, forecastValue); 
-
-  return monthlyData;
-}
 
 // --- MAIN DASHBOARD SERVER COMPONENT ---
 export default async function Dashboard() {
@@ -272,7 +53,6 @@ export default async function Dashboard() {
     redirect('/api/auth/signin');
   }
   const now = new Date();
-  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
 
   // --- FETCH APPEARANCE SETTINGS FOR BUSINESS NAME AND MISSION STATEMENT ---
   const appearanceSettings = await prisma.appearanceSettings.findFirst({
@@ -289,47 +69,23 @@ export default async function Dashboard() {
   // The 'userId' and 'ownerId' filters have been removed from all queries below
   // to fetch data for the entire application.
   const [
-    paidInvoices, oneTimeExpenses, subscriptions, projectForecast, projectCount, activeTaskCount,
-    completedThisWeekCount, recentProjects, recentTasks, overdueItems, thisMonthActivity, nextMonthActivity
+    projectForecast, projectCount, activeTaskCount,
+    completedThisWeekCount, recentProjects, recentTasks, thisMonthActivity, nextMonthActivity,
+    financialChartData
   ] = await Promise.all([
-    // Fetch invoices from the last 3 months
-    prisma.invoice.findMany({ 
-      where: { 
-        status: 'PAID', 
-        updatedAt: { gte: threeMonthsAgo } 
-      }, 
-      select: { amount: true, updatedAt: true, status: true } 
-    }),
-    // Fetch expenses from the last 3 months
-    prisma.expense.findMany({ 
-      where: { 
-        date: { gte: threeMonthsAgo } 
-      }, 
-      select: { amount: true, date: true } 
-    }),
-    // Fetch all active subscriptions
-    prisma.subscription.findMany({ 
-      select: { amount: true, billingCycle: true, createdAt: true } 
-    }),
     prisma.project.aggregate({ _sum: { projectValue: true } }),
     prisma.project.count(),
     prisma.task.count({ where: { status: { not: 'COMPLETED' } } }),
     prisma.task.count({ where: { status: 'COMPLETED', updatedAt: { gte: new Date(new Date().setDate(new Date().getDate() - 7)) } } }),
     prisma.project.findMany({ orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, name: true, createdAt: true } }),
     prisma.task.findMany({ orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, title: true, createdAt: true } }),
-    getOverdueItems(), // Changed from lastMonthActivity to overdueItems
     getActivityForPeriod(new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0)),
     getActivityForPeriod(new Date(now.getFullYear(), now.getMonth() + 1, 1), new Date(now.getFullYear(), now.getMonth() + 2, 0)),
+    getFinancialTrendsData() // New comprehensive financial data
   ]);
   // --- MODIFICATION END ---
 
   const forecastValue = projectForecast._sum.projectValue ?? 0;
-  const financialChartData = processFinancialDataForThreeMonths(paidInvoices, oneTimeExpenses, subscriptions, forecastValue);
-  
-  // Log the data for debugging
-  console.log('Financial Chart Data:', financialChartData);
-  console.log('Expenses found:', oneTimeExpenses.length);
-  console.log('Subscriptions found:', subscriptions.length);
   
   const recentActivity = [
     ...recentProjects.map(p => ({ ...p, type: 'Project', title: p.name, date: p.createdAt })),
@@ -346,9 +102,13 @@ export default async function Dashboard() {
           <p className="text-muted-foreground mt-2 mb-8">{missionStatement}</p>
         </div>
         
-        {/* Financial Overview Chart */}
+        {/* Financial Trends Chart - Now with comprehensive 7-series data */}
         <div>
-          <FinancialOverviewChart data={financialChartData} />
+          <FinancialTrendsChart 
+            data={financialChartData} 
+            title="Financial Overview (YTD)"
+            description="A year-to-date summary of your revenue, expenses, and net income with comprehensive financial trends."
+          />
         </div>
         
         {/* Quick Actions Card - Shows on mobile only, hidden on lg screens */}
@@ -508,8 +268,8 @@ export default async function Dashboard() {
         </div>
         
         
-        {/* Monthly Timeline - Now with overdueItems instead of lastMonthActivity */}
-        <MonthlyTimeline overdueItems={overdueItems} thisMonthActivity={thisMonthActivity} nextMonthActivity={nextMonthActivity} />
+        {/* Monthly Timeline */}
+        <MonthlyTimeline thisMonthActivity={thisMonthActivity} nextMonthActivity={nextMonthActivity} />
         
         {/* Contact Form */}
         <ContactForm />
