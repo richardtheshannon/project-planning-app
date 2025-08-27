@@ -48,14 +48,14 @@ export async function getOverdueItems() {
     }
   });
 
-  // Fetch overdue invoices
+  // Fetch overdue invoices (only pending/draft status)
   const overdueInvoices = await prisma.invoice.findMany({
     where: {
       dueDate: {
         lt: today
       },
       status: {
-        notIn: ['PAID']
+        in: ['DRAFT', 'PENDING']
       }
     },
     include: {

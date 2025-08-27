@@ -41,9 +41,14 @@ export default function NewProjectPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
-          // MODIFIED: Convert projectValue to a number, or null if empty
+          name: formData.name,
+          description: formData.description || null,
+          projectGoal: formData.goal || null,
           projectValue: formData.projectValue ? parseFloat(formData.projectValue) : null,
+          website: formData.website || null,
+          status: formData.status,
+          priority: formData.priority,
+          projectType: formData.projectType,
           startDate: formData.startDate || null,
           endDate: formData.endDate || null,
         }),

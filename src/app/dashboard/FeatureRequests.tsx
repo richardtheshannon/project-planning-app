@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Toaster, toast } from 'sonner';
-import { ArrowUpDown, Calendar, ChevronRight, Clock, User } from 'lucide-react';
+import { ArrowUpDown, Calendar, ChevronRight, Clock, User, Search, X } from 'lucide-react';
 
 interface FeatureRequest {
     id: number;
@@ -54,6 +54,7 @@ export default function FeatureRequests() {
     const [priority, setPriority] = useState<"Low" | "Medium" | "High">("Medium");
     const [dueDate, setDueDate] = useState('');
     const [isMobile, setIsMobile] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const [sortKey, setSortKey] = useState<SortKey>('createdAt');
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -119,8 +120,38 @@ export default function FeatureRequests() {
         fetchRequests();
     }, []);
 
+    // Filter requests based on search query
+    const filteredRequests = useMemo(() => {
+        if (!searchQuery.trim()) {
+            return requests;
+        }
+
+        const query = searchQuery.toLowerCase();
+        return requests.filter(request => {
+            // Search in title
+            if (request.title?.toLowerCase().includes(query)) return true;
+            
+            // Search in status
+            if (request.status?.toLowerCase().includes(query)) return true;
+            
+            // Search in priority
+            if (request.priority?.toLowerCase().includes(query)) return true;
+            
+            // Search in submitted by
+            if (request.submittedBy?.toLowerCase().includes(query)) return true;
+            
+            // Search in due date
+            if (request.dueDate) {
+                const dateString = new Date(request.dueDate).toLocaleDateString('en-US', { timeZone: 'UTC' });
+                if (dateString.toLowerCase().includes(query)) return true;
+            }
+            
+            return false;
+        });
+    }, [searchQuery, requests]);
+
     const sortedRequests = useMemo(() => {
-        const sorted = [...requests].sort((a, b) => {
+        const sorted = [...filteredRequests].sort((a, b) => {
             const valA = a[sortKey];
             const valB = b[sortKey];
 
@@ -137,7 +168,7 @@ export default function FeatureRequests() {
         }
 
         return sorted;
-    }, [requests, sortKey, sortOrder]);
+    }, [filteredRequests, sortKey, sortOrder]);
 
     const handleSort = (key: SortKey) => {
         if (sortKey === key) {
@@ -267,6 +298,45 @@ export default function FeatureRequests() {
                             ? `${requests.length} request${requests.length === 1 ? '' : 's'} submitted. Click a row for details.`
                             : 'No requests submitted yet.'}
                     </CardDescription>
+                    
+                    {/* Search Bar */}
+                    {requests.length > 0 && (
+                        <div className="flex items-center gap-2 mt-4">
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                <Input
+                                    placeholder="Search requests by title, status, priority, or submitter..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10 pr-10"
+                                />
+                                {searchQuery && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setSearchQuery('')}
+                                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-muted"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Results Counter */}
+                    {requests.length > 0 && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                            {searchQuery ? (
+                                <span>
+                                    Showing {sortedRequests.length} of {requests.length} request{requests.length === 1 ? '' : 's'}
+                                    {sortedRequests.length !== requests.length && ' matching your search'}
+                                </span>
+                            ) : (
+                                <span>{requests.length} request{requests.length === 1 ? '' : 's'} total</span>
+                            )}
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent className="px-2 sm:px-6">
                     {/* Mobile View - Cards */}
@@ -318,7 +388,20 @@ export default function FeatureRequests() {
                             ))}
                             {sortedRequests.length === 0 && (
                                 <div className="text-center py-8 text-muted-foreground">
-                                    No feature requests yet. Submit one above!
+                                    {searchQuery ? (
+                                        <>
+                                            <p>No requests found matching "{searchQuery}"</p>
+                                            <Button
+                                                variant="ghost"
+                                                onClick={() => setSearchQuery('')}
+                                                className="mt-2 text-sm"
+                                            >
+                                                Clear search to see all requests
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        'No feature requests yet. Submit one above!'
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -370,7 +453,20 @@ export default function FeatureRequests() {
                                     {sortedRequests.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                                No feature requests yet. Submit one above!
+                                                {searchQuery ? (
+                                                    <div>
+                                                        <p className="mb-2">No requests found matching "{searchQuery}"</p>
+                                                        <Button
+                                                            variant="ghost"
+                                                            onClick={() => setSearchQuery('')}
+                                                            className="text-sm"
+                                                        >
+                                                            Clear search to see all requests
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    'No feature requests yet. Submit one above!'
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     )}

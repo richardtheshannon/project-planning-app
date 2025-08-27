@@ -1,6 +1,9 @@
 // src/app/dashboard/operations/components/DailyItemsCard.tsx
+'use client';
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { HelpEnabledTitle } from "@/components/ui/help-enabled-title";
 import Link from "next/link";
 import {
   Briefcase,
@@ -9,7 +12,6 @@ import {
   FileText,
   Repeat,
   LucideIcon,
-  FileSignature,
   Lightbulb, // Added for Feature Request icon
 } from "lucide-react";
 
@@ -17,7 +19,7 @@ import {
 export interface OperationalItem {
   id: string;
   title: string;
-  type: 'Project' | 'Task' | 'Timeline Event' | 'Invoice' | 'Subscription' | 'Client Contract' | 'Feature Request';
+  type: 'Project' | 'Task' | 'Timeline Event' | 'Invoice' | 'Subscription' | 'Feature Request';
   dueDate: Date;
   link: string;
   projectName?: string;
@@ -34,7 +36,6 @@ const itemTypeDetails: { [key in OperationalItem['type']]: { icon: LucideIcon, c
   'Timeline Event': { icon: Calendar, color: 'bg-purple-500' },
   'Invoice': { icon: FileText, color: 'bg-orange-500' },
   'Subscription': { icon: Repeat, color: 'bg-pink-500' },
-  'Client Contract': { icon: FileSignature, color: 'bg-teal-500'},
   'Feature Request': { icon: Lightbulb, color: 'bg-yellow-500' }, // New entry for Feature Request
 };
 
@@ -73,7 +74,6 @@ const ItemList = ({ items }: { items: OperationalItem[] }) => (
                       <span className="hidden sm:inline">{item.type}</span>
                       <span className="sm:hidden">
                         {item.type === 'Timeline Event' ? 'Event' : 
-                         item.type === 'Client Contract' ? 'Contract' :
                          item.type === 'Feature Request' ? 'Feature' :
                          item.type}
                       </span>
@@ -107,13 +107,87 @@ const ItemList = ({ items }: { items: OperationalItem[] }) => (
 
 export default function DailyItemsCard({ title, items }: DailyItemsCardProps) {
   const projectItems = items.filter(item => ['Project', 'Task', 'Timeline Event', 'Feature Request'].includes(item.type));
-  // ✅ MODIFIED: Added 'Client Contract' to the financials section
-  const financialItems = items.filter(item => ['Invoice', 'Subscription', 'Client Contract'].includes(item.type));
+  const financialItems = items.filter(item => ['Invoice', 'Subscription'].includes(item.type));
+
+  // Define help content based on the title
+  const helpContent = title === 'Today' ? {
+    summary: "Shows all tasks due today including feature requests, projects, and other items requiring immediate attention.",
+    details: (
+      <div className="space-y-4">
+        <div>
+          <h5 className="font-semibold mb-2">Item Types Displayed</h5>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            <li><strong>Projects:</strong> Projects with end dates today</li>
+            <li><strong>Tasks:</strong> Tasks with due dates today</li>
+            <li><strong>Timeline Events:</strong> Scheduled project milestones for today</li>
+            <li><strong>Feature Requests:</strong> Feature requests due today</li>
+            <li><strong>Invoices:</strong> Invoices in pending or draft status due for payment today</li>
+          </ul>
+        </div>
+        <div>
+          <h5 className="font-semibold mb-2">Organization</h5>
+          <p className="text-sm">Items are grouped into two sections:</p>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            <li><strong>Projects & Tasks:</strong> Development and project work</li>
+            <li><strong>Financials:</strong> Invoices, subscriptions, and payments</li>
+          </ul>
+        </div>
+        <div>
+          <h5 className="font-semibold mb-2">Actions</h5>
+          <p className="text-sm">Click any item to navigate to its detail page for more information or to take action.</p>
+        </div>
+      </div>
+    )
+  } : {
+    summary: "Shows all tasks due tomorrow to help you plan ahead and prepare for the next day.",
+    details: (
+      <div className="space-y-4">
+        <div>
+          <h5 className="font-semibold mb-2">Item Types Displayed</h5>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            <li><strong>Projects:</strong> Projects with end dates tomorrow</li>
+            <li><strong>Tasks:</strong> Tasks with due dates tomorrow</li>
+            <li><strong>Timeline Events:</strong> Scheduled project milestones for tomorrow</li>
+            <li><strong>Feature Requests:</strong> Feature requests due tomorrow</li>
+            <li><strong>Invoices:</strong> Invoices in pending or draft status due for payment tomorrow</li>
+          </ul>
+        </div>
+        <div>
+          <h5 className="font-semibold mb-2">Organization</h5>
+          <p className="text-sm">Items are grouped into two sections:</p>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            <li><strong>Projects & Tasks:</strong> Development and project work</li>
+            <li><strong>Financials:</strong> Invoices and payments</li>
+          </ul>
+        </div>
+        <div>
+          <h5 className="font-semibold mb-2">Planning Benefits</h5>
+          <p className="text-sm mb-2">Tomorrow's view helps you:</p>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            <li>Prepare for upcoming deadlines</li>
+            <li>Allocate resources in advance</li>
+            <li>Identify potential scheduling conflicts</li>
+            <li>Plan your workday more effectively</li>
+          </ul>
+        </div>
+        <div>
+          <h5 className="font-semibold mb-2">Actions</h5>
+          <p className="text-sm">Click any item to navigate to its detail page for more information or to take action.</p>
+        </div>
+      </div>
+    )
+  };
 
   return (
     <Card className="w-full">
       <CardHeader className="pb-3 sm:pb-6">
-        <CardTitle className="text-lg sm:text-xl">{title}</CardTitle>
+        <HelpEnabledTitle
+          title={title}
+          summary={helpContent.summary}
+          details={helpContent.details}
+          className="text-lg sm:text-xl font-semibold"
+          as="h3"
+        />
       </CardHeader>
       <CardContent className="space-y-4 sm:space-y-6">
         {items.length > 0 ? (

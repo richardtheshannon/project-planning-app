@@ -35,8 +35,7 @@ const getTypeColor = (type: OperationalItem['type']): string => {
     case 'Timeline Event': return 'bg-purple-500';
     case 'Invoice': return 'bg-orange-500';
     case 'Subscription': return 'bg-pink-500';
-    case 'Client Contract': return 'bg-teal-500';
-    case 'Feature Request': return 'bg-yellow-500'; // Added Feature Request color
+    case 'Feature Request': return 'bg-yellow-500';
     default: return 'bg-gray-500';
   }
 };

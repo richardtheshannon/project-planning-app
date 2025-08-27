@@ -5,8 +5,7 @@ import DailyItemsCard, { OperationalItem } from "./components/DailyItemsCard";
 import InteractiveCalendar from "./components/InteractiveCalendar"; // Import the new calendar component
 import { OverdueCard } from "@/components/operations/OverdueCard";
 import { getOverdueItems } from "@/lib/operations-data";
-import { ContractTerm } from "@prisma/client";
-import { addMonths, isWithinInterval, startOfMonth, endOfMonth, startOfDay, endOfDay, format } from "date-fns";
+import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 
 const getDayBounds = (date: Date) => {
   const start = startOfDay(date);
@@ -14,15 +13,6 @@ const getDayBounds = (date: Date) => {
   return { start, end };
 };
 
-const getMonthsFromTerm = (term: ContractTerm): number => {
-    switch (term) {
-        case ContractTerm.ONE_MONTH: return 1;
-        case ContractTerm.THREE_MONTH: return 3;
-        case ContractTerm.SIX_MONTH: return 6;
-        case ContractTerm.ONE_YEAR: return 12;
-        default: return 0;
-    }
-};
 
 // FIX: Use the EXACT same helper function as InteractiveCalendar.tsx
 const isSameDayUTC = (date1: Date, date2: Date): boolean => {
@@ -58,7 +48,6 @@ async function getOperationalData() {
     tasks,
     timelineEvents,
     invoices,
-    recurringClients,
     featureRequests // Added feature requests to the fetch
   ] = await Promise.all([
     prisma.project.findMany({
@@ -74,12 +63,11 @@ async function getOperationalData() {
       select: { id: true, title: true, eventDate: true, projectId: true, project: { select: { name: true } } }
     }),
     prisma.invoice.findMany({
-      where: { dueDate: { gte: monthStart, lte: monthEnd } },
-      select: { id: true, invoiceNumber: true, dueDate: true, client: { select: { name: true } } }
-    }),
-    prisma.client.findMany({
-        where: { contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' },
-        select: { id: true, name: true, contractStartDate: true, contractTerm: true }
+      where: { 
+        dueDate: { gte: monthStart, lte: monthEnd },
+        status: { in: ['DRAFT', 'PENDING'] }
+      },
+      select: { id: true, invoiceNumber: true, dueDate: true, status: true, client: { select: { name: true } } }
     }),
     // New: Fetch feature requests with due dates in the current month
     prisma.featureRequest.findMany({
@@ -106,30 +94,12 @@ async function getOperationalData() {
 
   const allItems: OperationalItem[] = [];
 
-  recurringClients.forEach(client => {
-      if (!client.contractStartDate) return;
-      const startDate = new Date(client.contractStartDate);
-      const termInMonths = getMonthsFromTerm(client.contractTerm);
-      for (let i = 0; i < termInMonths * 4; i++) { // Extend recurring items for visibility in calendar
-          const paymentDate = addMonths(startDate, i);
-          if (isWithinInterval(paymentDate, { start: monthStart, end: addMonths(monthEnd, 12) })) { // Look ahead 12 months
-              allItems.push({
-                  id: `${client.id}-month-${i}`,
-                  title: `Recurring Payment`,
-                  type: 'Client Contract' as const,
-                  dueDate: paymentDate,
-                  link: `/dashboard/financials`,
-                  clientName: client.name
-              });
-          }
-      }
-  });
 
   allItems.push(
     ...projects.filter(p => p.endDate).map(p => ({ id: p.id, title: p.name, type: 'Project' as const, dueDate: p.endDate!, link: `/dashboard/projects/${p.id}` })),
     ...tasks.filter(t => t.dueDate).map(t => ({ id: t.id, title: t.title, type: 'Task' as const, dueDate: t.dueDate!, link: `/dashboard/projects/${t.projectId}`, projectName: t.project.name })),
     ...timelineEvents.filter(te => te.eventDate).map(te => ({ id: te.id, title: te.title, type: 'Timeline Event' as const, dueDate: te.eventDate!, link: `/dashboard/projects/${te.projectId}`, projectName: te.project.name })),
-    ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials`, clientName: i.client.name })),
+    ...invoices.filter(i => i.dueDate).map(i => ({ id: i.id, title: `Invoice #${i.invoiceNumber}`, type: 'Invoice' as const, dueDate: i.dueDate!, link: `/dashboard/financials/invoices/${i.id}`, clientName: i.client.name, status: i.status })),
     // UPDATED: Feature requests now link to their individual pages
     ...featureRequests
       .filter(fr => fr.dueDate !== null)

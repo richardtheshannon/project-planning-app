@@ -5,15 +5,14 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/auth';
 import { prisma } from "@/lib/prisma";
 import { sendGoogleEmail, sendBatchGoogleEmails } from '@/lib/google-email';
-import { ContractTerm } from "@prisma/client";
-import { addMonths, isWithinInterval, startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfMonth, endOfMonth, format } from "date-fns";
 
 // --- TYPES AND INTERFACES ---
 
 interface OperationalItem {
     id: string;
     title: string;
-    type: 'Project' | 'Task' | 'Timeline Event' | 'Invoice' | 'Client Contract' | 'Feature Request';
+    type: 'Project' | 'Task' | 'Timeline Event' | 'Invoice' | 'Feature Request';
     dueDate: Date;
     link: string;
     projectName?: string;
@@ -32,15 +31,6 @@ const isSameDayUTC = (date1: Date, date2: Date): boolean => {
   return d1 === d2;
 };
 
-const getMonthsFromTerm = (term: ContractTerm): number => {
-    switch (term) {
-        case ContractTerm.ONE_MONTH: return 1;
-        case ContractTerm.THREE_MONTH: return 3;
-        case ContractTerm.SIX_MONTH: return 6;
-        case ContractTerm.ONE_YEAR: return 12;
-        default: return 0;
-    }
-};
 
 // --- URL Helper Function ---
 const getBaseUrl = (): string => {
@@ -84,7 +74,6 @@ async function getTomorrowsOperationalData(): Promise<OperationalItem[]> {
         tasks,
         timelineEvents,
         invoices,
-        recurringClients,
         featureRequests // Added feature requests
     ] = await Promise.all([
         prisma.project.findMany({
@@ -100,12 +89,11 @@ async function getTomorrowsOperationalData(): Promise<OperationalItem[]> {
             select: { id: true, title: true, eventDate: true, projectId: true, project: { select: { name: true } } }
         }),
         prisma.invoice.findMany({
-            where: { dueDate: { gte: monthStart, lte: monthEnd } },
-            select: { id: true, invoiceNumber: true, dueDate: true, client: { select: { name: true } } }
-        }),
-        prisma.client.findMany({
-            where: { contractStartDate: { not: null }, contractTerm: { not: 'ONE_TIME' }, frequency: 'monthly' },
-            select: { id: true, name: true, contractStartDate: true, contractTerm: true }
+            where: { 
+                dueDate: { gte: monthStart, lte: monthEnd },
+                status: { in: ['DRAFT', 'PENDING'] }
+            },
+            select: { id: true, invoiceNumber: true, dueDate: true, status: true, client: { select: { name: true } } }
         }),
         // New: Fetch feature requests with due dates
         prisma.featureRequest.findMany({
@@ -132,25 +120,6 @@ async function getTomorrowsOperationalData(): Promise<OperationalItem[]> {
 
     const allItems: OperationalItem[] = [];
 
-    // Process recurring clients
-    recurringClients.forEach(client => {
-        if (!client.contractStartDate) return;
-        const startDate = new Date(client.contractStartDate);
-        const termInMonths = getMonthsFromTerm(client.contractTerm);
-        for (let i = 0; i < termInMonths * 4; i++) { // Extend recurring items for visibility
-            const paymentDate = addMonths(startDate, i);
-            if (isWithinInterval(paymentDate, { start: monthStart, end: addMonths(monthEnd, 12) })) { // Look ahead 12 months
-                allItems.push({
-                    id: `${client.id}-month-${i}`,
-                    title: `Recurring Payment`,
-                    type: 'Client Contract' as const,
-                    dueDate: paymentDate,
-                    link: `/dashboard/financials`,
-                    clientName: client.name
-                });
-            }
-        }
-    });
 
     // Add all items
     allItems.push(
@@ -182,8 +151,9 @@ async function getTomorrowsOperationalData(): Promise<OperationalItem[]> {
             title: `Invoice #${i.invoiceNumber}`, 
             type: 'Invoice' as const, 
             dueDate: i.dueDate!, 
-            link: `/dashboard/financials`, 
-            clientName: i.client.name 
+            link: `/dashboard/financials/invoices/${i.id}`, 
+            clientName: i.client.name,
+            status: i.status
         })),
         // UPDATED: Feature requests now link to their individual pages
         ...featureRequests
@@ -218,7 +188,7 @@ function createManifestEmailHtml(userName: string, items: OperationalItem[]) {
     const appUrl = getBaseUrl();
 
     const projectItems = items.filter(item => ['Project', 'Task', 'Timeline Event'].includes(item.type));
-    const financialItems = items.filter(item => ['Invoice', 'Client Contract'].includes(item.type));
+    const financialItems = items.filter(item => item.type === 'Invoice');
     const featureItems = items.filter(item => item.type === 'Feature Request');
 
     const renderItems = (itemList: OperationalItem[]) => {

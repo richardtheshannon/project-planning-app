@@ -17,12 +17,16 @@ import { HelpEnabledTitle } from "@/components/ui/help-enabled-title";
 // --- TYPE DEFINITIONS ---
 export type MonthlyActivity = {
   id: string;
-  type: 'Project' | 'TimelineEvent';
+  type: 'Project' | 'TimelineEvent' | 'Task' | 'Invoice' | 'FeatureRequest';
   title: string;
   date: Date;
   isCompleted?: boolean;
   projectId?: string;
   projectName?: string;
+  clientName?: string;
+  status?: string;
+  priority?: string;
+  submittedBy?: string;
 };
 
 
@@ -31,18 +35,110 @@ type RecentTask = { id: string; title: string; createdAt: Date };
 
 // --- DATA FETCHING & PROCESSING FUNCTIONS ---
 
-// MODIFIED: Removed the 'userId' parameter to fetch data for all users.
+// Updated to fetch all activity types with consistent filtering
 async function getActivityForPeriod(startDate: Date, endDate: Date): Promise<MonthlyActivity[]> {
-  const [projects, timelineEvents] = await Promise.all([
-    // MODIFIED: Removed 'ownerId' filter
-    prisma.project.findMany({ where: { endDate: { gte: startDate, lte: endDate } }, select: { id: true, name: true, endDate: true } }),
-    // MODIFIED: Removed 'project: { ownerId }' filter
-    prisma.timelineEvent.findMany({ where: { eventDate: { gte: startDate, lte: endDate }, isCompleted: false }, include: { project: { select: { id: true, name: true } } } }),
+  const [projects, timelineEvents, tasks, invoices, featureRequests] = await Promise.all([
+    // Projects ending in the period
+    prisma.project.findMany({ 
+      where: { endDate: { gte: startDate, lte: endDate } }, 
+      select: { id: true, name: true, endDate: true, status: true, priority: true } 
+    }),
+    // Timeline events in the period (uncompleted)
+    prisma.timelineEvent.findMany({ 
+      where: { eventDate: { gte: startDate, lte: endDate }, isCompleted: false }, 
+      include: { project: { select: { id: true, name: true } } } 
+    }),
+    // Tasks due in the period
+    prisma.task.findMany({
+      where: { dueDate: { gte: startDate, lte: endDate } },
+      select: { id: true, title: true, dueDate: true, status: true, priority: true, projectId: true, project: { select: { name: true } } }
+    }),
+    // Invoices due in the period (only DRAFT/PENDING)
+    prisma.invoice.findMany({
+      where: { 
+        dueDate: { gte: startDate, lte: endDate },
+        status: { in: ['DRAFT', 'PENDING'] }
+      },
+      select: { id: true, invoiceNumber: true, dueDate: true, status: true, client: { select: { name: true } } }
+    }),
+    // Feature requests due in the period
+    prisma.featureRequest.findMany({
+      where: { 
+        dueDate: { 
+          not: null,
+          gte: startDate, 
+          lte: endDate 
+        },
+        status: { 
+          notIn: ['Done', 'Canceled'] 
+        }
+      },
+      select: { 
+        id: true, 
+        title: true, 
+        dueDate: true, 
+        status: true, 
+        priority: true,
+        submittedBy: true 
+      }
+    })
   ]);
 
-  const mappedProjects: MonthlyActivity[] = projects.filter(p => p.endDate).map(p => ({ id: p.id, type: 'Project', title: p.name, date: p.endDate!, projectId: p.id, projectName: p.name }));
-  const mappedEvents: MonthlyActivity[] = timelineEvents.filter(e => e.eventDate).map(e => ({ id: e.id, type: 'TimelineEvent', title: e.title, date: e.eventDate!, isCompleted: e.isCompleted, projectId: e.project.id, projectName: e.project.name }));
-  return [...mappedProjects, ...mappedEvents].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const allItems: MonthlyActivity[] = [];
+
+  // Map all item types to MonthlyActivity format
+  allItems.push(
+    ...projects.filter(p => p.endDate).map(p => ({ 
+      id: p.id, 
+      type: 'Project' as const, 
+      title: p.name, 
+      date: p.endDate!, 
+      projectId: p.id, 
+      projectName: p.name,
+      status: p.status,
+      priority: p.priority
+    })),
+    ...timelineEvents.filter(e => e.eventDate).map(e => ({ 
+      id: e.id, 
+      type: 'TimelineEvent' as const, 
+      title: e.title, 
+      date: e.eventDate!, 
+      isCompleted: e.isCompleted, 
+      projectId: e.project.id, 
+      projectName: e.project.name 
+    })),
+    ...tasks.filter(t => t.dueDate).map(t => ({ 
+      id: t.id, 
+      type: 'Task' as const, 
+      title: t.title, 
+      date: t.dueDate!, 
+      projectId: t.projectId, 
+      projectName: t.project.name,
+      status: t.status,
+      priority: t.priority 
+    })),
+    ...invoices.filter(i => i.dueDate).map(i => ({ 
+      id: i.id, 
+      type: 'Invoice' as const, 
+      title: `Invoice #${i.invoiceNumber}`, 
+      date: i.dueDate!, 
+      clientName: i.client.name,
+      status: i.status
+    })),
+    ...featureRequests
+      .filter(fr => fr.dueDate !== null)
+      .map(fr => ({
+        id: `feature-${fr.id}`, 
+        type: 'FeatureRequest' as const, 
+        title: fr.title, 
+        date: new Date(fr.dueDate!),
+        priority: fr.priority,
+        status: fr.status,
+        submittedBy: fr.submittedBy
+      }))
+  );
+
+  return allItems.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 

@@ -45,15 +45,15 @@ export async function GET(request: NextRequest) {
 // --- Zod Schema for Validation ---
 const createProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required.'),
-  description: z.string().optional(),
-  projectGoal: z.string().optional(),
-  projectValue: z.number().optional(),
-  website: z.string().optional(),
+  description: z.string().optional().nullable(),
+  projectGoal: z.string().optional().nullable(),
+  projectValue: z.number().optional().nullable(),
+  website: z.string().optional().nullable(),
   status: z.nativeEnum(ProjectStatus).default(ProjectStatus.PLANNING),
   priority: z.nativeEnum(Priority).default(Priority.MEDIUM),
   projectType: z.nativeEnum(ProjectType).default(ProjectType.PERSONAL_PROJECT),
-  startDate: z.string().optional().transform((val) => val ? new Date(val) : null),
-  endDate: z.string().optional().transform((val) => val ? new Date(val) : null),
+  startDate: z.union([z.string(), z.null()]).optional().transform((val) => val && val !== '' ? new Date(val) : null),
+  endDate: z.union([z.string(), z.null()]).optional().transform((val) => val && val !== '' ? new Date(val) : null),
 });
 
 
@@ -68,9 +68,11 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
 
     const body = await request.json();
+    console.log('Received body:', body); // Debug logging
     const validation = createProjectSchema.safeParse(body);
 
     if (!validation.success) {
+      console.error('Validation errors:', validation.error.issues); // Debug logging
       return NextResponse.json({ error: 'Invalid input.', issues: validation.error.issues }, { status: 400 });
     }
     
