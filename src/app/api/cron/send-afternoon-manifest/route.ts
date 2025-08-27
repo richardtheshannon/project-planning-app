@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/auth';
 import { prisma } from "@/lib/prisma";
-import nodemailer from 'nodemailer';
+import { sendGoogleEmail, sendBatchGoogleEmails } from '@/lib/google-email';
 import { ContractTerm } from "@prisma/client";
 import { addMonths, isWithinInterval, startOfMonth, endOfMonth, format } from "date-fns";
 
@@ -211,7 +211,7 @@ async function getTomorrowsOperationalData(): Promise<OperationalItem[]> {
 
 // --- EMAIL SENDING LOGIC ---
 
-async function sendManifestEmail(userName: string, userEmail: string, items: OperationalItem[]) {
+async function createManifestEmailHtml(userName: string, items: OperationalItem[]) {
     const tomorrow = new Date();
     tomorrow.setDate(new Date().getDate() + 1);
     const tomorrowFormatted = format(tomorrow, 'EEEE, MMMM d, yyyy');
@@ -279,22 +279,7 @@ async function sendManifestEmail(userName: string, userEmail: string, items: Ope
         </div>
       `;
 
-    const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-            user: process.env.EMAIL_SERVER_USER,
-            pass: process.env.EMAIL_SERVER_PASSWORD,
-        },
-    });
-
-    await transporter.sendMail({
-        from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
-        to: userEmail,
-        subject: `Your Afternoon Manifest for ${tomorrowFormatted}`,
-        html: emailHtml,
-    });
+    return { html: emailHtml, subject: `Your Afternoon Manifest for ${tomorrowFormatted}` };
 }
 
 // --- API ROUTE HANDLERS ---
@@ -320,17 +305,33 @@ export async function GET(request: Request) {
         }
 
         const items = await getTomorrowsOperationalData(); // Get items once for all users
-        let emailsSent = 0;
-
-        for (const user of subscribedUsers) {
-            if (user.email) {
-                // Send email even if no items (to confirm the service is working)
-                await sendManifestEmail(user.name || 'User', user.email, items);
-                emailsSent++;
-            }
+        
+        // Prepare batch emails
+        const emailBatch = subscribedUsers
+            .filter(user => user.email)
+            .map(user => {
+                const { html, subject } = createManifestEmailHtml(user.name || 'User', items);
+                return {
+                    to: user.email!,
+                    subject,
+                    html
+                };
+            });
+        
+        // Send emails in batch
+        const results = await sendBatchGoogleEmails(emailBatch);
+        const emailsSent = results.filter(r => r.success).length;
+        const failedEmails = results.filter(r => !r.success);
+        
+        if (failedEmails.length > 0) {
+            console.error('[CRON] Failed to send afternoon emails to:', failedEmails);
         }
 
-        return NextResponse.json({ success: true, message: `Afternoon manifests processed for ${emailsSent} users.` });
+        return NextResponse.json({ 
+            success: true, 
+            message: `Afternoon manifests processed for ${emailsSent} of ${emailBatch.length} users.`,
+            failed: failedEmails.length
+        });
     } catch (error) {
         console.error("Error sending scheduled afternoon manifests:", error);
         return NextResponse.json({ error: "Failed to send manifests" }, { status: 500 });
@@ -352,7 +353,13 @@ export async function POST(request: Request) {
         const userName = session.user.name || 'User';
 
         const items = await getTomorrowsOperationalData();
-        await sendManifestEmail(userName, userEmail, items);
+        const { html, subject } = createManifestEmailHtml(userName, items);
+        
+        await sendGoogleEmail({
+            to: userEmail,
+            subject,
+            html
+        });
 
         return NextResponse.json({ success: true, message: `Afternoon manifest sent to ${userEmail}.` });
     } catch (error) {

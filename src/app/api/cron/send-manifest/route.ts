@@ -1,7 +1,7 @@
 // src/app/api/cron/send-manifest/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import nodemailer from 'nodemailer';
+import { sendGoogleEmail, sendBatchGoogleEmails } from '@/lib/google-email';
 import { ContractTerm } from "@prisma/client";
 import { addMonths, isWithinInterval, startOfMonth, endOfMonth } from "date-fns";
 import { getServerSession } from "next-auth/next";
@@ -291,35 +291,32 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: 'No users to email.' });
     }
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com', 
-      port: 465, 
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_SERVER_USER,
-        pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
-    });
-
     const appUrl = getBaseUrl();
     const items = await getTodaysOperationalData(); // Get items once for all users
-    let emailsSent = 0;
-
-    for (const user of usersToSend) {
-      if (user.email) {
-        // Send email even if no items (to confirm the service is working)
-        const emailHtml = createManifestEmailHtml(user.name || 'User', items, appUrl);
-        await transporter.sendMail({
-          from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
-          to: user.email,
-          subject: `Your Morning Manifest for ${new Date().toLocaleDateString()}`,
-          html: emailHtml,
-        });
-        emailsSent++;
-      }
+    
+    // Prepare batch emails
+    const emailBatch = usersToSend
+      .filter(user => user.email)
+      .map(user => ({
+        to: user.email!,
+        subject: `Your Morning Manifest for ${new Date().toLocaleDateString()}`,
+        html: createManifestEmailHtml(user.name || 'User', items, appUrl)
+      }));
+    
+    // Send emails in batch
+    const results = await sendBatchGoogleEmails(emailBatch);
+    const emailsSent = results.filter(r => r.success).length;
+    const failedEmails = results.filter(r => !r.success);
+    
+    if (failedEmails.length > 0) {
+      console.error('[CRON] Failed to send emails to:', failedEmails);
     }
 
-    return NextResponse.json({ success: true, message: `Sent ${emailsSent} manifest emails.` });
+    return NextResponse.json({ 
+      success: true, 
+      message: `Sent ${emailsSent} of ${emailBatch.length} manifest emails.`,
+      failed: failedEmails.length
+    });
 
   } catch (error) {
     console.error("Failed to send manifest emails:", error);
@@ -340,24 +337,13 @@ export async function POST(request: Request) {
 
     const items = await getTodaysOperationalData();
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com', 
-      port: 465, 
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_SERVER_USER,
-        pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
-    });
-
     const appUrl = getBaseUrl();
     const emailHtml = createManifestEmailHtml(userName, items, appUrl);
 
-    await transporter.sendMail({
-      from: `"Project Planning App" <${process.env.EMAIL_SERVER_USER}>`,
+    await sendGoogleEmail({
       to: userEmail,
       subject: `Your Morning Manifest for ${new Date().toLocaleDateString()}`,
-      html: emailHtml,
+      html: emailHtml
     });
 
     return NextResponse.json({ success: true, message: `Manifest sent to ${userEmail}.` });
