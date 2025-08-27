@@ -139,38 +139,42 @@ export default function DocumentationEditPage({ params }: { params: { id: string
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-8">
-            <div className="text-center">Loading documentation...</div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-6 max-w-4xl">
+          <Card className="bg-card border rounded-lg shadow-sm">
+            <CardContent className="p-8">
+              <div className="text-center">Loading documentation...</div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Edit Documentation</h1>
-          <p className="text-muted-foreground mt-1">
-            Update documentation content and settings
-          </p>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-6 max-w-4xl">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Edit Documentation</h1>
+            <p className="text-muted-foreground mt-1">
+              Update documentation content and settings
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => router.push(`/dashboard/operations/documentation/${params.id}`)}
+            className="self-start sm:self-center"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to View
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          onClick={() => router.push(`/dashboard/operations/documentation/${params.id}`)}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to View
-        </Button>
-      </div>
 
-      {/* Edit Form */}
-      <Card>
-        <CardContent className="p-6">
+        {/* Edit Form */}
+        <Card className="bg-card border rounded-lg shadow-sm">
+          <CardContent className="p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div className="space-y-2">
@@ -207,25 +211,30 @@ export default function DocumentationEditPage({ params }: { params: { id: string
             {/* Content */}
             <div className="space-y-2">
               <Label htmlFor="content">Content *</Label>
-              <Textarea
-                id="content"
-                value={documentation.content}
-                onChange={(e) => setDocumentation({ ...documentation, content: e.target.value })}
-                placeholder="Enter documentation content (Markdown supported)"
-                className="min-h-[400px] font-mono text-sm"
-                required
-              />
+              <div className="border rounded-md overflow-hidden">
+                <Textarea
+                  id="content"
+                  value={documentation.content}
+                  onChange={(e) => setDocumentation({ ...documentation, content: e.target.value })}
+                  placeholder="Enter documentation content (Markdown supported)"
+                  className="w-full min-h-[400px] p-3 resize-y focus:outline-none focus:ring-2 focus:ring-primary border-0 font-mono text-sm"
+                  required
+                />
+              </div>
             </div>
 
             {/* Tags */}
             <div className="space-y-2">
               <Label htmlFor="tags">Tags</Label>
-              <div className="flex space-x-2 mb-2">
+              
+              {/* Tag Input */}
+              <div className="flex gap-2">
                 <Input
                   id="tags"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   placeholder="Add a tag"
+                  className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -233,68 +242,83 @@ export default function DocumentationEditPage({ params }: { params: { id: string
                     }
                   }}
                 />
-                <Button type="button" onClick={addTag} variant="outline">
+                <Button 
+                  type="button" 
+                  onClick={addTag} 
+                  variant="outline"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 min-w-[44px]"
+                >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              
+              {/* Tags Display */}
               {documentation.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mt-2">
                   {documentation.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="pl-2">
+                    <span 
+                      key={index} 
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-sm"
+                    >
                       {tag}
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="ml-2 hover:text-destructive"
+                        className="ml-1 text-gray-500 hover:text-red-500 focus:outline-none"
                       >
                         <X className="h-3 w-3" />
                       </button>
-                    </Badge>
+                    </span>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Published Status */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="published"
-                checked={documentation.isPublished}
-                onCheckedChange={(checked) => 
-                  setDocumentation({ ...documentation, isPublished: checked as boolean })
-                }
-              />
-              <Label 
-                htmlFor="published" 
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Published (visible to all users)
-              </Label>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push(`/dashboard/operations/documentation/${params.id}`)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? (
-                  <>Saving...</>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
+            {/* Bottom Actions */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+              {/* Published Toggle */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  id="published"
+                  checked={documentation.isPublished}
+                  onCheckedChange={(checked) => 
+                    setDocumentation({ ...documentation, isPublished: checked as boolean })
+                  }
+                  className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded"
+                />
+                <span className="text-sm">Published (visible to all users)</span>
+              </label>
+              
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push(`/dashboard/operations/documentation/${params.id}`)}
+                  className="w-full sm:w-auto px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={saving}
+                  className="w-full sm:w-auto px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                >
+                  {saving ? (
+                    <>Saving...</>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
