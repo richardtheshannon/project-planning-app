@@ -11,7 +11,7 @@ import { FolderKanban, CheckCircle2, DollarSign, PlusCircle } from 'lucide-react
 import FinancialOverviewChart, { ChartDataPoint } from "./components/FinancialOverviewChart";
 import ContactForm from "./components/ContactForm";
 import QuickActionsCard from "./components/QuickActionsCard";
-import { FinancialChartNotification, MetricCardsNotifications } from "@/components/dashboard/DashboardNotifications";
+import { HelpEnabledTitle } from "@/components/ui/help-enabled-title";
 
 // --- TYPE DEFINITIONS ---
 export type MonthlyActivity = {
@@ -349,7 +349,6 @@ export default async function Dashboard() {
         {/* Financial Overview Chart */}
         <div>
           <FinancialOverviewChart data={financialChartData} />
-          <FinancialChartNotification />
         </div>
         
         {/* Quick Actions Card - Shows on mobile only, hidden on lg screens */}
@@ -360,26 +359,154 @@ export default async function Dashboard() {
         {/* Metric Cards */}
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Forecast</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <HelpEnabledTitle
+                title="Total Forecast"
+                summary="Represents the sum of all active and pending project values, calculated from project budgets and expected completion dates."
+                details={
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="font-semibold mb-2">Calculation Method</h5>
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+{`const totalForecast = await prisma.project.aggregate({
+  _sum: { projectValue: true },
+  where: {
+    status: {
+      in: ['ACTIVE', 'PENDING', 'PLANNING']
+    }
+  }
+});`}
+                      </pre>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold mb-2">Included Project Statuses</h5>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>PLANNING: Early stage projects</li>
+                        <li>PENDING: Approved but not started</li>
+                        <li>ACTIVE: Currently in progress</li>
+                      </ul>
+                    </div>
+                  </div>
+                }
+                className="text-sm font-medium"
+                as="p"
+              />
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
             <CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(forecastValue)}</div><p className="text-xs text-muted-foreground">Total value of all projects.</p></CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Projects</CardTitle><FolderKanban className="h-4 w-4 text-muted-foreground" /></CardHeader>
-            {/* MODIFIED: Updated description to reflect all projects */}
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <HelpEnabledTitle
+                title="Total Projects"
+                summary="Shows the count of all projects regardless of status. This includes active, completed, and pending projects."
+                details={
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="font-semibold mb-2">Data Query</h5>
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+{`const projectCount = await prisma.project.count();
+
+// Counts all projects regardless of status:
+// - PLANNING
+// - PENDING  
+// - ACTIVE
+// - COMPLETED
+// - CANCELLED`}
+                      </pre>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold mb-2">Usage</h5>
+                      <p className="text-sm">This metric provides a complete overview of all projects in the system, helping you track the total scope of work across all stages.</p>
+                    </div>
+                  </div>
+                }
+                className="text-sm font-medium"
+                as="p"
+              />
+              <FolderKanban className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
             <CardContent><div className="text-2xl font-bold">{projectCount}</div><p className="text-xs text-muted-foreground">All projects in the system.</p></CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Active Tasks</CardTitle><CheckCircle2 className="h-4 w-4 text-muted-foreground" /></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <HelpEnabledTitle
+                title="Active Tasks"
+                summary="Displays tasks currently in progress or pending. Does not include completed or cancelled tasks."
+                details={
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="font-semibold mb-2">Task Selection Criteria</h5>
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+{`const activeTasks = await prisma.task.count({
+  where: {
+    status: {
+      not: 'COMPLETED'
+    }
+  }
+});
+
+// Includes tasks with status:
+// - PENDING
+// - IN_PROGRESS
+// - BLOCKED
+// Excludes COMPLETED tasks`}
+                      </pre>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold mb-2">Purpose</h5>
+                      <p className="text-sm">This metric helps you understand your current workload and tasks that require attention. It's useful for capacity planning and prioritization.</p>
+                    </div>
+                  </div>
+                }
+                className="text-sm font-medium"
+                as="p"
+              />
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
             <CardContent><div className="text-2xl font-bold">{activeTaskCount}</div><p className="text-xs text-muted-foreground">Not yet completed.</p></CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tasks Completed</CardTitle><CheckCircle2 className="h-4 w-4 text-muted-foreground" /></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <HelpEnabledTitle
+                title="Tasks Completed"
+                summary="Shows the total number of tasks marked as completed in the last 7 days."
+                details={
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="font-semibold mb-2">Data Query</h5>
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+{`const completedThisWeek = await prisma.task.count({
+  where: {
+    status: 'COMPLETED',
+    updatedAt: {
+      gte: new Date(new Date().setDate(new Date().getDate() - 7))
+    }
+  }
+});
+
+// Only counts tasks completed in last 7 days`}
+                      </pre>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold mb-2">Time Window</h5>
+                      <p className="text-sm">This metric uses a rolling 7-day window based on the task's <code>updatedAt</code> timestamp when status changed to COMPLETED.</p>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold mb-2">Productivity Tracking</h5>
+                      <p className="text-sm">Use this to measure team productivity and completion velocity over recent periods.</p>
+                    </div>
+                  </div>
+                }
+                className="text-sm font-medium"
+                as="p"
+              />
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
             <CardContent><div className="text-2xl font-bold">{completedThisWeekCount}</div><p className="text-xs text-muted-foreground">Completed in the last 7 days.</p></CardContent>
           </Card>
         </div>
         
-        {/* Metric Cards Notifications */}
-        <MetricCardsNotifications />
         
         {/* Monthly Timeline - Now with overdueItems instead of lastMonthActivity */}
         <MonthlyTimeline overdueItems={overdueItems} thisMonthActivity={thisMonthActivity} nextMonthActivity={nextMonthActivity} />
@@ -397,7 +524,50 @@ export default async function Dashboard() {
           
           {/* Recent Activity Card */}
           <Card>
-            <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
+            <CardHeader>
+              <HelpEnabledTitle
+                title="Recent Activity"
+                summary="Shows the last 5 recently created projects and tasks combined, sorted by creation date."
+                details={
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="font-semibold mb-2">Data Sources</h5>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Recent Projects: Last 3 projects ordered by <code>createdAt</code></li>
+                        <li>Recent Tasks: Last 3 tasks ordered by <code>createdAt</code></li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold mb-2">Processing Logic</h5>
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+{`// Combine and sort recent items
+const recentActivity = [
+  ...recentProjects.map(p => ({ 
+    ...p, 
+    type: 'Project', 
+    title: p.name, 
+    date: p.createdAt 
+  })),
+  ...recentTasks.map(t => ({ 
+    ...t, 
+    type: 'Task', 
+    title: t.title, 
+    date: t.createdAt 
+  }))
+].sort((a, b) => b.date.getTime() - a.date.getTime())
+ .slice(0, 5); // Show latest 5 items`}
+                      </pre>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold mb-2">Display Format</h5>
+                      <p className="text-sm">Items are displayed with icons (📁 for projects, ✅ for tasks), titles, and formatted creation dates.</p>
+                    </div>
+                  </div>
+                }
+                className="text-xl font-semibold"
+                as="h3"
+              />
+            </CardHeader>
             <CardContent>
               {recentActivity.length > 0 ? (
                 <ul className="space-y-4">

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CloseableNotification } from './closeable-notification';
+import { HelpEnabledTitle } from './help-enabled-title';
 
 interface MetricCardProps {
   title: string;
@@ -12,14 +12,9 @@ interface MetricCardProps {
     value: string;
     isPositive: boolean;
   };
-  notification?: {
-    id: string;
-    message: string;
-    type?: 'info' | 'warning' | 'success' | 'error';
-  };
-  notificationSettings?: {
-    isEnabled: boolean;
-    closedNotifications: string[];
+  helpDocumentation?: {
+    summary: string;
+    details: React.ReactNode;
   };
   className?: string;
   onClick?: () => void;
@@ -31,8 +26,7 @@ export function MetricCard({
   subtitle,
   description,
   trend,
-  notification,
-  notificationSettings,
+  helpDocumentation,
   className = '',
   onClick
 }: MetricCardProps) {
@@ -51,9 +45,19 @@ export function MetricCard({
       {/* Main Card Content */}
       <div className="p-4">
         <div className="flex items-start justify-between mb-2">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {title}
-          </h3>
+          {helpDocumentation ? (
+            <HelpEnabledTitle
+              title={title}
+              summary={helpDocumentation.summary}
+              details={helpDocumentation.details}
+              className="text-sm font-medium text-gray-600 dark:text-gray-400"
+              as="h3"
+            />
+          ) : (
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              {title}
+            </h3>
+          )}
           {trend && (
             <span className={`
               text-xs font-medium px-2 py-0.5 rounded-full
@@ -84,17 +88,6 @@ export function MetricCard({
         </div>
       </div>
 
-      {/* Integrated Notification - Inside Card */}
-      {notification && notificationSettings && (
-        <CloseableNotification
-          id={notification.id}
-          message={notification.message}
-          type={notification.type}
-          isEnabled={notificationSettings.isEnabled}
-          closedNotifications={notificationSettings.closedNotifications}
-          position="inside"
-        />
-      )}
     </div>
   );
 }

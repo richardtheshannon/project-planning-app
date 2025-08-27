@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, FileText, AlertCircle, DollarSign, CheckSquare, ChevronDown, ChevronUp } from 'lucide-react';
+import { HelpEnabledTitle } from '@/components/ui/help-enabled-title';
 import { MonthlyActivity, OverdueItem } from './page';
 
 interface MonthlyTimelineProps {
@@ -112,7 +113,61 @@ const MonthlyTimeline: React.FC<MonthlyTimelineProps> = ({ overdueItems, thisMon
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Monthly Activity Overview</h2>
+      <HelpEnabledTitle
+        title="Monthly Activity Overview"
+        summary="Displays three categories of items: overdue items requiring immediate attention, current month activities, and upcoming next month activities."
+        details={
+          <div className="space-y-4">
+            <div>
+              <h5 className="font-semibold mb-2">Overdue Section</h5>
+              <p className="text-sm mb-2">Shows items past their due date, grouped by type:</p>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                <li><strong>Projects:</strong> Projects with <code>endDate &lt; today</code> and status not COMPLETED/CANCELLED</li>
+                <li><strong>Timeline Events:</strong> Events with <code>eventDate &lt; today</code> and <code>isCompleted = false</code></li>
+                <li><strong>Draft Invoices:</strong> Invoices with <code>dueDate &lt; today</code> and <code>status = 'DRAFT'</code></li>
+                <li><strong>Feature Requests:</strong> Requests with <code>dueDate &lt; today</code> and status 'Pending' or 'In Progress'</li>
+              </ul>
+            </div>
+            
+            <div>
+              <h5 className="font-semibold mb-2">This Month Section</h5>
+              <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+{`// Get current month activities
+const thisMonthStart = startOfMonth(today);
+const thisMonthEnd = endOfMonth(today);
+
+// Projects ending this month
+projects.where({ 
+  endDate: { gte: thisMonthStart, lte: thisMonthEnd } 
+})
+
+// Timeline events scheduled this month  
+timelineEvents.where({
+  eventDate: { gte: thisMonthStart, lte: thisMonthEnd },
+  isCompleted: false
+})`}
+              </pre>
+            </div>
+            
+            <div>
+              <h5 className="font-semibold mb-2">Next Month Section</h5>
+              <p className="text-sm">Same logic as "This Month" but for next month's date range. Helps with forward planning.</p>
+            </div>
+            
+            <div>
+              <h5 className="font-semibold mb-2">Interactive Features</h5>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                <li>Click card headers to expand/collapse sections</li>
+                <li>Click items to navigate to their detail pages</li>
+                <li>Overdue items show "days overdue" calculation</li>
+                <li>Items are grouped by type with appropriate icons</li>
+              </ul>
+            </div>
+          </div>
+        }
+        className="text-2xl font-bold"
+        as="h2"
+      />
       
       {/* Stack cards vertically with space between them */}
       <div className="space-y-4">

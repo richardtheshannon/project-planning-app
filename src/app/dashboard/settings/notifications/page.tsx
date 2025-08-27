@@ -215,10 +215,10 @@ export default function NotificationsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 rounded-lg border p-4">
           <div className="space-y-0.5 flex-grow">
             <Label htmlFor="closeable-notifications" className="text-base">
-              Enable Closeable Notifications
+              Enable Help Mode
             </Label>
             <p className="text-sm text-muted-foreground">
-              Show helpful information about graphs and data throughout the application
+              When enabled, card and graph titles become interactive, providing detailed documentation about calculations and logic
             </p>
           </div>
           <div className="flex items-center space-x-4 flex-shrink-0">

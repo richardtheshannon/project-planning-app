@@ -13,6 +13,7 @@ import { PlusCircle, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/components/ui/use-toast';
 import { useSession } from 'next-auth/react';
+import { HelpEnabledTitle } from '@/components/ui/help-enabled-title';
 
 export default function QuickActionsCard() {
   const [open, setOpen] = useState(false);
@@ -102,7 +103,59 @@ export default function QuickActionsCard() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
+          <HelpEnabledTitle
+            title="Quick Actions"
+            summary="Provides fast access to commonly used features: creating new projects, submitting feature requests, and viewing all projects."
+            details={
+              <div className="space-y-4">
+                <div>
+                  <h5 className="font-semibold mb-2">Available Actions</h5>
+                  <ul className="list-disc pl-5 space-y-2 text-sm">
+                    <li>
+                      <strong>Create New Project:</strong> Navigates to <code>/dashboard/projects/new</code> for project creation form
+                    </li>
+                    <li>
+                      <strong>Feature Request:</strong> Opens modal dialog to submit development feature requests
+                    </li>
+                    <li>
+                      <strong>View All Projects:</strong> Navigates to <code>/dashboard/projects</code> for complete project list
+                    </li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h5 className="font-semibold mb-2">Feature Request Flow</h5>
+                  <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+{`// Feature request submission
+const requestBody = {
+  title: formData.title.trim(),
+  description: formData.description.trim(),
+  priority: formData.priority, // Low, Medium, High, Critical
+  status: 'Pending',
+  submittedBy: session?.user?.name || 'Unknown User',
+  dueDate: formData.dueDate ? new Date(formData.dueDate) : null
+};
+
+// POST to /api/feature-requests
+// On success, navigates to detail page
+router.push(\`/dashboard/settings/feature-requests/\${result.id}\`);`}
+                  </pre>
+                </div>
+                
+                <div>
+                  <h5 className="font-semibold mb-2">User Experience</h5>
+                  <ul className="list-disc pl-5 space-y-1 text-sm">
+                    <li>Modal form validation ensures required fields</li>
+                    <li>Loading states prevent duplicate submissions</li>
+                    <li>Toast notifications provide feedback</li>
+                    <li>Automatic navigation after successful creation</li>
+                  </ul>
+                </div>
+              </div>
+            }
+            className="text-xl font-semibold"
+            as="h3"
+          />
         </CardHeader>
         <CardContent>
           <div className="flex flex-col space-y-4">
