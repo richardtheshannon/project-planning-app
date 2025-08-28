@@ -112,31 +112,10 @@ const processDataForChart = (
       monthlyData[i].subscriptions += monthlySubscriptionTotal;
     }
 
-    // For current and future months, add forecasted revenue from contracts
-    if (i >= currentMonthIndex) {
-      let forecastedClientIncome = 0;
-      const forecastMonthStart = new Date(currentYear, i, 1);
-      const forecastMonthEnd = endOfMonth(forecastMonthStart);
-
-      clients.forEach(client => {
-        if (client.contractStartDate && client.contractAmount && client.contractTerm && client.frequency === '1 Month') {
-          const startDate = parseISO(client.contractStartDate.toString());
-          const termsInMonths = getMonthsFromTerm(client.contractTerm);
-          const endDate = addMonths(startDate, termsInMonths);
-
-          if (!isAfter(forecastMonthStart, endDate) && !isBefore(forecastMonthEnd, startDate)) {
-            forecastedClientIncome += client.contractAmount;
-          }
-        }
-      });
-      
-      monthlyData[i].totalRevenue += forecastedClientIncome;
-
-      // Add monthly subscriptions to future months as well
-      if (i > currentMonthIndex) {
-        monthlyData[i].expenses += monthlySubscriptionTotal;
-        monthlyData[i].subscriptions += monthlySubscriptionTotal;
-      }
+    // Add monthly subscriptions to future months as well
+    if (i > currentMonthIndex) {
+      monthlyData[i].expenses += monthlySubscriptionTotal;
+      monthlyData[i].subscriptions += monthlySubscriptionTotal;
     }
 
     // 6. TAXES DUE: 20% of revenue for that month
@@ -148,7 +127,7 @@ const processDataForChart = (
     // 8. UPCOMING PAYMENTS: Same as subscriptions (monthly + annual due that month)
     monthlyData[i].upcomingPayments = monthlyData[i].subscriptions;
 
-    // 9. FORECAST: Unpaid invoices minus all expenses
+    // 9. FORECAST: Draft and pending invoices minus all expenses
     // Forecast = (DRAFT + PENDING + OVERDUE invoices) - one-time expenses - subscriptions
     monthlyData[i].forecast = monthlyData[i].forecast - monthlyData[i].expenses;
   }
@@ -243,22 +222,19 @@ export default async function FinancialsOverviewPage() {
     lastMonthIncome = lastMonthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
     thisMonthIncome = thisMonthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
     
-    let forecastedIncomeNextMonth = 0;
-    allClients.forEach(client => {
-        if (client.contractStartDate && client.contractAmount && client.contractTerm && client.frequency === '1 Month') {
-            const startDate = parseISO(client.contractStartDate.toString());
-            const termsInMonths = getMonthsFromTerm(client.contractTerm);
-            const endDate = addMonths(startDate, termsInMonths);
-            
-            if (!isAfter(nextMonthStart, endDate) && !isBefore(nextMonthEnd, startDate)) {
-                forecastedIncomeNextMonth += client.contractAmount;
-                nextMonthForecastedItems.push({ id: client.id, name: `${client.name} (Contract)`, amount: client.contractAmount });
-            }
-        }
-    });
-    const oneOffInvoicesNextMonth = allInvoices.filter(inv => isWithinInterval(inv.issuedDate, { start: nextMonthStart, end: nextMonthEnd }));
-    nextMonthIncome = forecastedIncomeNextMonth + oneOffInvoicesNextMonth.reduce((sum, inv) => sum + inv.amount, 0);
-    nextMonthInvoices = oneOffInvoicesNextMonth;
+    const draftPendingInvoicesNextMonth = allInvoices.filter(inv => 
+      (inv.status === 'DRAFT' || inv.status === 'PENDING' || inv.status === 'OVERDUE') &&
+      isWithinInterval(inv.issuedDate, { start: nextMonthStart, end: nextMonthEnd })
+    );
+    nextMonthIncome = draftPendingInvoicesNextMonth.reduce((sum, inv) => sum + inv.amount, 0);
+    nextMonthInvoices = draftPendingInvoicesNextMonth;
+    
+    // Update forecasted items to only include draft/pending invoices
+    nextMonthForecastedItems = draftPendingInvoicesNextMonth.map(inv => ({
+      id: inv.id,
+      name: `Invoice #${inv.invoiceNumber} (${inv.status})`,
+      amount: inv.amount
+    }));
 
     allSubscriptions.forEach(sub => {
         if (sub.billingCycle === 'MONTHLY') {

@@ -203,7 +203,7 @@ export default async function Dashboard() {
           <FinancialTrendsChart 
             data={financialChartData} 
             title="Financial Overview (YTD)"
-            description="A year-to-date summary of your revenue, expenses, and net income with comprehensive financial trends."
+            description="A year-to-date summary of your revenue, expenses, net income, and draft/pending invoice forecasts."
           />
         </div>
         

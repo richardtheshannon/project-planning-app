@@ -72,7 +72,7 @@ export default function FinancialsLineChart({ data }: FinancialsLineChartProps) 
       <CardHeader>
         <HelpEnabledTitle
           title="Financial Trends (YTD)"
-          summary="Displays monthly financial trends including revenue, expenses, net income, taxes, subscriptions, and forecast data as interactive line chart."
+          summary="Displays monthly financial trends including revenue, expenses, net income, taxes, subscriptions, and draft/pending invoice forecasts as interactive line chart."
           details={
             <div className="space-y-4">
               <div>
@@ -83,7 +83,7 @@ export default function FinancialsLineChart({ data }: FinancialsLineChartProps) 
                   <li><strong>Net Income (Blue):</strong> Revenue - taxes - expenses</li>
                   <li><strong>Taxes Due (Orange):</strong> 20% tax provision on revenue</li>
                   <li><strong>Subscriptions (Purple):</strong> Monthly subscription costs</li>
-                  <li><strong>Forecast (Dashed):</strong> Projected revenue from contracts</li>
+                  <li><strong>Forecast (Dashed):</strong> Draft and pending invoice revenue minus expenses</li>
                 </ul>
               </div>
               
@@ -99,7 +99,7 @@ const monthlyData = Array.from({ length: 12 }, (_, i) => ({
   netIncome: 0,       // Revenue - taxes - expenses
   taxesDue: 0,        // 20% of revenue
   upcomingPayments: 0, // Same as subscriptions
-  forecast: 0         // Unpaid invoices + contracts
+  forecast: 0         // Draft/pending invoices - expenses
 }));
 
 // Revenue: PAID invoices by issuedDate
@@ -110,7 +110,7 @@ invoices.forEach(inv => {
   }
 });
 
-// Forecast: DRAFT/PENDING/OVERDUE invoices + contracts
+// Forecast: DRAFT/PENDING/OVERDUE invoices only
 invoices.forEach(inv => {
   if (['DRAFT', 'PENDING', 'OVERDUE'].includes(inv.status)) {
     const monthIndex = getMonth(inv.issuedDate);
@@ -140,7 +140,7 @@ invoices.forEach(inv => {
           as="h3"
         />
         <CardDescription>
-          A year-to-date summary of your key financial metrics.
+          A year-to-date summary of your key financial metrics with draft/pending invoice forecasts.
         </CardDescription>
       </CardHeader>
       <CardContent>
