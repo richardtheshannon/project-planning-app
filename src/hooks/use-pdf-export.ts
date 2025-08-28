@@ -15,10 +15,9 @@ export function usePDFExport() {
       if (!element) throw new Error('Element not found');
 
       const canvas = await html2canvas(element, {
-        scale: 2,
         useCORS: true,
         logging: false,
-      });
+      } as any);
 
       const pdf = new jsPDF({
         orientation: 'portrait',

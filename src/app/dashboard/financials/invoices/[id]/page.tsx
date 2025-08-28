@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ArrowLeft, Edit2, Trash2, Save, X, Plus, Calendar, Building2, Mail, Globe, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InvoicePDFButton } from "@/components/financials/invoice-pdf-button";
+import { InvoiceEmailDialog } from "@/components/financials/invoice-email-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -438,6 +439,14 @@ export default function InvoiceDetailPage() {
               {!isEditing ? (
                 <>
                   <InvoicePDFButton invoiceNumber={invoice.invoiceNumber} />
+                  <InvoiceEmailDialog
+                    invoiceId={invoice.id}
+                    invoiceNumber={invoice.invoiceNumber}
+                    clientEmail={invoice.client?.email || ''}
+                    clientName={invoice.client?.name || ''}
+                    amount={invoice.amount}
+                    dueDate={invoice.dueDate}
+                  />
                   <Button
                     variant="outline"
                     size="sm"

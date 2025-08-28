@@ -167,6 +167,71 @@ export async function testGoogleEmailConfig(): Promise<{ success: boolean; error
 }
 
 /**
+ * Send email with invoice attachment using Gmail API
+ */
+export async function sendInvoiceEmail(
+  to: string,
+  subject: string,
+  htmlBody: string,
+  pdfBuffer: Buffer,
+  invoiceNumber: string
+): Promise<void> {
+  try {
+    const auth = getOAuth2Client();
+    const gmail = google.gmail({ version: 'v1', auth });
+    
+    // Get authenticated email
+    const authenticatedEmail = process.env.GOOGLE_EMAIL_FROM;
+    if (!authenticatedEmail) {
+      throw new Error('GOOGLE_EMAIL_FROM environment variable is required');
+    }
+
+    // Create email with attachment
+    const boundary = 'boundary_' + Date.now();
+    const messageParts = [
+      `From: "SalesField Network" <${authenticatedEmail}>`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      htmlBody,
+      '',
+      `--${boundary}`,
+      'Content-Type: application/pdf',
+      `Content-Disposition: attachment; filename="invoice-${invoiceNumber}.pdf"`,
+      'Content-Transfer-Encoding: base64',
+      '',
+      pdfBuffer.toString('base64'),
+      `--${boundary}--`
+    ];
+
+    const message = messageParts.join('\r\n');
+    const encodedMessage = Buffer.from(message)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const result = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedMessage,
+      },
+    });
+
+    console.log(`[Google Email] Invoice email sent successfully to ${to}. Message ID: ${result.data.id}`);
+  } catch (error) {
+    console.error('[Google Email] Failed to send invoice email:', error);
+    throw new Error('Failed to send invoice email');
+  }
+}
+
+/**
  * Send batch emails efficiently
  */
 export async function sendBatchGoogleEmails(
