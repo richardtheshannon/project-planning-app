@@ -52,7 +52,11 @@ export async function generateInvoicePDF(
   // Add logo if successfully loaded
   if (logoBase64) {
     try {
-      pdf.addImage(logoBase64, 'PNG', leftMargin, 15, 40, 20);
+      // Use proper aspect ratio for horizontal logo
+      // Your logo is approximately 5:1 ratio (width:height)
+      const logoWidth = 50;  // Increased width for horizontal logo
+      const logoHeight = 10; // Proportional height
+      pdf.addImage(logoBase64, 'PNG', leftMargin, 15, logoWidth, logoHeight);
     } catch (error) {
       console.error('Failed to add logo to PDF:', error);
     }
@@ -145,31 +149,31 @@ export async function generateInvoicePDF(
     pdf.text(invoice.client.name, leftMargin, yPos);
     pdf.setFont('helvetica', 'normal');
     
-    if (invoice.client.contactName) {
+    if (invoice.client.billTo) {
       yPos += 5;
-      pdf.text(invoice.client.contactName, leftMargin, yPos);
+      pdf.text(invoice.client.billTo, leftMargin, yPos);
     }
     
-    // Parse and display address if it exists
-    if (invoice.client.address) {
-      try {
-        const address = JSON.parse(invoice.client.address as string);
-        if (address.street) {
-          yPos += 5;
-          pdf.text(address.street, leftMargin, yPos);
-        }
-        if (address.city || address.state || address.zip) {
-          yPos += 5;
-          pdf.text(
-            `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.zip || ''}`.trim(),
-            leftMargin,
-            yPos
-          );
-        }
-      } catch (e) {
-        // If address is not JSON, display as is
-        yPos += 5;
-        pdf.text(invoice.client.address as string, leftMargin, yPos);
+    // Display address using the new address fields
+    if (invoice.client.address1) {
+      yPos += 5;
+      pdf.text(invoice.client.address1, leftMargin, yPos);
+    }
+    
+    if (invoice.client.address2) {
+      yPos += 5;
+      pdf.text(invoice.client.address2, leftMargin, yPos);
+    }
+    
+    if (invoice.client.city || invoice.client.state || invoice.client.zipCode) {
+      yPos += 5;
+      const cityStateZip = [
+        invoice.client.city,
+        invoice.client.state,
+        invoice.client.zipCode
+      ].filter(Boolean).join(' ');
+      if (cityStateZip) {
+        pdf.text(cityStateZip, leftMargin, yPos);
       }
     }
     
@@ -293,7 +297,10 @@ export async function generateInvoicePDF(
     // Add small logo at bottom right if available
     if (logoBase64) {
       try {
-        pdf.addImage(logoBase64, 'PNG', rightMargin - 25, yPos - 15, 20, 10);
+        // Maintain aspect ratio for footer logo
+        const footerLogoWidth = 30;  // Smaller for footer
+        const footerLogoHeight = 6;  // Maintain ~5:1 ratio
+        pdf.addImage(logoBase64, 'PNG', rightMargin - footerLogoWidth - 5, yPos - 12, footerLogoWidth, footerLogoHeight);
       } catch (error) {
         // Logo failed, continue without it
       }
