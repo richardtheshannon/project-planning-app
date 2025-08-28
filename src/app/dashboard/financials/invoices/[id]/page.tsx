@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Edit2, Trash2, Save, X, Plus, Calendar, Building2, Mail, Globe, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { InvoicePDFButton } from "@/components/financials/invoice-pdf-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -436,6 +437,7 @@ export default function InvoiceDetailPage() {
             <div className="flex gap-2">
               {!isEditing ? (
                 <>
+                  <InvoicePDFButton invoiceNumber={invoice.invoiceNumber} />
                   <Button
                     variant="outline"
                     size="sm"
@@ -481,7 +483,7 @@ export default function InvoiceDetailPage() {
       </div>
 
       {/* Professional Invoice Layout */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden" id="invoice-content">
         <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-8 border-b">
           {/* Invoice Header with Logo and Company Info */}
           <div className="flex justify-between items-start mb-8">
