@@ -71,7 +71,7 @@ export function FinancialTrendsChart({
       <CardHeader>
         <HelpEnabledTitle
           title={title}
-          summary="Comprehensive financial dashboard showing revenue, expenses, net income, taxes, subscriptions, and forecast trends over the full year."
+          summary="Comprehensive financial dashboard showing revenue, expenses, net income, taxes, subscriptions, and draft/pending invoice forecasts over the full year."
           details={
             <div className="space-y-4">
               <div>
@@ -83,7 +83,7 @@ export function FinancialTrendsChart({
                   <li><strong>Taxes Due (Yellow Dashed):</strong> 20% tax provision on revenue</li>
                   <li><strong>Subscriptions (Orange):</strong> Monthly recurring subscription costs</li>
                   <li><strong>Upcoming (Purple Dashed):</strong> Scheduled payments and subscriptions</li>
-                  <li><strong>Forecast (Cyan Dashed):</strong> Projected revenue from unpaid invoices and contracts</li>
+                  <li><strong>Forecast (Cyan Dashed):</strong> Draft and pending invoice revenue minus expenses</li>
                 </ul>
               </div>
               
@@ -99,7 +99,7 @@ const monthlyData = Array.from({ length: 12 }, (_, i) => ({
   netIncome: 0,       // Revenue - taxes - expenses
   taxesDue: 0,        // 20% of revenue
   upcomingPayments: 0, // Same as subscriptions
-  forecast: 0         // Unpaid invoices + contracts - expenses
+  forecast: 0         // Draft/pending invoices - expenses
 }));
 
 // Revenue calculation: PAID invoices by issuedDate
@@ -110,7 +110,7 @@ invoices.forEach(inv => {
   }
 });
 
-// Forecast calculation: DRAFT/PENDING/OVERDUE invoices + client contracts
+// Forecast calculation: Draft and pending invoices only
 invoices.forEach(inv => {
   if (['DRAFT', 'PENDING', 'OVERDUE'].includes(inv.status)) {
     const monthIndex = getMonth(inv.issuedDate);
@@ -148,7 +148,7 @@ for (let i = 0; i < 12; i++) {
                   <li>Invoices: Revenue and forecast calculations</li>
                   <li>Expenses: One-time expense tracking</li>
                   <li>Subscriptions: Recurring monthly and annual costs</li>
-                  <li>Clients: Contract-based revenue projections</li>
+                  <li>Clients: Client information and contact management</li>
                   <li>Tax calculations: 20% provision on all revenue</li>
                 </ul>
               </div>
