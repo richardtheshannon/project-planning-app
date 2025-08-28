@@ -1,5 +1,7 @@
 import jsPDF from 'jspdf';
 import { Invoice, Client, LineItem } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
 
 export interface InvoiceWithDetails extends Invoice {
   client: Client | null;
@@ -15,120 +17,287 @@ export async function generateInvoicePDF(
     format: 'a4'
   });
 
-  // Set fonts and colors
-  pdf.setFontSize(24);
-  pdf.setTextColor(0, 128, 0);
-  pdf.text('SALESFIELD NETWORK', 105, 30, { align: 'center' });
+  // Set up margins
+  const leftMargin = 20;
+  const rightMargin = 190;
+  const pageWidth = 210;
   
-  pdf.setFontSize(18);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text('INVOICE', 105, 45, { align: 'center' });
-  
-  // Invoice details
-  pdf.setFontSize(10);
-  pdf.text(`Invoice #: ${invoice.invoiceNumber}`, 20, 60);
-  pdf.text(`Date: ${new Date(invoice.issuedDate).toLocaleDateString()}`, 20, 67);
-  pdf.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 20, 74);
-  
-  // Company info
-  pdf.setFontSize(12);
-  pdf.text('From:', 20, 90);
-  pdf.setFontSize(10);
-  pdf.text('SalesField Network', 20, 97);
-  pdf.text('Richard Shannon', 20, 104);
-  pdf.text('263 Dairyland Rd', 20, 111);
-  pdf.text('Buellton, CA 93427', 20, 118);
-  pdf.text('richard@salesfield.net', 20, 125);
-  pdf.text('P: 805-720-8554', 20, 132);
-  
-  // Bill To
-  if (invoice.client) {
-    pdf.setFontSize(12);
-    pdf.text('Bill To:', 120, 90);
-    pdf.setFontSize(10);
-    pdf.text(invoice.client.name, 120, 97);
-    if (invoice.client.billTo) {
-      pdf.text(invoice.client.billTo, 120, 104);
-    }
-    if (invoice.client.email) {
-      pdf.text(invoice.client.email, 120, 111);
-    }
-    if (invoice.client.phone) {
-      pdf.text(invoice.client.phone, 120, 118);
-    }
-    if (invoice.client.address1) {
-      pdf.text(invoice.client.address1, 120, 125);
-      if (invoice.client.address2) {
-        pdf.text(invoice.client.address2, 120, 132);
+  // Load logo dynamically from file system
+  let logoBase64: string | null = null;
+  try {
+    // Try multiple possible logo paths
+    const possiblePaths = [
+      path.join(process.cwd(), 'public/media/hoiz-logo-title-subtitle-01.png'),
+      path.join(process.cwd(), 'public/media/salesfield-logo.png'),
+      path.join(process.cwd(), 'public/media/logo.png'),
+      path.join(process.cwd(), 'public/salesfield-logo.png'),
+    ];
+    
+    for (const logoPath of possiblePaths) {
+      if (fs.existsSync(logoPath)) {
+        const logoBuffer = fs.readFileSync(logoPath);
+        logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+        console.log(`Logo loaded from: ${logoPath}`);
+        break;
       }
-      const cityStateZip = [
-        invoice.client.city,
-        invoice.client.state,
-        invoice.client.zipCode
-      ].filter(Boolean).join(' ');
-      if (cityStateZip) {
-        pdf.text(cityStateZip, 120, invoice.client.address2 ? 139 : 132);
-      }
+    }
+    
+    if (!logoBase64) {
+      console.warn('Logo file not found in expected locations');
+    }
+  } catch (error) {
+    console.error('Error loading logo:', error);
+  }
+
+  // Add logo if successfully loaded
+  if (logoBase64) {
+    try {
+      pdf.addImage(logoBase64, 'PNG', leftMargin, 15, 40, 20);
+    } catch (error) {
+      console.error('Failed to add logo to PDF:', error);
     }
   }
-  
-  // Line items table
-  let yPosition = 150;
-  pdf.setFontSize(10);
+
+  // Invoice header - right aligned
+  pdf.setFontSize(24);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('Date', 20, yPosition);
-  pdf.text('Description', 50, yPosition);
-  pdf.text('Amount', 170, yPosition);
+  pdf.text('INVOICE', rightMargin, 25, { align: 'right' });
   
-  pdf.line(20, yPosition + 2, 190, yPosition + 2);
-  yPosition += 10;
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(invoice.invoiceNumber, rightMargin, 32, { align: 'right' });
+  
+  // Add DRAFT watermark if invoice is draft
+  if (invoice.status === 'DRAFT') {
+    pdf.setFontSize(10);
+    pdf.setTextColor(128, 128, 128);
+    pdf.text('DRAFT', rightMargin, 38, { align: 'right' });
+    pdf.setTextColor(0, 0, 0);
+  }
+
+  // Company info - left side
+  let yPos = 50;
+  pdf.setFontSize(12);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('SalesField Network', leftMargin, yPos);
+  
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  yPos += 6;
+  pdf.text('Richard Shannon', leftMargin, yPos);
+  yPos += 5;
+  pdf.text('263 Dairyland Rd', leftMargin, yPos);
+  yPos += 5;
+  pdf.text('Buellton, CA 93427', leftMargin, yPos);
+  yPos += 5;
+  pdf.text('richard@salesfield.net', leftMargin, yPos);
+  yPos += 5;
+  pdf.text('P: 805-720-8554', leftMargin, yPos);
+
+  // Invoice details - right side box
+  const boxX = 130;
+  const boxY = 55;
+  const boxWidth = 60;
+  const boxHeight = 25;
+  
+  // Draw box for invoice details
+  pdf.setDrawColor(200, 200, 200);
+  pdf.rect(boxX, boxY, boxWidth, boxHeight);
+  
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('INVOICE DETAILS', boxX + boxWidth/2, boxY - 2, { align: 'center' });
   
   pdf.setFont('helvetica', 'normal');
-  invoice.lineItems.forEach((item) => {
-    if (yPosition > 250) {
-      pdf.addPage();
-      yPosition = 30;
+  let detailY = boxY + 7;
+  pdf.text('Issue Date:', boxX + 3, detailY);
+  pdf.text(new Date(invoice.issuedDate).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  }), rightMargin - 3, detailY, { align: 'right' });
+  
+  detailY += 6;
+  pdf.text('Due Date:', boxX + 3, detailY);
+  pdf.text(new Date(invoice.dueDate).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  }), rightMargin - 3, detailY, { align: 'right' });
+  
+  detailY += 6;
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Total Due:', boxX + 3, detailY);
+  pdf.setFontSize(11);
+  pdf.text(`$${invoice.amount.toFixed(2)}`, rightMargin - 3, detailY, { align: 'right' });
+
+  // Bill To section
+  yPos = 95;
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(80, 80, 80);
+  pdf.text('BILL TO', leftMargin, yPos);
+  pdf.setTextColor(0, 0, 0);
+  
+  yPos += 7;
+  if (invoice.client) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(invoice.client.name, leftMargin, yPos);
+    pdf.setFont('helvetica', 'normal');
+    
+    if (invoice.client.contactName) {
+      yPos += 5;
+      pdf.text(invoice.client.contactName, leftMargin, yPos);
     }
     
-    const date = new Date(item.date).toLocaleDateString();
-    pdf.text(date, 20, yPosition);
+    // Parse and display address if it exists
+    if (invoice.client.address) {
+      try {
+        const address = JSON.parse(invoice.client.address as string);
+        if (address.street) {
+          yPos += 5;
+          pdf.text(address.street, leftMargin, yPos);
+        }
+        if (address.city || address.state || address.zip) {
+          yPos += 5;
+          pdf.text(
+            `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.zip || ''}`.trim(),
+            leftMargin,
+            yPos
+          );
+        }
+      } catch (e) {
+        // If address is not JSON, display as is
+        yPos += 5;
+        pdf.text(invoice.client.address as string, leftMargin, yPos);
+      }
+    }
     
-    // Handle long descriptions
+    if (invoice.client.email) {
+      yPos += 5;
+      pdf.text(invoice.client.email, leftMargin, yPos);
+    }
+    
+    if (invoice.client.phone) {
+      yPos += 5;
+      pdf.text(invoice.client.phone, leftMargin, yPos);
+    }
+  }
+
+  // Line items table
+  yPos = 145;
+  
+  // Table header
+  pdf.setFillColor(245, 245, 245);
+  pdf.rect(leftMargin, yPos - 5, rightMargin - leftMargin, 8, 'F');
+  
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Date', leftMargin + 2, yPos);
+  pdf.text('Description', leftMargin + 35, yPos);
+  pdf.text('Amount', rightMargin - 2, yPos, { align: 'right' });
+  
+  // Draw line under header
+  yPos += 3;
+  pdf.setDrawColor(200, 200, 200);
+  pdf.line(leftMargin, yPos, rightMargin, yPos);
+  
+  // Table rows
+  yPos += 7;
+  pdf.setFont('helvetica', 'normal');
+  
+  invoice.lineItems.forEach((item, index) => {
+    // Check if we need a new page
+    if (yPos > 250) {
+      pdf.addPage();
+      yPos = 30;
+      
+      // Redraw table header on new page
+      pdf.setFillColor(245, 245, 245);
+      pdf.rect(leftMargin, yPos - 5, rightMargin - leftMargin, 8, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Date', leftMargin + 2, yPos);
+      pdf.text('Description', leftMargin + 35, yPos);
+      pdf.text('Amount', rightMargin - 2, yPos, { align: 'right' });
+      pdf.line(leftMargin, yPos + 3, rightMargin, yPos + 3);
+      yPos += 10;
+      pdf.setFont('helvetica', 'normal');
+    }
+    
+    // Alternate row background
+    if (index % 2 === 0) {
+      pdf.setFillColor(250, 250, 250);
+      pdf.rect(leftMargin, yPos - 5, rightMargin - leftMargin, 7, 'F');
+    }
+    
+    // Date
+    const date = new Date(item.date).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    pdf.text(date, leftMargin + 2, yPos);
+    
+    // Description (handle long text)
     const description = item.description || '';
     const lines = pdf.splitTextToSize(description, 100);
-    pdf.text(lines, 50, yPosition);
+    pdf.text(lines, leftMargin + 35, yPos);
     
-    pdf.text(`$${item.amount.toFixed(2)}`, 170, yPosition);
-    yPosition += 7 * Math.max(lines.length, 1);
+    // Amount
+    pdf.text(`$${item.amount.toFixed(2)}`, rightMargin - 2, yPos, { align: 'right' });
+    
+    yPos += 7 * Math.max(lines.length, 1);
   });
+
+  // Totals section
+  yPos += 5;
+  pdf.setDrawColor(200, 200, 200);
+  pdf.line(leftMargin, yPos, rightMargin, yPos);
+  yPos += 10;
   
-  // Totals
-  pdf.line(20, yPosition, 190, yPosition);
-  yPosition += 10;
+  // Subtotal
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('Subtotal:', rightMargin - 40, yPos);
+  pdf.text(`$${invoice.amount.toFixed(2)}`, rightMargin - 2, yPos, { align: 'right' });
   
+  // Total Due
+  yPos += 8;
   pdf.setFont('helvetica', 'bold');
-  pdf.text('Subtotal:', 140, yPosition);
-  pdf.text(`$${invoice.amount.toFixed(2)}`, 170, yPosition);
-  yPosition += 7;
-  
-  pdf.text('Total Due:', 140, yPosition);
-  pdf.text(`$${invoice.amount.toFixed(2)}`, 170, yPosition);
-  
-  // Payment instructions
-  yPosition += 20;
-  if (yPosition < 250) {
+  pdf.setFontSize(11);
+  pdf.text('Total Due:', rightMargin - 40, yPos);
+  pdf.text(`$${invoice.amount.toFixed(2)}`, rightMargin - 2, yPos, { align: 'right' });
+
+  // Payment Instructions footer
+  yPos += 25;
+  if (yPos < 240) {
+    // Draw box around payment instructions
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setFillColor(250, 250, 250);
+    pdf.rect(leftMargin, yPos - 5, rightMargin - leftMargin, 35, 'FD');
+    
+    pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Payment Instructions', 20, yPosition);
-    pdf.setFont('helvetica', 'normal');
+    pdf.text('Payment Instructions', leftMargin + 3, yPos);
+    
     pdf.setFontSize(9);
-    yPosition += 7;
-    pdf.text('Please make all checks payable to:', 20, yPosition);
-    yPosition += 5;
-    pdf.text('Richard Shannon', 20, yPosition);
-    yPosition += 5;
-    pdf.text('263 Dairyland Rd', 20, yPosition);
-    yPosition += 5;
-    pdf.text('Buellton, CA 93427', 20, yPosition);
+    pdf.setFont('helvetica', 'normal');
+    yPos += 6;
+    pdf.text('Please make all checks payable to:', leftMargin + 3, yPos);
+    yPos += 5;
+    pdf.text('Richard Shannon', leftMargin + 3, yPos);
+    yPos += 5;
+    pdf.text('263 Dairyland Rd', leftMargin + 3, yPos);
+    yPos += 5;
+    pdf.text('Buellton, CA 93427', leftMargin + 3, yPos);
+    
+    // Add small logo at bottom right if available
+    if (logoBase64) {
+      try {
+        pdf.addImage(logoBase64, 'PNG', rightMargin - 25, yPos - 15, 20, 10);
+      } catch (error) {
+        // Logo failed, continue without it
+      }
+    }
   }
   
   // Convert to Buffer
