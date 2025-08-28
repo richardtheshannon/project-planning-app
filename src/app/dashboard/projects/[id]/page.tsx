@@ -51,6 +51,7 @@ import DocumentsTable from "@/app/dashboard/documents/DocumentsTable";
 import { AddContactDialog } from "@/components/projects/AddContactDialog";
 import { EditTaskDialog } from "@/components/projects/EditTaskDialog";
 import { EditContactDialog } from "@/components/projects/EditContactDialog";
+import { ProjectLinksTable } from "@/components/projects/ProjectLinksTable";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Mail, Trash2, ChevronsUpDown, ArrowUp, ArrowDown, Pencil, Link2, ChevronDown, Plus, PlusCircle, DollarSign } from "lucide-react";
 import { TimelineSection, TimelineSectionHandle } from "@/components/projects/TimelineSection";
@@ -521,6 +522,8 @@ export default function ProjectDetailPage() {
               </CardContent>
             )}
           </Card>
+
+          <ProjectLinksTable projectId={project.id} />
 
           <Card>
             <CardHeader>

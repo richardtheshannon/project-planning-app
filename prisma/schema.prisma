@@ -154,8 +154,22 @@ model Project {
   notifications Notification[]
   timelineEvents TimelineEvent[]
   documents    Document[]
+  links        ProjectLink[]
 
   @@map("projects")
+}
+
+model ProjectLink {
+  id        String   @id @default(cuid())
+  title     String
+  url       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_links")
 }
 
 model ProjectContact {
