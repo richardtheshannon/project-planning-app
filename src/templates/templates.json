@@ -20,6 +20,19 @@
         "thisMonthCount",
         "nextMonthCount"
       ]
+    },
+    {
+      "id": "mobile-first",
+      "name": "Mobile-First Responsive Layout",
+      "description": "Mobile-optimized layout with collapsible sidebar navigation and responsive design",
+      "category": "application",
+      "file": "application/mobile-first.html",
+      "isDefault": false,
+      "isActive": true,
+      "variables": [
+        "businessName",
+        "logoUrl"
+      ]
     }
   ]
 }

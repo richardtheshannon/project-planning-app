@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Navigation Template</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        /* Debug styles removed for clean interface */
+        
+        /* Material Symbols Settings */
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24;
+            user-select: none;
+        }
+        
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #2a2a2a;
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            height: 60px;
+            background: rgba(42, 42, 42, 0.95);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .logo .material-symbols-outlined {
+            font-size: 24px;
+        }
+
+
+        .main-menu-sidebar .nav-circle.main {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            margin: 0;
+            align-self: flex-end;
+        }
+
+        .nav-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.5);
+            background: rgba(42, 42, 42, 0.9);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-circle:hover {
+            opacity: 0.7;
+        }
+
+        .nav-circle.active {
+            border-color: #fff;
+            background: rgba(255,255,255,0.2);
+        }
+
+
+        .nav-circle.main {
+            position: relative;
+            border: none;
+            background: transparent;
+            font-family: 'Material Symbols Outlined';
+            font-size: 24px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .nav-circle.main::before {
+            content: 'dehaze';
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24;
+        }
+
+
+
+        /* Content area */
+        .content {
+            margin-left: 20px;
+            margin-right: 64px;  /* Space for collapsed menu sidebar */
+            margin-bottom: 20px;
+            min-height: calc(100vh - 140px);  /* Full height minus header, footer and margins */
+            transition: margin-right 0.3s;
+        }
+
+        .content.menu-expanded {
+            margin-right: 280px;  /* Space for expanded menu */
+        }
+
+        .safe-margin {
+            border: 1px dashed rgba(255,255,255,0.2);
+            padding: 40px;
+            min-height: calc(100vh - 140px);  /* Adjusted for header + footer */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        /* Footer */
+        .footer {
+            height: 60px;
+            background: rgba(42, 42, 42, 0.95);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            margin-left: 20px;
+            margin-right: 64px;  /* Space for collapsed sidebar */
+            transition: margin-right 0.3s;
+        }
+        
+        .footer.menu-expanded {
+            margin-right: 280px;  /* Space for expanded sidebar */
+        }
+        
+        /* Footer Sections */
+        .footer-left,
+        .footer-center,
+        .footer-right {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+        
+        .footer-left {
+            justify-content: flex-start;
+        }
+        
+        .footer-center {
+            justify-content: center;
+        }
+        
+        .footer-right {
+            justify-content: flex-end;
+            gap: 15px;
+        }
+        
+        /* Footer Icons */
+        .footer-icon {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .footer-icon:hover {
+            opacity: 0.7;
+        }
+        
+        .footer-icon .material-symbols-outlined {
+            font-size: 24px;
+        }
+
+        /* Main Menu Sidebar */
+        .main-menu-sidebar {
+            position: fixed;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 100;
+            transition: width 0.3s;
+            width: 64px;
+            background: transparent;
+            height: 100vh;
+        }
+
+        .main-menu-sidebar.expanded {
+            width: 280px;
+            background: #2a2a2a;
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Navigation Items Container */
+        .nav-items-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 0 12px 10px 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .nav-items-main {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 10px;
+            flex: 1;
+        }
+        
+        /* Logout Icon - Always Visible */
+        .logout-icon {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.3s;
+            align-self: flex-end;
+        }
+        
+        .logout-icon:hover {
+            opacity: 0.7;
+        }
+        
+        .logout-icon .material-symbols-outlined {
+            font-size: 24px;
+        }
+        
+        /* Header Area Container */
+        .header-area {
+            padding: 10px 12px 10px 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+        
+        /* Menu Header for Expanded State */
+        .menu-header-expanded {
+            display: none;
+        }
+        
+        .main-menu-sidebar.expanded .menu-header-expanded {
+            display: flex;
+            gap: 15px;
+        }
+        
+        /* Always Visible Logout in Header */
+        .header-logout {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .header-logout:hover {
+            opacity: 0.7;
+        }
+        
+        .header-logout .material-symbols-outlined {
+            font-size: 24px;
+        }
+        
+        .header-icon {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .header-icon:hover {
+            opacity: 0.7;
+        }
+        
+        .header-icon .material-symbols-outlined {
+            font-size: 24px;
+        }
+
+        .menu-icon-link {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 15px;
+            height: 40px;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: all 0.3s;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 0;
+        }
+
+        .menu-icon-link:hover {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+        }
+
+        .menu-icon-link span:first-child {
+            display: none;
+            white-space: nowrap;
+        }
+
+        .main-menu-sidebar.expanded .menu-icon-link span:first-child {
+            display: block;
+            flex: 1;
+            text-align: right;
+        }
+
+        .menu-icon-link .material-symbols-outlined {
+            font-size: 24px;
+            min-width: 24px;
+        }
+
+        /* Sub-navigation styles */
+        .nav-item-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav-parent {
+            position: relative;
+        }
+
+        .expand-icon {
+            display: none;
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px !important;
+            transition: transform 0.3s;
+            pointer-events: none;
+        }
+
+        .main-menu-sidebar.expanded .expand-icon {
+            display: block;
+        }
+
+        .nav-parent.expanded .expand-icon {
+            transform: translateY(-50%) rotate(90deg);
+        }
+
+        .sub-nav {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            margin-left: 0;
+        }
+
+        .main-menu-sidebar.expanded .sub-nav {
+            margin-left: 20px;
+        }
+
+        .sub-nav.expanded {
+            max-height: 200px;
+        }
+
+        .sub-nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 15px;
+            height: 36px;
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            transition: all 0.3s;
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin: 2px 0;
+            font-size: 14px;
+        }
+
+        .sub-nav-item:hover {
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.9);
+        }
+
+        .sub-nav-item span:first-child {
+            display: none;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+
+        .main-menu-sidebar.expanded .sub-nav-item span:first-child {
+            display: block;
+            flex: 1;
+            text-align: right;
+        }
+
+        .sub-nav-item .material-symbols-outlined {
+            font-size: 20px;
+            min-width: 20px;
+            opacity: 0.8;
+        }
+
+        /* Sidebar Logo Styles */
+        .sidebar-logo {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px 12px 0 12px;
+            margin-bottom: 20px;
+        }
+
+        .logo-image {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            object-fit: contain;
+        }
+
+        .main-menu-sidebar.expanded .logo-image {
+            width: 120px;
+            height: 60px;
+        }
+
+        /* Hide logo when sidebar is collapsed */
+        .main-menu-sidebar:not(.expanded) .sidebar-logo {
+            display: none;
+        }
+
+
+        /* Bottom Left Controls */
+        .bottom-left-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            z-index: 100;
+        }
+
+
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Offcanvas menus base styles */
+        .offcanvas {
+            position: fixed;
+            background: #1a1a1a;
+            z-index: 300;
+            transition: transform 0.3s ease-out;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .offcanvas-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .offcanvas-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s;
+        }
+
+        .close-btn:hover {
+            opacity: 0.7;
+        }
+
+        .close-btn .material-symbols-outlined {
+            font-size: 24px;
+        }
+
+        .offcanvas-body {
+            padding: 20px;
+        }
+
+        /* Right side menus (Main, Settings, User, Tertiary) */
+        .offcanvas-right {
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 300px;
+            transform: translateX(100%);
+        }
+
+        .offcanvas-right.active {
+            transform: translateX(0);
+        }
+
+        /* Left side menu (Settings on desktop) */
+        .offcanvas-left {
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 300px;
+            transform: translateX(-100%);
+        }
+
+        .offcanvas-left.active {
+            transform: translateX(0);
+        }
+
+        /* Bottom menus (Sub) */
+        .offcanvas-bottom {
+            left: 0;
+            right: 0;
+            bottom: 0;
+            max-height: 50vh;
+            transform: translateY(100%);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            border-left: none;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .offcanvas-bottom.active {
+            transform: translateY(0);
+        }
+
+        /* Menu items */
+        .menu-items {
+            list-style: none;
+        }
+
+        .menu-items.vertical li {
+            margin-bottom: 10px;
+        }
+
+        .menu-items.horizontal {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+
+        .menu-items a {
+            color: #fff;
+            text-decoration: none;
+            padding: 12px 16px;
+            display: block;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .menu-items a:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* Alignment modifiers */
+        .align-bottom {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            min-height: calc(100vh - 60px);
+        }
+
+        .align-top {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        /* Mobile specific */
+        .mobile-only {
+            display: none;
+        }
+
+        .desktop-only {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-only {
+                display: block;
+            }
+
+            .desktop-only {
+                display: none;
+            }
+
+            .offcanvas-right,
+            .offcanvas-left {
+                width: 85%;
+                max-width: 350px;
+            }
+
+            .nav-circles {
+                bottom: 20px;
+                right: 20px;
+                gap: 12px;
+            }
+            
+            .main-menu-sidebar {
+                width: 50px;
+            }
+            
+            .main-menu-sidebar.expanded {
+                width: 85%;
+                max-width: 350px;
+            }
+
+            .nav-circle {
+                width: 40px;
+                height: 40px;
+            }
+            
+            /* Hide logo text on mobile */
+            .logo span:last-child {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <a href="/" class="logo">
+            <span class="material-symbols-outlined">home</span>
+            <span>Main Logo</span>
+        </a>
+        
+    </header>
+
+    <!-- Main Menu Sidebar (Right side, always visible) -->
+    <div class="main-menu-sidebar" id="mainMenuSidebar">
+        <div class="header-area">
+            <div class="menu-header-expanded">
+                <button class="header-icon" onclick="">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+                <button class="header-icon" onclick="">
+                    <span class="material-symbols-outlined">info</span>
+                </button>
+                <button class="header-icon" onclick="">
+                    <span class="material-symbols-outlined">person</span>
+                </button>
+            </div>
+            <button class="header-logout" onclick="">
+                <span class="material-symbols-outlined">logout</span>
+            </button>
+        </div>
+        <div class="nav-items-container">
+            <div class="sidebar-logo">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60' viewBox='0 0 120 60'%3E%3Crect width='120' height='60' fill='%23404040'/%3E%3Ctext x='60' y='35' font-family='Arial, sans-serif' font-size='12' fill='%23ffffff' text-anchor='middle'%3ELOGO%3C/text%3E%3C/svg%3E" alt="Company Logo" class="logo-image">
+            </div>
+            <div class="nav-items-main">
+                <div class="nav-item-group">
+                    <a href="#" class="menu-icon-link nav-parent" onclick="toggleSubNav('products', event)">
+                        <span>Products</span>
+                        <span class="expand-icon material-symbols-outlined">keyboard_arrow_right</span>
+                        <span class="material-symbols-outlined">inventory_2</span>
+                    </a>
+                    <div class="sub-nav" id="products">
+                        <a href="#" class="sub-nav-item">
+                            <span>Electronics</span>
+                            <span class="material-symbols-outlined">devices</span>
+                        </a>
+                        <a href="#" class="sub-nav-item">
+                            <span>Clothing</span>
+                            <span class="material-symbols-outlined">checkroom</span>
+                        </a>
+                        <a href="#" class="sub-nav-item">
+                            <span>Books</span>
+                            <span class="material-symbols-outlined">menu_book</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="nav-item-group">
+                    <a href="#" class="menu-icon-link nav-parent" onclick="toggleSubNav('services', event)">
+                        <span>Services</span>
+                        <span class="expand-icon material-symbols-outlined">keyboard_arrow_right</span>
+                        <span class="material-symbols-outlined">build</span>
+                    </a>
+                    <div class="sub-nav" id="services">
+                        <a href="#" class="sub-nav-item">
+                            <span>Consulting</span>
+                            <span class="material-symbols-outlined">psychology</span>
+                        </a>
+                        <a href="#" class="sub-nav-item">
+                            <span>Support</span>
+                            <span class="material-symbols-outlined">support_agent</span>
+                        </a>
+                        <a href="#" class="sub-nav-item">
+                            <span>Training</span>
+                            <span class="material-symbols-outlined">school</span>
+                        </a>
+                    </div>
+                </div>
+                <a href="#" class="menu-icon-link">
+                    <span>About</span>
+                    <span class="material-symbols-outlined">info</span>
+                </a>
+                <a href="#" class="menu-icon-link">
+                    <span>Contact</span>
+                    <span class="material-symbols-outlined">mail</span>
+                </a>
+                <div class="nav-item-group">
+                    <a href="#" class="menu-icon-link nav-parent" onclick="toggleSubNav('portfolio', event)">
+                        <span>Portfolio</span>
+                        <span class="expand-icon material-symbols-outlined">keyboard_arrow_right</span>
+                        <span class="material-symbols-outlined">work</span>
+                    </a>
+                    <div class="sub-nav" id="portfolio">
+                        <a href="#" class="sub-nav-item">
+                            <span>Web Design</span>
+                            <span class="material-symbols-outlined">web</span>
+                        </a>
+                        <a href="#" class="sub-nav-item">
+                            <span>Mobile Apps</span>
+                            <span class="material-symbols-outlined">phone_android</span>
+                        </a>
+                        <a href="#" class="sub-nav-item">
+                            <span>Branding</span>
+                            <span class="material-symbols-outlined">palette</span>
+                        </a>
+                        <a href="#" class="sub-nav-item">
+                            <span>Photography</span>
+                            <span class="material-symbols-outlined">photo_camera</span>
+                        </a>
+                    </div>
+                </div>
+                <a href="#" class="menu-icon-link">
+                    <span>Blog</span>
+                    <span class="material-symbols-outlined">article</span>
+                </a>
+                <button class="nav-circle main" onclick="toggleMenu('mainMenu')"></button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Main Content -->
+    <main class="content">
+        <div class="safe-margin">
+            <p>Main content area<br>Thin lines represent safe content margins</p>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-left">
+            <button class="footer-icon">
+                <span class="material-symbols-outlined">format_indent_increase</span>
+            </button>
+        </div>
+        <div class="footer-center">
+            <button class="footer-icon">
+                <span class="material-symbols-outlined">code</span>
+            </button>
+        </div>
+        <div class="footer-right">
+            <button class="footer-icon" onclick="toggleDarkMode()">
+                <span class="material-symbols-outlined">light_mode</span>
+            </button>
+            <button class="footer-icon" onclick="">
+                <span class="material-symbols-outlined">expand_circle_up</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Overlay -->
+    <div class="overlay" onclick="closeAllMenus()"></div>
+
+
+
+
+
+    <script>
+        // Track active menus and sub-navigations
+        let activeMenus = new Set();
+        let activeSubNavs = new Set();
+
+        function toggleMenu(menuId) {
+            const menu = document.getElementById(menuId);
+            const overlay = document.querySelector('.overlay');
+            const circles = document.querySelectorAll('.nav-circle');
+            const mainMenuSidebar = document.getElementById('mainMenuSidebar');
+            const content = document.querySelector('.content');
+            const footer = document.querySelector('.footer');
+            if (menuId === 'mainMenu') {
+                // Toggle main menu expansion
+                if (mainMenuSidebar.classList.contains('expanded')) {
+                    mainMenuSidebar.classList.remove('expanded');
+                    content.classList.remove('menu-expanded');
+                    footer.classList.remove('menu-expanded');
+                    closeAllSubNavs(); // Close all sub-navigations when collapsing
+                } else {
+                    mainMenuSidebar.classList.add('expanded');
+                    content.classList.add('menu-expanded');
+                    footer.classList.add('menu-expanded');
+                }
+                return;
+            }
+            
+            if (menu.classList.contains('active')) {
+                closeMenu(menuId);
+            } else {
+                // Close other menus first
+                closeAllMenus();
+                
+                // Open this menu
+                menu.classList.add('active');
+                overlay.classList.add('active');
+                activeMenus.add(menuId);
+                document.body.style.overflow = 'hidden';
+                
+            }
+        }
+
+        function closeMenu(menuId) {
+            const menu = document.getElementById(menuId);
+            const overlay = document.querySelector('.overlay');
+            const circles = document.querySelectorAll('.nav-circle');
+            
+            menu.classList.remove('active');
+            activeMenus.delete(menuId);
+            
+            
+            if (activeMenus.size === 0) {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+
+        function closeAllMenus() {
+            const menus = document.querySelectorAll('.offcanvas');
+            const overlay = document.querySelector('.overlay');
+            const circles = document.querySelectorAll('.nav-circle');
+            
+            menus.forEach(menu => {
+                menu.classList.remove('active');
+            });
+            
+            circles.forEach(circle => {
+                circle.classList.remove('active');
+            });
+            
+            overlay.classList.remove('active');
+            activeMenus.clear();
+            document.body.style.overflow = '';
+        }
+
+        // Handle escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeAllMenus();
+            }
+        });
+
+        // Sub-navigation toggle function
+        function toggleSubNav(subNavId, event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const mainMenuSidebar = document.getElementById('mainMenuSidebar');
+            
+            // Only allow sub-nav expansion when main sidebar is expanded
+            if (!mainMenuSidebar.classList.contains('expanded')) {
+                return;
+            }
+            
+            const subNav = document.getElementById(subNavId);
+            const parentLink = event.currentTarget;
+            
+            if (activeSubNavs.has(subNavId)) {
+                // Close this sub-nav
+                subNav.classList.remove('expanded');
+                parentLink.classList.remove('expanded');
+                activeSubNavs.delete(subNavId);
+            } else {
+                // Close all other sub-navs
+                activeSubNavs.forEach(activeSubNavId => {
+                    const activeSubNav = document.getElementById(activeSubNavId);
+                    const activeParentLink = document.querySelector(`[onclick*="${activeSubNavId}"]`);
+                    activeSubNav.classList.remove('expanded');
+                    activeParentLink.classList.remove('expanded');
+                });
+                activeSubNavs.clear();
+                
+                // Open this sub-nav
+                subNav.classList.add('expanded');
+                parentLink.classList.add('expanded');
+                activeSubNavs.add(subNavId);
+            }
+        }
+
+        // Close all sub-navigations when main menu collapses
+        function closeAllSubNavs() {
+            activeSubNavs.forEach(subNavId => {
+                const subNav = document.getElementById(subNavId);
+                const parentLink = document.querySelector(`[onclick*="${subNavId}"]`);
+                subNav.classList.remove('expanded');
+                parentLink.classList.remove('expanded');
+            });
+            activeSubNavs.clear();
+        }
+
+        // Prevent body scroll when menu is open
+        document.addEventListener('touchmove', (e) => {
+            if (activeMenus.size > 0 && !e.target.closest('.offcanvas')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
+</body>
+</html>
