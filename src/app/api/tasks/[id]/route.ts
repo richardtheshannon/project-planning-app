@@ -55,6 +55,18 @@ export async function PUT(
 }
 
 /**
+ * PATCH handler to update a task's details.
+ * ✅ FIX: Added PATCH method for compatibility with EditTaskDialog component.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  // Delegate to PUT handler for consistency
+  return PUT(request, { params });
+}
+
+/**
  * DELETE handler to remove a task.
  * ✅ FIX: Now allows any authenticated user to delete any task.
  */
