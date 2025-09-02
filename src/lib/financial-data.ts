@@ -2,6 +2,17 @@ import { prisma } from '@/lib/prisma';
 import { type Invoice, type Expense, type Subscription, type Client, ContractTerm } from "@prisma/client";
 import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfYear, getMonth, getYear, parseISO, isBefore, isAfter, isEqual } from "date-fns";
 
+// Helper functions for UTC date handling to prevent timezone shifts
+const getUTCMonth = (date: Date): number => {
+  const utcDate = new Date(date);
+  return utcDate.getUTCMonth();
+};
+
+const getUTCYear = (date: Date): number => {
+  const utcDate = new Date(date);
+  return utcDate.getUTCFullYear();
+};
+
 export interface FinancialTrendsDataPoint {
   month: string;
   totalRevenue: number;
@@ -32,8 +43,8 @@ const processDataForChart = (
   clients: ClientWithContracts[]
 ): FinancialTrendsDataPoint[] => {
   const now = new Date();
-  const currentYear = getYear(now);
-  const currentMonthIndex = getMonth(now);
+  const currentYear = getUTCYear(now);
+  const currentMonthIndex = getUTCMonth(now);
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   // Initialize monthly data (NOT cumulative)
@@ -50,8 +61,8 @@ const processDataForChart = (
 
   // 1. REVENUE: Sum of PAID invoices for each month
   invoices.forEach(inv => {
-    if (inv.status === 'PAID' && getYear(inv.issuedDate) === currentYear) {
-      const monthIndex = getMonth(inv.issuedDate);
+    if (inv.status === 'PAID' && getUTCYear(inv.issuedDate) === currentYear) {
+      const monthIndex = getUTCMonth(inv.issuedDate);
       monthlyData[monthIndex].totalRevenue += inv.amount;
     }
   });
@@ -59,16 +70,16 @@ const processDataForChart = (
   // 2. FORECAST REVENUE: Sum of DRAFT, PENDING, and OVERDUE invoices for each month
   invoices.forEach(inv => {
     if ((inv.status === 'DRAFT' || inv.status === 'PENDING' || inv.status === 'OVERDUE') 
-        && getYear(inv.issuedDate) === currentYear) {
-      const monthIndex = getMonth(inv.issuedDate);
+        && getUTCYear(inv.issuedDate) === currentYear) {
+      const monthIndex = getUTCMonth(inv.issuedDate);
       monthlyData[monthIndex].forecast += inv.amount; // Start with unpaid invoice revenue
     }
   });
 
   // 3. ONE-TIME EXPENSES: Process expenses for each month
   expenses.forEach(exp => {
-    if (getYear(exp.date) === currentYear) {
-      const monthIndex = getMonth(exp.date);
+    if (getUTCYear(exp.date) === currentYear) {
+      const monthIndex = getUTCMonth(exp.date);
       monthlyData[monthIndex].expenses += exp.amount;
     }
   });
@@ -80,8 +91,8 @@ const processDataForChart = (
 
   // Add annual subscriptions to their due month
   subscriptions.forEach(sub => {
-    if (sub.billingCycle === 'ANNUALLY' && sub.dueDate && getYear(sub.dueDate) === currentYear) {
-      const monthIndex = getMonth(sub.dueDate);
+    if (sub.billingCycle === 'ANNUALLY' && sub.dueDate && getUTCYear(sub.dueDate) === currentYear) {
+      const monthIndex = getUTCMonth(sub.dueDate);
       // Add to both expenses and subscriptions for the month it's due
       monthlyData[monthIndex].expenses += sub.amount;
       monthlyData[monthIndex].subscriptions += sub.amount;
