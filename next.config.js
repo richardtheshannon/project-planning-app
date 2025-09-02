@@ -11,8 +11,22 @@ const nextConfig = {
     workerThreads: false,
     cpus: 1,
   },
-  // Disable SWC minify which can cause worker issues
-  swcMinify: false,
+  // Re-enable SWC minify to fix Terser build errors  
+  swcMinify: true,
+  
+  // Optimize build for @dnd-kit and other modern libraries
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Optimize for modern JavaScript features in browser builds
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       {
