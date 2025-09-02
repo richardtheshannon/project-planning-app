@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/auth';
 import { prisma } from "@/lib/prisma";
 import DailyItemsCard, { OperationalItem } from "./components/DailyItemsCard";
-import InteractiveCalendar from "./components/InteractiveCalendar"; // Import the new calendar component
 import { OverdueCard } from "@/components/operations/OverdueCard";
 import { getOverdueItems } from "@/lib/operations-data";
 import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
@@ -39,9 +38,9 @@ async function getOperationalData() {
   const todayBounds = getDayBounds(now);
   const tomorrowBounds = getDayBounds(new Date(now.getTime() + 24 * 60 * 60 * 1000));
 
-  // --- MODIFICATION: Fetch data for the entire current month for the calendar ---
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
+  // Fetch data for today and tomorrow only (no longer need full month)
+  const todayStart = todayBounds.start;
+  const tomorrowEnd = tomorrowBounds.end;
   
   const [
     projects,
@@ -51,31 +50,31 @@ async function getOperationalData() {
     featureRequests // Added feature requests to the fetch
   ] = await Promise.all([
     prisma.project.findMany({
-      where: { endDate: { gte: monthStart, lte: monthEnd } },
+      where: { endDate: { gte: todayStart, lte: tomorrowEnd } },
       select: { id: true, name: true, endDate: true }
     }),
     prisma.task.findMany({
-      where: { dueDate: { gte: monthStart, lte: monthEnd } },
+      where: { dueDate: { gte: todayStart, lte: tomorrowEnd } },
       select: { id: true, title: true, dueDate: true, projectId: true, project: { select: { name: true } } }
     }),
     prisma.timelineEvent.findMany({
-      where: { eventDate: { gte: monthStart, lte: monthEnd }, isCompleted: false },
+      where: { eventDate: { gte: todayStart, lte: tomorrowEnd }, isCompleted: false },
       select: { id: true, title: true, eventDate: true, projectId: true, project: { select: { name: true } } }
     }),
     prisma.invoice.findMany({
       where: { 
-        dueDate: { gte: monthStart, lte: monthEnd },
+        dueDate: { gte: todayStart, lte: tomorrowEnd },
         status: { in: ['DRAFT', 'PENDING'] }
       },
       select: { id: true, invoiceNumber: true, dueDate: true, status: true, client: { select: { name: true } } }
     }),
-    // New: Fetch feature requests with due dates in the current month
+    // Fetch feature requests with due dates for today and tomorrow
     prisma.featureRequest.findMany({
       where: { 
         dueDate: { 
           not: null,
-          gte: monthStart, 
-          lte: monthEnd 
+          gte: todayStart, 
+          lte: tomorrowEnd 
         },
         status: { 
           notIn: ['Done', 'Canceled'] // Only show active feature requests
@@ -123,8 +122,8 @@ async function getOperationalData() {
   todayItems.sort(sortFn);
   tomorrowItems.sort(sortFn);
 
-  // Return all items for the calendar, plus specific items for the cards
-  return { allItems, todayItems, tomorrowItems };
+  // Return specific items for the cards only (no longer need allItems for calendar)
+  return { todayItems, tomorrowItems };
 }
 
 
@@ -134,7 +133,7 @@ export default async function OperationsPage() {
     return <div>Please sign in to view this page.</div>;
   }
 
-  const { allItems, todayItems, tomorrowItems } = await getOperationalData();
+  const { todayItems, tomorrowItems } = await getOperationalData();
   const overdueItems = await getOverdueItems();
 
   return (
@@ -160,11 +159,6 @@ export default async function OperationsPage() {
           />
         )}
 
-        {/* --- Interactive Calendar Section --- */}
-        <div className="mt-6 md:mt-8">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mb-4">Activity Calendar</h2>
-          <InteractiveCalendar allItems={allItems} />
-        </div>
       </div>
     </div>
   );

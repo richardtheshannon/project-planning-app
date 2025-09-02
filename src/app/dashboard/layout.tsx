@@ -52,7 +52,8 @@ import {
   Layout,
   DollarSign,
   Receipt,
-  UserCheck
+  UserCheck,
+  Calendar
 } from "lucide-react";
 import { LayoutPreferenceProvider, useLayoutPreference } from '@/lib/hooks/use-layout-preference'; 
 import { cn } from "@/lib/utils";
@@ -320,6 +321,7 @@ function SidebarItems({
       href: "/dashboard/operations",
       subItems: [
         { label: "Overview", href: "/dashboard/operations" },
+        { label: "Calendar", href: "/dashboard/operations/calendar", icon: Calendar },
         { label: "Documentation", href: "/dashboard/operations/documentation", icon: FileText },
       ]
     },
