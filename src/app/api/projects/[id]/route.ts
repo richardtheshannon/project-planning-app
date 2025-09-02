@@ -93,6 +93,36 @@ export async function PUT(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { endDate } = body;
+
+    if (!endDate) {
+      return NextResponse.json({ error: 'endDate is required' }, { status: 400 });
+    }
+
+    const project = await prisma.project.update({
+      where: { id: params.id },
+      data: { endDate: new Date(endDate) },
+      select: { id: true, name: true, endDate: true }
+    });
+
+    return NextResponse.json(project);
+  } catch (error) {
+    console.error('Error updating project endDate:', error);
+    return NextResponse.json({ error: 'Failed to update project' }, { status: 500 });
+  }
+}
+
 export async function DELETE(
     request: NextRequest,
     { params }: { params: { id: string } }

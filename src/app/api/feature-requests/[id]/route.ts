@@ -81,6 +81,37 @@ export async function PUT(
     }
 }
 
+// PATCH for calendar drag and drop updates
+export async function PATCH(
+    request: Request,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session || !session.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const body = await request.json();
+        const { dueDate } = body;
+
+        if (!dueDate) {
+            return NextResponse.json({ error: 'dueDate is required' }, { status: 400 });
+        }
+
+        const featureRequest = await prisma.featureRequest.update({
+            where: { id: Number(params.id) },
+            data: { dueDate: new Date(dueDate) },
+            select: { id: true, title: true, dueDate: true }
+        });
+
+        return NextResponse.json(featureRequest);
+    } catch (error) {
+        console.error('Error updating feature request dueDate:', error);
+        return NextResponse.json({ error: 'Failed to update feature request' }, { status: 500 });
+    }
+}
+
 // DELETE a feature request
 export async function DELETE(
     request: Request,

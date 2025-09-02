@@ -6,6 +6,13 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Try to fix Jest worker issues
+  experimental: {
+    workerThreads: false,
+    cpus: 1,
+  },
+  // Disable SWC minify which can cause worker issues
+  swcMinify: false,
   images: {
     remotePatterns: [
       {

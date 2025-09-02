@@ -53,6 +53,39 @@ export async function PUT(
 }
 
 /**
+ * PATCH handler for calendar drag and drop updates
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { eventDate } = body;
+
+    if (!eventDate) {
+      return NextResponse.json({ error: 'eventDate is required' }, { status: 400 });
+    }
+
+    const timelineEvent = await prisma.timelineEvent.update({
+      where: { id: params.id },
+      data: { eventDate: new Date(eventDate) },
+      select: { id: true, title: true, eventDate: true }
+    });
+
+    return NextResponse.json(timelineEvent);
+  } catch (error) {
+    console.error('Error updating timeline event date:', error);
+    return NextResponse.json({ error: 'Failed to update timeline event' }, { status: 500 });
+  }
+}
+
+/**
  * DELETE handler to remove a specific timeline event.
  * (No changes needed here)
  */
