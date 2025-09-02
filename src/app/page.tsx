@@ -75,9 +75,9 @@ export default function LandingPage() {
           Project Planning & Management
         </h1>
         
-        <div className="mt-8 flex items-center justify-center gap-4">
+        {/* Desktop layout: theme toggle inline with buttons */}
+        <div className="mt-8 hidden sm:flex items-center justify-center gap-4">
           <ThemeToggle />
-
           <Link href="/auth/signup">
             <Button size="lg">Get Started</Button>
           </Link>
@@ -86,6 +86,21 @@ export default function LandingPage() {
               Log In
             </Button>
           </Link>
+        </div>
+
+        {/* Mobile layout: buttons first, theme toggle below */}
+        <div className="mt-8 flex sm:hidden flex-col items-center gap-4">
+          <div className="flex gap-4">
+            <Link href="/auth/signup">
+              <Button size="lg">Get Started</Button>
+            </Link>
+            <Link href="/auth/signin">
+              <Button variant="outline" size="lg">
+                Log In
+              </Button>
+            </Link>
+          </div>
+          <ThemeToggle />
         </div>
 
         <p className="mt-8 text-lg text-muted-foreground">
