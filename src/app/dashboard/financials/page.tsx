@@ -163,6 +163,11 @@ export default async function FinancialsOverviewPage() {
   let totalLastMonthExpensesForNet = 0;
   let totalThisMonthExpensesForNet = 0;
   let totalNextMonthExpensesForNet = 0;
+  
+  // Alert data
+  let overdueInvoices: InvoiceWithClient[] = [];
+  let upcomingSubscriptions: Subscription[] = [];
+  let isLowCashFlow = false;
 
   // We still check for a session to ensure only logged-in users can see the page.
   if (session?.user?.id) {
@@ -279,6 +284,31 @@ export default async function FinancialsOverviewPage() {
     lastMonthNet = lastMonthIncome - (lastMonthIncome * 0.20) - totalLastMonthExpensesForNet;
     thisMonthNet = thisMonthIncome - (thisMonthIncome * 0.20) - totalThisMonthExpensesForNet;
     nextMonthNet = nextMonthIncome - (nextMonthIncome * 0.20) - totalNextMonthExpensesForNet;
+    
+    // Fetch alerts data
+    // 1. Overdue invoices: DRAFT or PENDING status past due date
+    overdueInvoices = allInvoices.filter(inv => {
+      if (!inv.dueDate) return false;
+      const isPastDue = isBefore(inv.dueDate, today);
+      const isUnpaid = inv.status === 'DRAFT' || inv.status === 'PENDING';
+      return isPastDue && isUnpaid;
+    });
+    
+    // 2. Upcoming subscription renewals (next 7 days)
+    const sevenDaysFromNow = addDays(today, 7);
+    upcomingSubscriptions = allSubscriptions.filter(sub => {
+      if (sub.billingCycle === 'MONTHLY') {
+        // Monthly subscriptions always renew, so include them
+        return true;
+      } else if (sub.billingCycle === 'ANNUALLY' && sub.dueDate) {
+        // Annual subscriptions due in next 7 days
+        return isWithinInterval(sub.dueDate, { start: today, end: sevenDaysFromNow });
+      }
+      return false;
+    });
+    
+    // 3. Low cash flow warning: current month expenses exceed income
+    isLowCashFlow = thisMonthNet < 0;
   }
 
 
@@ -310,6 +340,9 @@ export default async function FinancialsOverviewPage() {
       thisMonthSubscriptionItems={thisMonthSubscriptionItems}
       nextMonthSubscriptionItems={nextMonthSubscriptionItems}
       nextMonthForecastedItems={nextMonthForecastedItems}
+      overdueInvoices={overdueInvoices}
+      upcomingSubscriptions={upcomingSubscriptions}
+      isLowCashFlow={isLowCashFlow}
     />
   );
 }

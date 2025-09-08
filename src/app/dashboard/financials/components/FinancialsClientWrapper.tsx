@@ -8,6 +8,7 @@ import { DollarSign, AlertTriangle, BarChart2, Plus, Upload, ArrowDown, ArrowUp,
 import { MetricCard } from "@/components/ui/metric-card";
 import { HelpEnabledTitle } from "@/components/ui/help-enabled-title";
 import FinancialsLineChart, { FinancialsChartDataPoint } from "./FinancialsLineChart";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 type InvoiceWithClient = Prisma.InvoiceGetPayload<{
   include: { client: { select: { name: true } } }
@@ -46,6 +47,9 @@ interface FinancialsClientWrapperProps {
   thisMonthSubscriptionItems: Subscription[];
   nextMonthSubscriptionItems: Subscription[];
   nextMonthForecastedItems: ForecastedItem[];
+  overdueInvoices: InvoiceWithClient[];
+  upcomingSubscriptions: Subscription[];
+  isLowCashFlow: boolean;
 }
 
 export function FinancialsClientWrapper({
@@ -74,8 +78,64 @@ export function FinancialsClientWrapper({
   lastMonthSubscriptionItems,
   thisMonthSubscriptionItems,
   nextMonthSubscriptionItems,
-  nextMonthForecastedItems
+  nextMonthForecastedItems,
+  overdueInvoices,
+  upcomingSubscriptions,
+  isLowCashFlow
 }: FinancialsClientWrapperProps) {
+
+  // Helper function to calculate days overdue
+  const getDaysOverdue = (dueDate: Date | null) => {
+    if (!dueDate) return 0;
+    const today = new Date();
+    const diffTime = today.getTime() - new Date(dueDate).getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+
+  // Prepare pie chart data for Income vs. Expense
+  const pieChartData = [
+    {
+      name: 'Revenue (Paid)',
+      value: totalRevenue,
+      percentage: totalRevenue > 0 || totalExpensesYTD > 0 
+        ? ((totalRevenue / (totalRevenue + totalExpensesYTD)) * 100).toFixed(1)
+        : '0'
+    },
+    {
+      name: 'Expenses',
+      value: totalExpensesYTD,
+      percentage: totalRevenue > 0 || totalExpensesYTD > 0
+        ? ((totalExpensesYTD / (totalRevenue + totalExpensesYTD)) * 100).toFixed(1)
+        : '0'
+    }
+  ];
+
+  // Colors for pie chart
+  const COLORS = ['#10b981', '#ef4444']; // Green for revenue, red for expenses
+
+  // Custom label for pie chart
+  const renderCustomLabel = (entry: any) => {
+    return `${entry.percentage}%`;
+  };
+
+  // Custom tooltip for pie chart
+  const CustomPieTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border rounded-lg p-2 shadow-sm">
+          <p className="font-semibold">{payload[0].name}</p>
+          <p className="text-sm">
+            {payload[0].value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {payload[0].payload.percentage}% of total
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="space-y-8">
@@ -489,49 +549,71 @@ const nextMonthIncome = forecastedIncomeNextMonth + scheduledInvoices;`}
           <CardHeader>
             <HelpEnabledTitle
               title="Alerts & Notifications"
-              summary="This section will automatically display important financial alerts including overdue invoices, upcoming subscription renewals, low cash flow warnings, and payment reminders."
+              summary="Displays real-time financial alerts for overdue invoices, upcoming subscription renewals, and cash flow warnings based on your actual data."
               details={
                 <div className="space-y-4">
                   <div>
-                    <h5 className="font-semibold mb-2">Alert Types</h5>
+                    <h5 className="font-semibold mb-2">Active Alert Types</h5>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
-                      <li><strong>Overdue Invoices:</strong> Invoices past due date with DRAFT/PENDING status</li>
-                      <li><strong>Subscription Renewals:</strong> Upcoming automatic charges in next 7 days</li>
-                      <li><strong>Low Cash Flow:</strong> When expenses exceed income for current month</li>
-                      <li><strong>Payment Reminders:</strong> Manual payments due soon</li>
-                      <li><strong>Budget Overruns:</strong> When actual costs exceed planned budgets</li>
+                      <li><strong>Overdue Invoices:</strong> Invoices with DRAFT/PENDING status past their due date</li>
+                      <li><strong>Subscription Renewals:</strong> All monthly subscriptions + annual subscriptions due in next 7 days</li>
+                      <li><strong>Low Cash Flow:</strong> When current month net income is negative (income - 20% tax - expenses)</li>
                     </ul>
                   </div>
                   <div>
-                    <h5 className="font-semibold mb-2">Alert Logic (Future Implementation)</h5>
+                    <h5 className="font-semibold mb-2">Exact Calculation Logic</h5>
                     <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-{`// Overdue invoices
-const overdueInvoices = await prisma.invoice.findMany({
-  where: {
-    dueDate: { lt: new Date() },
-    status: { in: ['DRAFT', 'PENDING'] }
+{`// 1. OVERDUE INVOICES DETECTION
+overdueInvoices = allInvoices.filter(inv => {
+  if (!inv.dueDate) return false;
+  const isPastDue = isBefore(inv.dueDate, today);
+  const isUnpaid = inv.status === 'DRAFT' || inv.status === 'PENDING';
+  return isPastDue && isUnpaid;
+});
+
+// Days overdue calculation
+const getDaysOverdue = (dueDate) => {
+  const diffTime = today.getTime() - new Date(dueDate).getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+};
+
+// 2. UPCOMING SUBSCRIPTIONS (Next 7 days)
+const sevenDaysFromNow = addDays(today, 7);
+upcomingSubscriptions = allSubscriptions.filter(sub => {
+  if (sub.billingCycle === 'MONTHLY') {
+    return true; // All monthly subs renew every month
+  } else if (sub.billingCycle === 'ANNUALLY' && sub.dueDate) {
+    // Annual subs only if due in next 7 days
+    return isWithinInterval(sub.dueDate, { 
+      start: today, 
+      end: sevenDaysFromNow 
+    });
   }
+  return false;
 });
 
-// Upcoming renewals (next 7 days)
-const upcomingRenewals = subscriptions.filter(sub => {
-  const renewalDate = calculateNextRenewalDate(sub);
-  return isWithinInterval(renewalDate, {
-    start: today,
-    end: addDays(today, 7)
-  });
-});
-
-// Cash flow warnings
-const isLowCashFlow = thisMonthNet < 0;`}
+// 3. LOW CASH FLOW WARNING
+const thisMonthNet = thisMonthIncome - (thisMonthIncome * 0.20) - totalThisMonthExpenses;
+isLowCashFlow = thisMonthNet < 0;`}
                     </pre>
                   </div>
                   <div>
-                    <h5 className="font-semibold mb-2">Alert Prioritization</h5>
+                    <h5 className="font-semibold mb-2">Display Logic</h5>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
-                      <li><strong>Critical:</strong> Overdue payments, failed charges</li>
-                      <li><strong>Warning:</strong> Low cash flow, approaching due dates</li>
-                      <li><strong>Info:</strong> Renewal reminders, budget tracking</li>
+                      <li><strong>Overdue Invoices:</strong> Shows up to 3 invoices with invoice #, client, amount, and days overdue</li>
+                      <li><strong>Subscriptions:</strong> Lists up to 3 upcoming renewals with name, cycle, and amount</li>
+                      <li><strong>Cash Flow:</strong> Red alert box showing actual expense vs income amounts</li>
+                      <li><strong>No Alerts:</strong> Displays "All invoices are current and cash flow is healthy" when no issues</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold mb-2">Data Sources</h5>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li>Pulls from all invoices in the system (not user-specific)</li>
+                      <li>Checks all active subscriptions regardless of billing cycle</li>
+                      <li>Uses current month's actual income and expense totals</li>
+                      <li>Updates automatically when new transactions are added</li>
                     </ul>
                   </div>
                 </div>
@@ -542,52 +624,177 @@ const isLowCashFlow = thisMonthNet < 0;`}
             <AlertTriangle className="ml-2 h-5 w-5 text-destructive" />
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">Alerts for overdue invoices and upcoming subscriptions will appear here.</p>
+            <div className="space-y-4">
+              {/* Overdue Invoices */}
+              {overdueInvoices.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-destructive">Overdue Invoices ({overdueInvoices.length})</h4>
+                  <div className="space-y-1">
+                    {overdueInvoices.slice(0, 3).map((invoice) => (
+                      <div key={invoice.id} className="flex justify-between items-center text-sm">
+                        <div>
+                          <span className="font-medium">#{invoice.invoiceNumber}</span>
+                          {invoice.client?.name && (
+                            <span className="text-muted-foreground ml-2">- {invoice.client.name}</span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">${invoice.amount.toLocaleString()}</div>
+                          <div className="text-xs text-destructive">
+                            {getDaysOverdue(invoice.dueDate)} days overdue
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {overdueInvoices.length > 3 && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        +{overdueInvoices.length - 3} more overdue invoices
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Upcoming Subscription Renewals */}
+              {upcomingSubscriptions.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-yellow-600 dark:text-yellow-500">
+                    Upcoming Renewals (Next 7 days)
+                  </h4>
+                  <div className="space-y-1">
+                    {upcomingSubscriptions.slice(0, 3).map((subscription) => (
+                      <div key={subscription.id} className="flex justify-between items-center text-sm">
+                        <div>
+                          <span className="font-medium">{subscription.name}</span>
+                          <span className="text-muted-foreground ml-2">
+                            ({subscription.billingCycle.toLowerCase()})
+                          </span>
+                        </div>
+                        <div className="font-medium">${subscription.amount.toLocaleString()}</div>
+                      </div>
+                    ))}
+                    {upcomingSubscriptions.length > 3 && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        +{upcomingSubscriptions.length - 3} more subscriptions
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Low Cash Flow Warning */}
+              {isLowCashFlow && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <div>
+                      <p className="text-sm font-semibold text-destructive">Low Cash Flow Warning</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Current month expenses (${totalThisMonthExpensesForNet.toLocaleString()}) 
+                        exceed income (${thisMonthIncome.toLocaleString()})
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* No alerts message */}
+              {overdueInvoices.length === 0 && upcomingSubscriptions.length === 0 && !isLowCashFlow && (
+                <p className="text-muted-foreground text-sm">
+                  No alerts at this time. All invoices are current and cash flow is healthy.
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
         <Card className="lg:col-span-3">
           <CardHeader>
             <HelpEnabledTitle
-              title="Income vs. Expense"
-              summary="This chart will show a monthly comparison of your income versus expenses, helping you identify trends and make informed financial decisions. Green indicates positive cash flow, red indicates negative cash flow."
+              title="Income vs. Expense (YTD)"
+              summary="Pie chart showing the proportion of total revenue (paid invoices only) versus total expenses for the year-to-date period."
               details={
                 <div className="space-y-4">
                   <div>
-                    <h5 className="font-semibold mb-2">Chart Features (Future)</h5>
-                    <ul className="list-disc pl-5 space-y-1 text-sm">
-                      <li><strong>Bar Chart:</strong> Side-by-side income vs expense bars per month</li>
-                      <li><strong>Color Coding:</strong> Green for positive months, red for negative</li>
-                      <li><strong>Trend Lines:</strong> Moving averages to show long-term trends</li>
-                      <li><strong>Interactive Tooltips:</strong> Detailed breakdown on hover</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h5 className="font-semibold mb-2">Data Visualization</h5>
+                    <h5 className="font-semibold mb-2">Exact Calculation Logic</h5>
                     <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-{`// Chart data structure
-const monthlyComparison = monthlyData.map(month => ({
-  month: month.name,
-  income: month.totalRevenue,
-  expenses: month.totalExpenses,
-  netIncome: month.totalRevenue - month.totalExpenses,
-  cashFlowStatus: month.totalRevenue > month.totalExpenses ? 'positive' : 'negative'
-}));
+{`// 1. REVENUE CALCULATION (Green Slice)
+// Only includes PAID invoices from start of year
+const paidInvoicesYTD = allInvoices.filter(inv => 
+  inv.status === 'PAID' && 
+  inv.issuedDate >= startOfYear(today)
+);
+totalRevenue = paidInvoicesYTD.reduce(
+  (sum, invoice) => sum + invoice.amount, 0
+);
 
-// Visual indicators
-if (monthData.netIncome > 0) {
-  barColor = 'green'; // Profitable month
-} else {
-  barColor = 'red';   // Loss month
-}`}
+// 2. EXPENSES CALCULATION (Red Slice)
+// One-time expenses YTD
+const oneTimeExpensesYTD = allExpenses
+  .filter(exp => exp.date >= startOfYear(today))
+  .reduce((sum, expense) => sum + expense.amount, 0);
+
+// Annualized subscription costs
+const totalSubscriptionsYTD = allSubscriptions.reduce((sum, sub) => {
+  if (sub.billingCycle === 'MONTHLY') 
+    return sum + (sub.amount * 12); // Monthly × 12
+  if (sub.billingCycle === 'ANNUALLY') 
+    return sum + sub.amount; // Annual as-is
+  return sum;
+}, 0);
+
+totalExpensesYTD = oneTimeExpensesYTD + totalSubscriptionsYTD;
+
+// 3. PIE CHART DATA PREPARATION
+const pieChartData = [
+  {
+    name: 'Revenue (Paid)',
+    value: totalRevenue,
+    percentage: totalRevenue > 0 || totalExpensesYTD > 0 
+      ? ((totalRevenue / (totalRevenue + totalExpensesYTD)) * 100).toFixed(1)
+      : '0'
+  },
+  {
+    name: 'Expenses',
+    value: totalExpensesYTD,
+    percentage: totalRevenue > 0 || totalExpensesYTD > 0
+      ? ((totalExpensesYTD / (totalRevenue + totalExpensesYTD)) * 100).toFixed(1)
+      : '0'
+  }
+];
+
+// 4. NET INCOME CALCULATION (Shown below chart)
+const totalTaxesDue = totalRevenue * 0.20; // 20% tax estimate
+const netIncomeYTD = totalRevenue - totalTaxesDue - totalExpensesYTD;`}
                     </pre>
                   </div>
                   <div>
-                    <h5 className="font-semibold mb-2">Business Insights</h5>
+                    <h5 className="font-semibold mb-2">Data Components Breakdown</h5>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
-                      <li><strong>Seasonal Patterns:</strong> Identify high/low revenue periods</li>
-                      <li><strong>Expense Control:</strong> Track expense growth relative to income</li>
-                      <li><strong>Cash Flow Planning:</strong> Predict future cash needs</li>
-                      <li><strong>Growth Tracking:</strong> Monitor business expansion</li>
+                      <li><strong>Revenue (Green):</strong> Sum of all invoices where status = 'PAID' since Jan 1st</li>
+                      <li><strong>Expenses (Red):</strong> All one-time expenses YTD + annualized subscription costs</li>
+                      <li><strong>Excluded from Revenue:</strong> DRAFT, PENDING, and OVERDUE invoices</li>
+                      <li><strong>Subscription Handling:</strong> Monthly subs × 12, Annual subs × 1</li>
+                      <li><strong>Net Income:</strong> Revenue - 20% tax provision - Total expenses</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold mb-2">Visual Components</h5>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li><strong>Pie Slices:</strong> Proportional representation of revenue vs expenses</li>
+                      <li><strong>Percentage Labels:</strong> Shows exact percentage on each slice</li>
+                      <li><strong>Color Coding:</strong> Green (#10b981) for revenue, Red (#ef4444) for expenses</li>
+                      <li><strong>Hover Tooltip:</strong> Displays dollar amount and percentage on hover</li>
+                      <li><strong>Summary Below:</strong> Lists exact amounts for Revenue, Expenses, and Net Income</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold mb-2">Important Notes</h5>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li>This is a YTD (Year-to-Date) view, not monthly or quarterly</li>
+                      <li>Revenue only counts money actually received (PAID status)</li>
+                      <li>Expenses include both actual and projected subscription costs</li>
+                      <li>Net Income color changes: green if positive, red if negative</li>
+                      <li>Empty state shows when no financial data exists</li>
                     </ul>
                   </div>
                 </div>
@@ -598,7 +805,54 @@ if (monthData.netIncome > 0) {
             <BarChart2 className="ml-2 h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">A chart comparing monthly income and expenses will be displayed here.</p>
+            {totalRevenue > 0 || totalExpensesYTD > 0 ? (
+              <div>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={pieChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={renderCustomLabel}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {pieChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomPieTooltip />} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Revenue (Paid):</span>
+                    <span className="font-medium text-green-600 dark:text-green-500">
+                      {totalRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Expenses:</span>
+                    <span className="font-medium text-red-600 dark:text-red-500">
+                      {totalExpensesYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between">
+                    <span className="text-muted-foreground">Net Income:</span>
+                    <span className={`font-medium ${netIncomeYTD >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                      {netIncomeYTD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">
+                No financial data available yet. Start by creating invoices and logging expenses.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
