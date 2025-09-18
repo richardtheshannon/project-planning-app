@@ -5,7 +5,8 @@
       "Bash(npx prisma generate:*)",
       "Bash(npm install:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
