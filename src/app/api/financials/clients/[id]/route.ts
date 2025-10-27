@@ -11,7 +11,7 @@ const clientUpdateSchema = z.object({
     message: "Client name must be at least 2 characters.",
   }).optional(),
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
-  website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
+  website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')).nullable(),
   contractStartDate: z.coerce.date().optional().nullable(),
   contractTerm: z.enum(['ONE_MONTH', 'ONE_TIME', 'THREE_MONTH', 'SIX_MONTH', 'ONE_YEAR']).optional(),
   frequency: z.string().optional(),
@@ -25,7 +25,7 @@ const clientUpdateSchema = z.object({
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
   zipCode: z.string().optional().nullable(),
-  notes: z.string().optional(),
+  notes: z.string().optional().nullable(),
   
   // Contacts array
   contacts: z.array(z.object({
