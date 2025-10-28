@@ -6,7 +6,11 @@
       "Bash(npm install:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npm run dev:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run:*)",
+      "Bash(identify:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

@@ -39,6 +39,8 @@ export function InvoiceEmailDialog({
 
   const [emailData, setEmailData] = useState({
     to: clientEmail,
+    cc: '',
+    bcc: '',
     subject: `Invoice ${invoiceNumber} from SalesField Network`,
     message: `Dear ${clientName || 'Valued Client'},
 
@@ -81,7 +83,9 @@ SalesField Network`,
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to send email');
+        const errorMessage = result.message || result.error || 'Failed to send email';
+        console.error('API Error Response:', result);
+        throw new Error(errorMessage);
       }
 
       toast({
@@ -91,9 +95,11 @@ SalesField Network`,
       setOpen(false);
     } catch (error) {
       console.error('Failed to send email:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send email';
+      console.error('Error details:', errorMessage);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to send email',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -126,14 +132,51 @@ SalesField Network`,
               <Label htmlFor="to">To Email *</Label>
               <Input
                 id="to"
-                type="email"
-                placeholder="client@example.com"
+                type="text"
+                placeholder="recipient@example.com, another@example.com"
                 value={emailData.to}
                 onChange={(e) =>
                   setEmailData({ ...emailData, to: e.target.value })
                 }
                 disabled={sending}
               />
+              <p className="text-xs text-muted-foreground">
+                Separate multiple emails with commas
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="cc">CC (Optional)</Label>
+              <Input
+                id="cc"
+                type="text"
+                placeholder="cc@example.com, another@example.com"
+                value={emailData.cc}
+                onChange={(e) =>
+                  setEmailData({ ...emailData, cc: e.target.value })
+                }
+                disabled={sending}
+              />
+              <p className="text-xs text-muted-foreground">
+                Carbon copy - recipients can see each other
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="bcc">BCC (Optional)</Label>
+              <Input
+                id="bcc"
+                type="text"
+                placeholder="bcc@example.com, another@example.com"
+                value={emailData.bcc}
+                onChange={(e) =>
+                  setEmailData({ ...emailData, bcc: e.target.value })
+                }
+                disabled={sending}
+              />
+              <p className="text-xs text-muted-foreground">
+                Blind carbon copy - recipients are hidden from others
+              </p>
             </div>
 
             <div className="grid gap-2">

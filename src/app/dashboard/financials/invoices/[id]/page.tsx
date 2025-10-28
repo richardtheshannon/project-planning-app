@@ -438,7 +438,7 @@ export default function InvoiceDetailPage() {
             <div className="flex gap-2">
               {!isEditing ? (
                 <>
-                  <InvoicePDFButton invoiceNumber={invoice.invoiceNumber} />
+                  <InvoicePDFButton invoiceId={invoice.id} invoiceNumber={invoice.invoiceNumber} />
                   <InvoiceEmailDialog
                     invoiceId={invoice.id}
                     invoiceNumber={invoice.invoiceNumber}

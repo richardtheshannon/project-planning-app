@@ -1,35 +1,63 @@
 'use client';
 
+import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePDFExport } from '@/hooks/use-pdf-export';
 import { useToast } from '@/hooks/use-toast';
 
 interface InvoicePDFButtonProps {
+  invoiceId: string;
   invoiceNumber: string;
   className?: string;
 }
 
-export function InvoicePDFButton({ 
-  invoiceNumber, 
-  className 
+export function InvoicePDFButton({
+  invoiceId,
+  invoiceNumber,
+  className
 }: InvoicePDFButtonProps) {
-  const { exportToPDF, isGenerating } = usePDFExport();
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
   const handleDownload = async () => {
     try {
-      await exportToPDF('invoice-content', `invoice-${invoiceNumber}`);
+      setIsGenerating(true);
+
+      // Fetch PDF from API endpoint (uses same generator as email)
+      const response = await fetch(`/api/financials/invoices/${invoiceId}/download`);
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      // Convert response to blob
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       toast({
         title: 'Success',
         description: 'Invoice downloaded successfully',
       });
     } catch (error) {
+      console.error('Failed to download PDF:', error);
       toast({
         title: 'Error',
         description: 'Failed to generate PDF',
         variant: 'destructive',
       });
+    } finally {
+      setIsGenerating(false);
     }
   };
 

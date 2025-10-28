@@ -24,6 +24,9 @@ export async function generateInvoicePDF(
   
   // Load logo dynamically from file system
   let logoBase64: string | null = null;
+  // Actual logo dimensions: 531 x 148 pixels = 3.588:1 aspect ratio
+  const logoAspectRatio = 531 / 148;
+
   try {
     // Try multiple possible logo paths
     const possiblePaths = [
@@ -32,7 +35,7 @@ export async function generateInvoicePDF(
       path.join(process.cwd(), 'public/media/logo.png'),
       path.join(process.cwd(), 'public/salesfield-logo.png'),
     ];
-    
+
     for (const logoPath of possiblePaths) {
       if (fs.existsSync(logoPath)) {
         const logoBuffer = fs.readFileSync(logoPath);
@@ -41,7 +44,7 @@ export async function generateInvoicePDF(
         break;
       }
     }
-    
+
     if (!logoBase64) {
       console.warn('Logo file not found in expected locations');
     }
@@ -52,10 +55,9 @@ export async function generateInvoicePDF(
   // Add logo if successfully loaded
   if (logoBase64) {
     try {
-      // Use proper aspect ratio for horizontal logo
-      // Your logo is approximately 5:1 ratio (width:height)
-      const logoWidth = 50;  // Increased width for horizontal logo
-      const logoHeight = 10; // Proportional height
+      // Use exact aspect ratio from actual logo dimensions (531 x 148 pixels)
+      const logoWidth = 50;  // Desired width in mm
+      const logoHeight = logoWidth / logoAspectRatio;  // Maintain exact aspect ratio
       pdf.addImage(logoBase64, 'PNG', leftMargin, 15, logoWidth, logoHeight);
     } catch (error) {
       console.error('Failed to add logo to PDF:', error);
@@ -297,9 +299,9 @@ export async function generateInvoicePDF(
     // Add small logo at bottom right if available
     if (logoBase64) {
       try {
-        // Maintain aspect ratio for footer logo
+        // Use exact aspect ratio from actual logo dimensions (531 x 148 pixels)
         const footerLogoWidth = 30;  // Smaller for footer
-        const footerLogoHeight = 6;  // Maintain ~5:1 ratio
+        const footerLogoHeight = footerLogoWidth / logoAspectRatio;  // Maintain exact aspect ratio
         pdf.addImage(logoBase64, 'PNG', rightMargin - footerLogoWidth - 5, yPos - 12, footerLogoWidth, footerLogoHeight);
       } catch (error) {
         // Logo failed, continue without it

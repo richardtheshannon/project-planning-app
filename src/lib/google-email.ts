@@ -174,7 +174,9 @@ export async function sendInvoiceEmail(
   subject: string,
   htmlBody: string,
   pdfBuffer: Buffer,
-  invoiceNumber: string
+  invoiceNumber: string,
+  cc?: string,
+  bcc?: string
 ): Promise<void> {
   try {
     const auth = getOAuth2Client();
@@ -191,6 +193,20 @@ export async function sendInvoiceEmail(
     const messageParts = [
       `From: "SalesField Network" <${authenticatedEmail}>`,
       `To: ${to}`,
+    ];
+
+    // Add CC header if provided
+    if (cc && cc.trim().length > 0) {
+      messageParts.push(`Cc: ${cc}`);
+    }
+
+    // Add BCC header if provided
+    if (bcc && bcc.trim().length > 0) {
+      messageParts.push(`Bcc: ${bcc}`);
+    }
+
+    // Continue with rest of headers and body
+    messageParts.push(
       `Subject: ${subject}`,
       'MIME-Version: 1.0',
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -208,7 +224,7 @@ export async function sendInvoiceEmail(
       '',
       pdfBuffer.toString('base64'),
       `--${boundary}--`
-    ];
+    );
 
     const message = messageParts.join('\r\n');
     const encodedMessage = Buffer.from(message)
@@ -224,10 +240,17 @@ export async function sendInvoiceEmail(
       },
     });
 
-    console.log(`[Google Email] Invoice email sent successfully to ${to}. Message ID: ${result.data.id}`);
-  } catch (error) {
+    const allRecipients = [to, cc, bcc].filter(Boolean).join(', ');
+    console.log(`[Google Email] Invoice email sent successfully to ${allRecipients}. Message ID: ${result.data.id}`);
+  } catch (error: any) {
     console.error('[Google Email] Failed to send invoice email:', error);
-    throw new Error('Failed to send invoice email');
+    console.error('[Google Email] Error message:', error?.message);
+    console.error('[Google Email] Error details:', error?.response?.data || error?.details);
+    console.error('[Google Email] Full error object:', JSON.stringify(error, null, 2));
+
+    // Re-throw the original error with more details
+    const errorMessage = error?.message || error?.response?.data?.error?.message || 'Failed to send invoice email';
+    throw new Error(errorMessage);
   }
 }
 

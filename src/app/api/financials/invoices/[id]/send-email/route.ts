@@ -6,8 +6,27 @@ import { generateInvoicePDF } from '@/lib/pdf-generator';
 import { sendInvoiceEmail } from '@/lib/google-email';
 import { z } from 'zod';
 
+// Helper function to validate comma-separated email addresses
+const validateEmailList = (emailString: string): boolean => {
+  if (!emailString || emailString.trim() === '') return true; // Empty is valid for optional fields
+  const emails = emailString.split(',').map(e => e.trim()).filter(e => e.length > 0);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emails.every(email => emailRegex.test(email));
+};
+
 const emailSchema = z.object({
-  to: z.string().email(),
+  to: z.string().min(1).refine(
+    (val) => validateEmailList(val) && val.trim().length > 0,
+    { message: 'To field must contain at least one valid email address' }
+  ),
+  cc: z.string().optional().refine(
+    (val) => !val || validateEmailList(val),
+    { message: 'CC field must contain valid email addresses separated by commas' }
+  ),
+  bcc: z.string().optional().refine(
+    (val) => !val || validateEmailList(val),
+    { message: 'BCC field must contain valid email addresses separated by commas' }
+  ),
   subject: z.string().min(1),
   message: z.string().min(1),
 });
@@ -83,11 +102,18 @@ export async function POST(
       validatedData.subject,
       htmlBody,
       pdfBuffer,
-      invoice.invoiceNumber
+      invoice.invoiceNumber,
+      validatedData.cc,
+      validatedData.bcc
     );
 
     // Log the activity
-    console.log(`Invoice ${invoice.invoiceNumber} sent to ${validatedData.to}`);
+    const allRecipients = [
+      validatedData.to,
+      validatedData.cc,
+      validatedData.bcc
+    ].filter(Boolean).join(', ');
+    console.log(`Invoice ${invoice.invoiceNumber} sent to ${allRecipients}`);
 
     return NextResponse.json({
       success: true,
@@ -95,7 +121,9 @@ export async function POST(
     });
   } catch (error) {
     console.error('Error sending invoice email:', error);
-    
+    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid email data', details: error.issues },
@@ -104,7 +132,10 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { error: 'Failed to send invoice email' },
+      {
+        error: 'Failed to send invoice email',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
