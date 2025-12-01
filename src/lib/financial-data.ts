@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { type Invoice, type Expense, type Subscription, type Client, ContractTerm } from "@prisma/client";
 import { subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfYear, getMonth, getYear, parseISO, isBefore, isAfter, isEqual } from "date-fns";
@@ -131,25 +132,41 @@ const processDataForChart = (
   return monthlyData.slice(0, Math.min(currentMonthIndex + 4, 12));
 };
 
+// Cached version of financial data fetching
+const getCachedFinancialData = unstable_cache(
+  async (year: number) => {
+    const startDateYTD = startOfYear(new Date(year, 0, 1));
+
+    // Fetch all required data
+    const [
+      allInvoices,
+      allExpenses,
+      allSubscriptions,
+      allClients
+    ] = await Promise.all([
+      prisma.invoice.findMany({
+        where: { issuedDate: { gte: startDateYTD } },
+        include: { client: { select: { name: true } } }
+      }),
+      prisma.expense.findMany({ where: { date: { gte: startDateYTD } } }),
+      prisma.subscription.findMany(),
+      prisma.client.findMany()
+    ]);
+
+    return { allInvoices, allExpenses, allSubscriptions, allClients };
+  },
+  ['financial-data'],
+  {
+    revalidate: 300, // Cache for 5 minutes
+    tags: ['financial-data']
+  }
+);
+
 export async function getFinancialTrendsData(year?: number): Promise<FinancialTrendsDataPoint[]> {
   const currentYear = year || new Date().getFullYear();
-  const startDateYTD = startOfYear(new Date(currentYear, 0, 1));
 
-  // Fetch all required data
-  const [
-    allInvoices, 
-    allExpenses, 
-    allSubscriptions,
-    allClients
-  ] = await Promise.all([
-    prisma.invoice.findMany({ 
-      where: { issuedDate: { gte: startDateYTD } },
-      include: { client: { select: { name: true } } }
-    }),
-    prisma.expense.findMany({ where: { date: { gte: startDateYTD } } }),
-    prisma.subscription.findMany(),
-    prisma.client.findMany()
-  ]);
+  // Use cached data
+  const { allInvoices, allExpenses, allSubscriptions, allClients } = await getCachedFinancialData(currentYear);
 
   // Process and return the chart data
   return processDataForChart(allInvoices, allExpenses, allSubscriptions, allClients);

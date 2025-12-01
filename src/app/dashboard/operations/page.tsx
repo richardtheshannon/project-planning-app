@@ -6,6 +6,9 @@ import { OverdueCard } from "@/components/operations/OverdueCard";
 import { getOverdueItems } from "@/lib/operations-data";
 import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 
+// Add caching: revalidate every 2 minutes for operations data (more frequent for time-sensitive data)
+export const revalidate = 120;
+
 const getDayBounds = (date: Date) => {
   const start = startOfDay(date);
   const end = endOfDay(date);

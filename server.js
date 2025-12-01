@@ -23,17 +23,19 @@ app.prepare().then(() => {
   }).listen(port, (err) => {
     if (err) throw err;
     console.log(`> Ready on http://${hostname}:${port}`);
-    
-    // Initialize CRON jobs after server starts
-    setTimeout(() => {
-      const cronUrl = dev 
-        ? `http://localhost:${port}/api/init`
-        : `http://localhost:${port}/api/init`;
-      
-      fetch(cronUrl)
-        .then(res => res.json())
-        .then(data => console.log('[SERVER] CRON initialization:', data))
-        .catch(err => console.error('[SERVER] Failed to initialize CRON:', err));
-    }, 5000); // Wait 5 seconds for server to be fully ready
+
+    // Initialize CRON jobs after server starts (only in production)
+    if (!dev) {
+      setTimeout(() => {
+        const cronUrl = `http://localhost:${port}/api/init`;
+
+        fetch(cronUrl)
+          .then(res => res.json())
+          .then(data => console.log('[SERVER] CRON initialization:', data))
+          .catch(err => console.error('[SERVER] Failed to initialize CRON:', err));
+      }, 2000); // Reduced delay from 5s to 2s
+    } else {
+      console.log('[SERVER] Skipping CRON initialization in development mode');
+    }
   });
 });

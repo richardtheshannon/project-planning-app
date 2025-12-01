@@ -11,9 +11,13 @@ const nextConfig = {
     workerThreads: false,
     cpus: 1,
   },
-  // Re-enable SWC minify to fix Terser build errors  
+  // Re-enable SWC minify to fix Terser build errors
   swcMinify: true,
-  
+
+  // Production optimizations
+  compress: true, // Enable gzip compression
+  poweredByHeader: false, // Remove X-Powered-By header for security
+
   // Optimize build for @dnd-kit and other modern libraries
   webpack: (config, { isServer }) => {
     if (!isServer) {
@@ -25,6 +29,38 @@ const nextConfig = {
         tls: false,
       };
     }
+
+    // Production optimizations
+    if (process.env.NODE_ENV === 'production') {
+      config.optimization = {
+        ...config.optimization,
+        minimize: true,
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            default: false,
+            vendors: false,
+            // Vendor chunk for node_modules
+            vendor: {
+              name: 'vendor',
+              chunks: 'all',
+              test: /node_modules/,
+              priority: 20
+            },
+            // Common chunk for shared code
+            common: {
+              name: 'common',
+              minChunks: 2,
+              chunks: 'all',
+              priority: 10,
+              reuseExistingChunk: true,
+              enforce: true
+            }
+          }
+        }
+      };
+    }
+
     return config;
   },
   images: {

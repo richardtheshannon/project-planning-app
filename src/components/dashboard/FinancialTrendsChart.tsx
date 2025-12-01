@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   LineChart,
   Line,
@@ -28,8 +29,8 @@ interface FinancialTrendsChartProps {
   description?: string;
 }
 
-// Custom Tooltip for better formatting
-const CustomTooltip = ({ active, payload, label }: any) => {
+// Custom Tooltip for better formatting - memoized to prevent re-renders
+const CustomTooltip = memo(({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const formatCurrency = (value: number) =>
       new Intl.NumberFormat("en-US", {
@@ -49,10 +50,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
   }
   return null;
-};
+});
 
-export function FinancialTrendsChart({ 
-  data, 
+CustomTooltip.displayName = "CustomTooltip";
+
+export const FinancialTrendsChart = memo(function FinancialTrendsChart({
+  data,
   height = 350,
   className = "",
   title = "Financial Trends (YTD)",
@@ -269,4 +272,4 @@ for (let i = 0; i < 12; i++) {
       </CardContent>
     </Card>
   );
-}
+});

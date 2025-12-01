@@ -14,6 +14,9 @@ import ContactForm from "./components/ContactForm";
 import QuickActionsCard from "./components/QuickActionsCard";
 import { HelpEnabledTitle } from "@/components/ui/help-enabled-title";
 
+// Add caching: revalidate every 5 minutes (300 seconds)
+export const revalidate = 300;
+
 // --- TYPE DEFINITIONS ---
 export type MonthlyActivity = {
   id: string;
